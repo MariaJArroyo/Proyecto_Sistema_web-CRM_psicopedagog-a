@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Materiales educativos — Mente Activa Psicopedagogía</title>
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@600;700&display=swap"
+    rel="stylesheet">
+
+
+  <link href="../Css/Styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <div class="WrapperAdmin">
+
+
+    <div class="FondoSidebarMovil"></div>
+
+
+    <aside class="SidebarAdmin">
+      <a href="Dashboard.html" class="SidebarAdmin-Marca">
+        <img src="../Img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        <span>Mente Activa</span>
+      </a>
+
+      <nav class="SidebarAdmin-Nav">
+        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
+        <a href="Dashboard.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
+        <a href="Clientes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
+        </a>
+        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
+        <a href="Estudiantes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
+        </a>
+        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
+        <a href="Agenda.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-calendar3"></i><span>Agenda</span>
+        </a>
+        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
+        <a href="Sesiones.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-journal-text"></i><span>Sesiones</span>
+        </a>
+        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
+        <a href="Planes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
+        </a>
+        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
+        <a href="Reportes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
+        </a>
+        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <a href="Pagos.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+        </a>
+        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <a href="Comunicacion.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+        </a>
+        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
+        <a href="Materiales.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-folder2-open"></i><span>Materiales</span>
+        </a>
+        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
+        <a href="Usuarios.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+        </a>
+        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <a href="UsuariosExternos.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+        </a>
+      </nav>
+    </aside>
+
+
+    <div class="ContenidoAdmin">
+
+
+      <header class="TopbarAdmin">
+        <div class="d-flex align-items-center gap-3">
+          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
+            <i class="bi bi-list"></i>
+          </button>
+          <h1 class="TopbarAdmin-Titulo">Materiales educativos</h1>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="d-none d-sm-inline">Marcela Solano</span>
+            <div class="TopbarAdmin-Avatar">MS</div>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
+            <li><a class="dropdown-item" href="MiPerfil.html"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <li><a class="dropdown-item" href="../Login.html"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <main class="PrincipalAdmin">
+        <div class="mb-4">
+          <h2 class="mb-1">Materiales educativos</h2>
+          <p class="TextoSuave mb-0">Documentos, guías, tareas, actividades y enlaces para los estudiantes.</p>
+        </div>
+
+        <ul class="nav nav-pills mb-3 flex-wrap" id="SelectorMateriales">
+          <li class="nav-item"><button type="button" class="nav-link active" data-vista="Pdf">Materiales PDF</button>
+          </li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Guias">Guías educativas</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Tareas">Tareas</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Actividades">Actividades</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Enlaces">Enlaces útiles</button></li>
+        </ul>
+
+        <div class="Tarjeta p-3 p-md-4" id="VistaPdf">
+          <h3 class="mb-3">Subir material en PDF</h3>
+          <!-- Razor: asp-controller="Materiales" asp-action="SubirPdf" method="post" enctype="multipart/form-data" -->
+          <form id="FormularioSubirPdf" class="row g-2 align-items-end mb-4" novalidate>
+            <div class="col-md-8">
+              <label for="ArchivoPdf" class="form-label CampoObligatorio">Archivo (solo PDF)</label>
+              <input type="file" class="form-control" id="ArchivoPdf" accept=".pdf">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4">
+              <button type="submit" class="btn btn-primary w-100"><i class="bi bi-upload me-1"></i>Subir</button>
+            </div>
+          </form>
+
+          <h6 class="mb-2">Materiales subidos</h6>
+          <ul class="list-group list-group-flush" id="ListaMaterialesPdf">
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Guía de fracciones.pdf</span>
+              <span class="TextoSuave small">10 jul 2026</span>
+            </li>
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Ejercicios de comprensión lectora.pdf</span>
+              <span class="TextoSuave small">5 jul 2026</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaGuias">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h3 class="mb-0">Guías educativas</h3>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevaGuia">
+              <i class="bi bi-plus-lg me-1"></i>Nueva guía
+            </button>
+          </div>
+          <div class="list-group list-group-flush" id="ListaGuias">
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">Estrategias de lectura activa</div>
+                <div class="TextoSuave small">Nivel: Primaria</div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-estado-activo">Publicada</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="editar">Editar</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                  data-accion="alternar-publicacion">Despublicar</button>
+              </div>
+            </div>
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">Introducción a las fracciones</div>
+                <div class="TextoSuave small">Nivel: Primaria</div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge badge-estado-inactivo">Borrador</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="editar">Editar</button>
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                  data-accion="alternar-publicacion">Publicar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaTareas">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h3 class="mb-0">Tareas asignadas</h3>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevaTarea">
+              <i class="bi bi-plus-lg me-1"></i>Nueva tarea
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="TablaTareas">
+              <tbody>
+                <tr>
+                  <td>Resolver hoja de ejercicios de fracciones</td>
+                  <td>María Rodríguez</td>
+                  <td>Fecha límite: 18 jul 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-fila"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Practicar lectura en voz alta 10 minutos diarios</td>
+                  <td>Todos los estudiantes</td>
+                  <td>Fecha límite: 20 jul 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-fila"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaActividades">
+          <h3 class="mb-3">Registrar actividad educativa</h3>
+          <!-- Razor: asp-controller="Materiales" asp-action="CrearActividad" method="post" -->
+          <form id="FormularioActividad" class="row g-3 mb-4" novalidate>
+            <div class="col-md-6">
+              <label for="NombreActividadEducativa" class="form-label CampoObligatorio">Nombre de la actividad</label>
+              <input type="text" class="form-control" id="NombreActividadEducativa">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-3">
+              <label for="TipoActividadEducativa" class="form-label CampoObligatorio">Tipo</label>
+              <select class="form-select" id="TipoActividadEducativa">
+                <option value="" selected>Seleccione</option>
+                <option value="Ludica">Lúdica</option>
+                <option value="Cognitiva">Cognitiva</option>
+                <option value="Motriz">Motriz</option>
+              </select>
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-3">
+              <label for="FechaActividadEducativa" class="form-label CampoObligatorio">Fecha</label>
+              <input type="date" class="form-control" id="FechaActividadEducativa" value="2026-07-12">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Registrar
+                actividad</button>
+            </div>
+          </form>
+
+          <h6 class="mb-2">Actividades registradas</h6>
+          <ul class="list-group list-group-flush" id="ListaActividadesEducativas">
+            <li class="list-group-item px-0">
+              <span class="fw-semibold">Juego de memoria con vocales</span>
+              <span class="badge badge-estado-cita-agendada ms-2">Lúdica</span>
+              <div class="TextoSuave small">8 jul 2026</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaEnlaces">
+          <h3 class="mb-3">Enlaces útiles</h3>
+          <ul class="list-group list-group-flush mb-4" id="ListaEnlaces">
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <a href="https://www.mep.go.cr/" target="_blank" rel="noopener">Ministerio de Educación Pública</a>
+              <span class="badge badge-estado-activo">Disponible</span>
+            </li>
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <a href="https://www.unicef.org/" target="_blank" rel="noopener">UNICEF — Recursos educativos</a>
+              <span class="badge badge-estado-activo">Disponible</span>
+            </li>
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span class="TextoSuave">Plataforma de lectoescritura interactiva</span>
+              <span class="badge badge-pago-vencido" data-bs-toggle="tooltip" title="El enlace no responde"><i
+                  class="bi bi-exclamation-triangle me-1"></i>Enlace roto</span>
+            </li>
+          </ul>
+
+          <h6 class="mb-2">Agregar enlace</h6>
+          <form id="FormularioNuevoEnlace" class="row g-2" novalidate>
+            <div class="col-md-5">
+              <input type="text" class="form-control" id="NombreEnlace" placeholder="Nombre del enlace">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-5">
+              <input type="url" class="form-control" id="UrlEnlace" placeholder="https://ejemplo.com">
+              <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary w-100">Agregar</button>
+            </div>
+          </form>
+        </div>
+      </main>
+      <!-- Razor: /fin de contenido de la vista -->
+
+      <div class="modal fade" id="ModalNuevaGuia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form id="FormularioNuevaGuia" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Nueva guía educativa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="TituloGuia" class="form-label CampoObligatorio">Título</label>
+                  <input type="text" class="form-control" id="TituloGuia">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-1">
+                  <label for="NivelGuia" class="form-label CampoObligatorio">Nivel educativo</label>
+                  <select class="form-select" id="NivelGuia">
+                    <option value="" selected>Seleccione</option>
+                    <option value="Preescolar">Preescolar</option>
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                  </select>
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar como borrador</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalEditarGuia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <!-- Razor: asp-controller="Materiales" asp-action="EditarGuia" method="post" -->
+            <form id="FormularioEditarGuia" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Editar guía educativa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="EditarTituloGuia" class="form-label CampoObligatorio">Título</label>
+                  <input type="text" class="form-control" id="EditarTituloGuia">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-1">
+                  <label for="EditarNivelGuia" class="form-label CampoObligatorio">Nivel educativo</label>
+                  <select class="form-select" id="EditarNivelGuia">
+                    <option value="Preescolar">Preescolar</option>
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                  </select>
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalNuevaTarea" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <!-- Razor: asp-controller="Materiales" asp-action="CrearTarea" method="post" -->
+            <form id="FormularioNuevaTarea" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Nueva tarea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="TituloTarea" class="form-label CampoObligatorio">Título de la tarea</label>
+                  <input type="text" class="form-control" id="TituloTarea">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-3">
+                  <label for="AsignadaATarea" class="form-label CampoObligatorio">Asignar a</label>
+                  <select class="form-select" id="AsignadaATarea">
+                    <option value="Todos" selected>Todos los estudiantes</option>
+                    <option value="MariaRodriguez">María Rodríguez</option>
+                    <option value="DiegoVargas">Diego Vargas</option>
+                    <option value="AnaCastro">Ana Castro</option>
+                    <option value="ValeriaMora">Valeria Mora</option>
+                  </select>
+                </div>
+                <div class="mb-1">
+                  <label for="FechaLimiteTarea" class="form-label CampoObligatorio">Fecha límite</label>
+                  <input type="date" class="form-control" id="FechaLimiteTarea">
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Asignar tarea</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ContenedorToasts"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../Js/Main.js"></script>
+  <script src="../Js/Validaciones.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+      // ---------- Selector de sección ----------
+      var vistas = {
+        Pdf: document.getElementById("VistaPdf"),
+        Guias: document.getElementById("VistaGuias"),
+        Tareas: document.getElementById("VistaTareas"),
+        Actividades: document.getElementById("VistaActividades"),
+        Enlaces: document.getElementById("VistaEnlaces")
+      };
+      document.querySelectorAll("#SelectorMateriales [data-vista]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          document.querySelectorAll("#SelectorMateriales .nav-link").forEach(function (b) { b.classList.remove("active"); });
+          boton.classList.add("active");
+          Object.keys(vistas).forEach(function (clave) {
+            vistas[clave].classList.toggle("d-none", clave !== boton.getAttribute("data-vista"));
+          });
+        });
+      });
+
+      // ---------- Subir PDF (HU-MU11-01) ----------
+      document.getElementById("FormularioSubirPdf").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoArchivo = document.getElementById("ArchivoPdf");
+        var archivo = campoArchivo.files[0];
+
+        if (!archivo) {
+          MarcarCampoInvalido(campoArchivo, "Seleccione un archivo.");
+          return;
+        }
+        if (!archivo.name.toLowerCase().endsWith(".pdf")) {
+          MarcarCampoInvalido(campoArchivo, "Solo se permiten archivos en formato PDF.");
+          return;
+        }
+        MarcarCampoValido(campoArchivo);
+
+        var item = document.createElement("li");
+        item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
+        item.innerHTML =
+          '<span><i class="bi bi-file-earmark-pdf text-danger me-2"></i></span>' +
+          '<span class="TextoSuave small">12 jul 2026</span>';
+        item.querySelector("span").append(archivo.name);
+        document.getElementById("ListaMaterialesPdf").prepend(item);
+
+        evento.target.reset();
+        campoArchivo.classList.remove("is-valid");
+        MostrarToast("Material subido correctamente.");
+      });
+
+      // ---------- Guías educativas: alternar publicación y editar (HU-MU11-02) ----------
+      var instanciaEditarGuia = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarGuia"));
+      var guiaSeleccionada = null;
+
+      document.getElementById("ListaGuias").addEventListener("click", function (evento) {
+        var botonPublicar = evento.target.closest('[data-accion="alternar-publicacion"]');
+        var botonEditar = evento.target.closest('[data-accion="editar"]');
+
+        if (botonPublicar) {
+          var insignia = botonPublicar.closest(".list-group-item").querySelector(".badge");
+          var estaPublicada = botonPublicar.textContent.trim() === "Despublicar";
+          if (estaPublicada) {
+            insignia.className = "badge badge-estado-inactivo";
+            insignia.textContent = "Borrador";
+            botonPublicar.textContent = "Publicar";
+            botonPublicar.className = "btn btn-sm btn-outline-primary";
+            MostrarToast("Guía movida a borrador.");
+          } else {
+            insignia.className = "badge badge-estado-activo";
+            insignia.textContent = "Publicada";
+            botonPublicar.textContent = "Despublicar";
+            botonPublicar.className = "btn btn-sm btn-outline-secondary";
+            MostrarToast("Guía publicada correctamente.");
+          }
+          return;
+        }
+
+        if (botonEditar) {
+          guiaSeleccionada = botonEditar.closest(".list-group-item");
+          var nivelActual = guiaSeleccionada.querySelector(".TextoSuave").textContent.replace("Nivel: ", "");
+          document.getElementById("EditarTituloGuia").value = guiaSeleccionada.querySelector(".fw-semibold").textContent;
+          document.getElementById("EditarNivelGuia").value = nivelActual;
+          instanciaEditarGuia.show();
+        }
+      });
+
+      document.getElementById("FormularioEditarGuia").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("EditarTituloGuia"), "Ingrese el título de la guía.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("EditarNivelGuia"), "Seleccione el nivel educativo.") && esValido;
+        if (!esValido || !guiaSeleccionada) {
+          return;
+        }
+        guiaSeleccionada.querySelector(".fw-semibold").textContent = document.getElementById("EditarTituloGuia").value;
+        guiaSeleccionada.querySelector(".TextoSuave").textContent = "Nivel: " + document.getElementById("EditarNivelGuia").value;
+        instanciaEditarGuia.hide();
+        MostrarToast("Guía actualizada correctamente.");
+      });
+
+      document.getElementById("FormularioNuevaGuia").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("TituloGuia"), "Ingrese el título de la guía.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("NivelGuia"), "Seleccione el nivel educativo.") && esValido;
+        if (!esValido) {
+          return;
+        }
+        var item = document.createElement("div");
+        item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
+        item.innerHTML =
+          '<div><div class="fw-semibold"></div><div class="TextoSuave small"></div></div>' +
+          '<div class="d-flex align-items-center gap-2"><span class="badge badge-estado-inactivo">Borrador</span>' +
+          '<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="editar">Editar</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-primary" data-accion="alternar-publicacion">Publicar</button></div>';
+        item.querySelector(".fw-semibold").textContent = document.getElementById("TituloGuia").value;
+        item.querySelector(".TextoSuave").textContent = "Nivel: " + document.getElementById("NivelGuia").value;
+        document.getElementById("ListaGuias").appendChild(item);
+
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevaGuia")).hide();
+        MostrarToast("Guía guardada como borrador.");
+      });
+
+      // ---------- Tareas (HU-MU11-03) ----------
+      document.getElementById("FormularioNuevaTarea").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("TituloTarea"), "Ingrese el título de la tarea.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("FechaLimiteTarea"), "Seleccione la fecha límite.") && esValido;
+        if (!esValido) {
+          return;
+        }
+        var selectAsignada = document.getElementById("AsignadaATarea");
+        var textoAsignada = selectAsignada.options[selectAsignada.selectedIndex].text;
+
+        var fila = document.createElement("tr");
+        fila.innerHTML =
+          "<td></td><td></td><td></td>" +
+          '<td class="TablaAcciones"><button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-fila" data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button></td>';
+        fila.children[0].textContent = document.getElementById("TituloTarea").value;
+        fila.children[1].textContent = textoAsignada;
+        fila.children[2].textContent = "Fecha límite: " + document.getElementById("FechaLimiteTarea").value;
+        document.getElementById("TablaTareas").querySelector("tbody").appendChild(fila);
+        bootstrap.Tooltip.getOrCreateInstance(fila.querySelector('[data-bs-toggle="tooltip"]'));
+
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevaTarea")).hide();
+        MostrarToast("Tarea asignada correctamente.");
+      });
+
+      document.getElementById("TablaTareas").addEventListener("click", function (evento) {
+        var boton = evento.target.closest('[data-accion="eliminar-fila"]');
+        if (!boton) {
+          return;
+        }
+        boton.closest("tr").remove();
+        MostrarToast("Tarea eliminada.", "error");
+      });
+
+      document.getElementById("FormularioActividad").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("NombreActividadEducativa"), "Ingrese el nombre de la actividad.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("TipoActividadEducativa"), "Seleccione el tipo.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("FechaActividadEducativa"), "Seleccione la fecha.") && esValido;
+        if (!esValido) {
+          return;
+        }
+        var selectTipo = document.getElementById("TipoActividadEducativa");
+        var textoTipo = selectTipo.options[selectTipo.selectedIndex].text;
+
+        var item = document.createElement("li");
+        item.className = "list-group-item px-0";
+        item.innerHTML =
+          '<span class="fw-semibold"></span><span class="badge badge-estado-cita-agendada ms-2"></span><div class="TextoSuave small"></div>';
+        item.querySelector(".fw-semibold").textContent = document.getElementById("NombreActividadEducativa").value;
+        item.querySelector(".badge").textContent = textoTipo;
+        item.querySelector(".TextoSuave").textContent = document.getElementById("FechaActividadEducativa").value;
+        document.getElementById("ListaActividadesEducativas").prepend(item);
+
+        evento.target.reset();
+        document.getElementById("FechaActividadEducativa").value = "2026-07-12";
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        MostrarToast("Actividad registrada correctamente.");
+      });
+
+      document.getElementById("FormularioNuevoEnlace").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoNombre = document.getElementById("NombreEnlace");
+        var campoUrl = document.getElementById("UrlEnlace");
+        var esValido = true;
+        esValido = ValidarObligatorio(campoNombre, "Ingrese el nombre del enlace.") && esValido;
+        esValido = ValidarObligatorio(campoUrl, "Ingrese la URL del enlace.") && esValido;
+        if (esValido) {
+          try {
+            new URL(campoUrl.value);
+          } catch (error) {
+            MarcarCampoInvalido(campoUrl, "Ingrese una URL válida (incluyendo https://).");
+            esValido = false;
+          }
+        }
+        if (!esValido) {
+          return;
+        }
+
+        var item = document.createElement("li");
+        item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
+        item.innerHTML =
+          '<a target="_blank" rel="noopener"></a><span class="badge badge-estado-activo">Disponible</span>';
+        var enlace = item.querySelector("a");
+        enlace.href = campoUrl.value;
+        enlace.textContent = campoNombre.value;
+        document.getElementById("ListaEnlaces").appendChild(item);
+
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        MostrarToast("Enlace agregado correctamente.");
+      });
+    });
+  </script>
+</body>
+
+</html>

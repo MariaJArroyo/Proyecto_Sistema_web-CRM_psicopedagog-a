@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planes de intervención — Mente Activa Psicopedagogía</title>
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@600;700&display=swap"
+    rel="stylesheet">
+
+
+  <link href="../Css/Styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <div class="WrapperAdmin">
+
+
+    <div class="FondoSidebarMovil"></div>
+
+
+    <aside class="SidebarAdmin">
+      <a href="Dashboard.html" class="SidebarAdmin-Marca">
+        <img src="../Img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        <span>Mente Activa</span>
+      </a>
+
+      <nav class="SidebarAdmin-Nav">
+        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
+        <a href="Dashboard.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
+        <a href="Clientes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
+        </a>
+        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
+        <a href="Estudiantes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
+        </a>
+        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
+        <a href="Agenda.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-calendar3"></i><span>Agenda</span>
+        </a>
+        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
+        <a href="Sesiones.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-journal-text"></i><span>Sesiones</span>
+        </a>
+        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
+        <a href="Planes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
+        </a>
+        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
+        <a href="Reportes.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
+        </a>
+        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <a href="Pagos.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+        </a>
+        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <a href="Comunicacion.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+        </a>
+        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
+        <a href="Materiales.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-folder2-open"></i><span>Materiales</span>
+        </a>
+        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
+        <a href="Usuarios.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+        </a>
+        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <a href="UsuariosExternos.html" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+        </a>
+      </nav>
+    </aside>
+
+
+    <div class="ContenidoAdmin">
+
+
+      <header class="TopbarAdmin">
+        <div class="d-flex align-items-center gap-3">
+          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
+            <i class="bi bi-list"></i>
+          </button>
+          <h1 class="TopbarAdmin-Titulo">Planes de intervención</h1>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="d-none d-sm-inline">Marcela Solano</span>
+            <div class="TopbarAdmin-Avatar">MS</div>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
+            <li><a class="dropdown-item" href="MiPerfil.html"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <li><a class="dropdown-item" href="../Login.html"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- Razor: inicio de contenido de la vista -->
+      <main class="PrincipalAdmin">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+          <div>
+            <h2 class="mb-1">Planes de intervención</h2>
+            <p class="TextoSuave mb-0">Listado ordenado alfabéticamente por título del plan.</p>
+          </div>
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevoPlan">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo plan
+          </button>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4">
+
+          <div class="row g-2 mb-3" data-tabla-buscador="TablaPlanes">
+            <div class="col-12">
+              <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="search" class="form-control" data-buscar-texto
+                  placeholder="Buscar por título de plan o estudiante">
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="TablaPlanes">
+              <thead>
+                <tr>
+                  <th>Título del plan</th>
+                  <th>Estudiante</th>
+                  <th>Inicio</th>
+                  <th class="TablaAcciones">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-fila data-valor-titulo="Apoyo en organización y hábitos de estudio"
+                  data-valor-estudiante="Kevin Fernández"
+                  data-valor-objetivo="Establecer una rutina de estudio en casa con apoyo familiar."
+                  data-valor-inicio="1 de julio, 2026">
+                  <td data-campo="titulo">Apoyo en organización y hábitos de estudio</td>
+                  <td data-campo="estudiante">Kevin Fernández</td>
+                  <td data-campo="inicio">1 jul 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
+                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+                <tr data-fila data-valor-titulo="Desarrollo de habilidades matemáticas básicas"
+                  data-valor-estudiante="Valeria Mora"
+                  data-valor-objetivo="Consolidar el dominio de las tablas de multiplicar."
+                  data-valor-inicio="20 de mayo, 2026">
+                  <td data-campo="titulo">Desarrollo de habilidades matemáticas básicas</td>
+                  <td data-campo="estudiante">Valeria Mora</td>
+                  <td data-campo="inicio">20 may 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
+                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+                <tr data-fila data-valor-titulo="Fortalecimiento de atención sostenida"
+                  data-valor-estudiante="Diego Vargas"
+                  data-valor-objetivo="Aumentar el tiempo de atención sostenida durante las sesiones."
+                  data-valor-inicio="15 de junio, 2026">
+                  <td data-campo="titulo">Fortalecimiento de atención sostenida</td>
+                  <td data-campo="estudiante">Diego Vargas</td>
+                  <td data-campo="inicio">15 jun 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
+                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+                <tr data-fila data-valor-titulo="Refuerzo en comprensión lectora"
+                  data-valor-estudiante="María Rodríguez"
+                  data-valor-objetivo="Mejorar la comprensión lectora mediante estrategias de identificación de idea principal."
+                  data-valor-inicio="10 de junio, 2026">
+                  <td data-campo="titulo">Refuerzo en comprensión lectora</td>
+                  <td data-campo="estudiante">María Rodríguez</td>
+                  <td data-campo="inicio">10 jun 2026</td>
+                  <td class="TablaAcciones">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
+                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
+                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="EstadoVacio d-none" data-tabla-vacio="TablaPlanes">
+            <i class="bi bi-clipboard2-pulse"></i>
+            <p class="mb-3">No se encontraron planes con ese criterio de búsqueda.</p>
+          </div>
+        </div>
+      </main>
+
+      <div class="modal fade" id="ModalNuevoPlan" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <form id="FormularioNuevoPlan" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Nuevo plan de intervención</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-8">
+                    <label for="TituloNuevoPlan" class="form-label CampoObligatorio">Título del plan</label>
+                    <input type="text" class="form-control" id="TituloNuevoPlan" name="Titulo">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-md-4">
+                    <label for="InicioNuevoPlan" class="form-label CampoObligatorio">Fecha de inicio</label>
+                    <input type="date" class="form-control" id="InicioNuevoPlan" name="FechaInicio">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="EstudianteNuevoPlan" class="form-label CampoObligatorio">Estudiante</label>
+                    <select class="form-select" id="EstudianteNuevoPlan" name="EstudianteId">
+                      <option value="" selected>Seleccione un estudiante</option>
+                      <option value="MariaRodriguez">María Rodríguez</option>
+                      <option value="DiegoVargas">Diego Vargas</option>
+                      <option value="AnaCastro">Ana Castro</option>
+                      <option value="KevinFernandez">Kevin Fernández</option>
+                      <option value="FabianMendez">Fabián Méndez</option>
+                      <option value="ValeriaMora">Valeria Mora</option>
+                      <option value="EmilyAraya">Emily Araya</option>
+                      <option value="FabianSolis">Fabián Solís</option>
+                    </select>
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-12">
+                    <label for="ObjetivoNuevoPlan" class="form-label CampoObligatorio">Objetivo general</label>
+                    <textarea class="form-control" id="ObjetivoNuevoPlan" name="ObjetivoGeneral" rows="3"></textarea>
+                    <div class="invalid-feedback"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar plan</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalDetallePlan" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" data-campo="titulo">Detalle del plan</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+              <dl class="row mb-3">
+                <dt class="col-3 TextoSuave fw-normal">Estudiante</dt>
+                <dd class="col-9" data-campo="estudiante"></dd>
+                <dt class="col-3 TextoSuave fw-normal">Inicio</dt>
+                <dd class="col-9" data-campo="inicio"></dd>
+                <dt class="col-3 TextoSuave fw-normal">Objetivo general</dt>
+                <dd class="col-9" data-campo="objetivo"></dd>
+              </dl>
+
+              <div class="text-end mb-3">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="BotonEditarPlan">
+                  <i class="bi bi-pencil me-1"></i>Editar plan
+                </button>
+              </div>
+
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">Estrategias</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                  data-bs-target="#ModalAgregarEstrategia">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar
+                </button>
+              </div>
+              <ul class="list-group list-group-flush mb-3" id="ListaEstrategias">
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <span>Lectura guiada con preguntas de comprensión.</span>
+                  <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-item"
+                    data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                </li>
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <span>Uso de organizadores gráficos para ideas principales.</span>
+                  <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-item"
+                    data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                </li>
+              </ul>
+
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">Actividades</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                  data-bs-target="#ModalAgregarActividad">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar
+                </button>
+              </div>
+              <ul class="list-group list-group-flush mb-3" id="ListaActividades">
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <div>
+                    <div>Lectura semanal de un cuento corto</div>
+                    <div class="TextoSuave small">Vinculada a: Lectura guiada con preguntas de comprensión.</div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-item"
+                    data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
+                </li>
+              </ul>
+
+              <h6 class="mb-2">Historial de cambios</h6>
+              <ul class="list-unstyled TextoSuave small mb-0" id="ListaHistorialPlan">
+                <li class="mb-1"><i class="bi bi-clock-history me-1"></i>10 de junio, 2026 — Plan creado.</li>
+              </ul>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalEditarPlan" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <!-- Razor: asp-controller="Planes" asp-action="Editar" method="post" -->
+            <form id="FormularioEditarPlan" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Editar plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label for="EditarTituloPlan" class="form-label CampoObligatorio">Título del plan</label>
+                    <input type="text" class="form-control" id="EditarTituloPlan">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-12">
+                    <label for="EditarObjetivoPlan" class="form-label CampoObligatorio">Objetivo general</label>
+                    <textarea class="form-control" id="EditarObjetivoPlan" rows="3"></textarea>
+                    <div class="invalid-feedback"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalAgregarEstrategia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form id="FormularioAgregarEstrategia" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Agregar estrategia</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <label for="TextoEstrategia" class="form-label CampoObligatorio">Descripción de la estrategia</label>
+                <textarea class="form-control" id="TextoEstrategia" rows="3"></textarea>
+                <div class="invalid-feedback"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Agregar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalAgregarActividad" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form id="FormularioAgregarActividad" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Agregar actividad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="NombreActividad" class="form-label CampoObligatorio">Nombre de la actividad</label>
+                  <input type="text" class="form-control" id="NombreActividad">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-1">
+                  <label for="EstrategiaVinculada" class="form-label">Vincular a estrategia</label>
+                  <select class="form-select" id="EstrategiaVinculada">
+                    <option value="">Sin vincular</option>
+                    <option>Lectura guiada con preguntas de comprensión.</option>
+                    <option>Uso de organizadores gráficos para ideas principales.</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Agregar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalConfirmarEliminarItem" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Eliminar elemento</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+              <p class="mb-0">¿Seguro que desea eliminar este elemento del plan? Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarItem">
+                <i class="bi bi-trash me-1"></i>Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalEliminarPlan" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Eliminar plan</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+              <p class="mb-0">
+                ¿Seguro que desea eliminar el plan <strong id="NombrePlanEliminar"></strong>?
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarPlan">
+                <i class="bi bi-trash me-1"></i>Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor de toasts de confirmación -->
+  <div class="ContenedorToasts"></div>
+
+  <!-- Bootstrap 5 JS Bundle (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../Js/Main.js"></script>
+  <script src="../Js/Validaciones.js"></script>
+
+  <!-- Comportamiento propio de esta pantalla: planes, estrategias y actividades -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var tabla = document.getElementById("TablaPlanes");
+      var modalDetalleElemento = document.getElementById("ModalDetallePlan");
+      var instanciaDetalle = bootstrap.Modal.getOrCreateInstance(modalDetalleElemento);
+      var instanciaEditar = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarPlan"));
+      var instanciaEliminarPlan = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEliminarPlan"));
+      var instanciaConfirmarEliminarItem = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalConfirmarEliminarItem"));
+      var filaSeleccionada = null;
+      var itemAEliminar = null;
+
+      tabla.addEventListener("click", function (evento) {
+        var boton = evento.target.closest("[data-accion]");
+        if (!boton) {
+          return;
+        }
+        filaSeleccionada = boton.closest("tr");
+        var accion = boton.getAttribute("data-accion");
+
+        if (accion === "ver") {
+          modalDetalleElemento.querySelectorAll("[data-campo]").forEach(function (campoModal) {
+            var nombreCampo = campoModal.getAttribute("data-campo");
+            campoModal.textContent = filaSeleccionada.getAttribute("data-valor-" + nombreCampo);
+          });
+          instanciaDetalle.show();
+        } else if (accion === "eliminar") {
+          document.getElementById("NombrePlanEliminar").textContent = filaSeleccionada.getAttribute("data-valor-titulo");
+          instanciaEliminarPlan.show();
+        }
+      });
+
+      document.getElementById("BotonConfirmarEliminarPlan").addEventListener("click", function () {
+        if (!filaSeleccionada) {
+          return;
+        }
+        filaSeleccionada.remove();
+        instanciaEliminarPlan.hide();
+        MostrarToast("Plan eliminado de la lista.", "error");
+      });
+
+      document.getElementById("FormularioNuevoPlan").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("TituloNuevoPlan"), "Ingrese el título del plan.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("InicioNuevoPlan"), "Seleccione la fecha de inicio.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("EstudianteNuevoPlan"), "Seleccione un estudiante.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("ObjetivoNuevoPlan"), "Ingrese el objetivo general.") && esValido;
+        if (!esValido) {
+          return;
+        }
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevoPlan")).hide();
+        MostrarToast("Plan de intervención creado correctamente.");
+      });
+
+      document.getElementById("BotonEditarPlan").addEventListener("click", function () {
+        document.getElementById("EditarTituloPlan").value = modalDetalleElemento.querySelector('[data-campo="titulo"]').textContent;
+        document.getElementById("EditarObjetivoPlan").value = modalDetalleElemento.querySelector('[data-campo="objetivo"]').textContent;
+        instanciaEditar.show();
+      });
+
+      document.getElementById("FormularioEditarPlan").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("EditarTituloPlan"), "Ingrese el título del plan.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("EditarObjetivoPlan"), "Ingrese el objetivo general.") && esValido;
+        if (!esValido) {
+          return;
+        }
+
+        modalDetalleElemento.querySelector('[data-campo="titulo"]').textContent = document.getElementById("EditarTituloPlan").value;
+        modalDetalleElemento.querySelector('[data-campo="objetivo"]').textContent = document.getElementById("EditarObjetivoPlan").value;
+        if (filaSeleccionada) {
+          filaSeleccionada.querySelector('[data-campo="titulo"]').textContent = document.getElementById("EditarTituloPlan").value;
+          filaSeleccionada.setAttribute("data-valor-titulo", document.getElementById("EditarTituloPlan").value);
+          filaSeleccionada.setAttribute("data-valor-objetivo", document.getElementById("EditarObjetivoPlan").value);
+        }
+
+        var entradaHistorial = document.createElement("li");
+        entradaHistorial.className = "mb-1";
+        entradaHistorial.innerHTML = '<i class="bi bi-clock-history me-1"></i>12 de julio, 2026 — Plan editado.';
+        document.getElementById("ListaHistorialPlan").appendChild(entradaHistorial);
+
+        instanciaEditar.hide();
+        MostrarToast("Plan actualizado correctamente.");
+      });
+
+      document.getElementById("FormularioAgregarEstrategia").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campo = document.getElementById("TextoEstrategia");
+        if (!ValidarObligatorio(campo, "Ingrese la descripción de la estrategia.")) {
+          return;
+        }
+
+        var item = document.createElement("li");
+        item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
+        item.innerHTML =
+          "<span></span>" +
+          '<button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-item" data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>';
+        item.querySelector("span").textContent = campo.value;
+        document.getElementById("ListaEstrategias").appendChild(item);
+        bootstrap.Tooltip.getOrCreateInstance(item.querySelector('[data-bs-toggle="tooltip"]'));
+
+        var opcion = document.createElement("option");
+        opcion.textContent = campo.value;
+        document.getElementById("EstrategiaVinculada").appendChild(opcion);
+
+        evento.target.reset();
+        campo.classList.remove("is-valid");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalAgregarEstrategia")).hide();
+        MostrarToast("Estrategia agregada al plan.");
+      });
+
+      document.getElementById("FormularioAgregarActividad").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoNombre = document.getElementById("NombreActividad");
+        if (!ValidarObligatorio(campoNombre, "Ingrese el nombre de la actividad.")) {
+          return;
+        }
+        var estrategiaVinculada = document.getElementById("EstrategiaVinculada").value;
+
+        var item = document.createElement("li");
+        item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
+        item.innerHTML =
+          "<div><div></div><div class=\"TextoSuave small\"></div></div>" +
+          '<button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar-item" data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>';
+        item.querySelector("div > div").textContent = campoNombre.value;
+        item.querySelector(".TextoSuave").textContent = estrategiaVinculada ? "Vinculada a: " + estrategiaVinculada : "Sin vincular a una estrategia.";
+        document.getElementById("ListaActividades").appendChild(item);
+        bootstrap.Tooltip.getOrCreateInstance(item.querySelector('[data-bs-toggle="tooltip"]'));
+
+        evento.target.reset();
+        campoNombre.classList.remove("is-valid");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalAgregarActividad")).hide();
+        MostrarToast("Actividad agregada al plan.");
+      });
+
+      modalDetalleElemento.addEventListener("click", function (evento) {
+        var boton = evento.target.closest('[data-accion="eliminar-item"]');
+        if (!boton) {
+          return;
+        }
+        itemAEliminar = boton.closest("li");
+        instanciaConfirmarEliminarItem.show();
+      });
+
+      document.getElementById("BotonConfirmarEliminarItem").addEventListener("click", function () {
+        if (!itemAEliminar) {
+          return;
+        }
+        itemAEliminar.remove();
+        itemAEliminar = null;
+        instanciaConfirmarEliminarItem.hide();
+        MostrarToast("Elemento eliminado del plan.", "error");
+      });
+    });
+  </script>
+</body>
+
+</html>
