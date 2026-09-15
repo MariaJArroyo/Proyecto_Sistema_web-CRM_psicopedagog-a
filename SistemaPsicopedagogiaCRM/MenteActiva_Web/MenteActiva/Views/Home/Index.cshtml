@@ -1,0 +1,293 @@
+@{ Layout = null; }<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mente Activa Psicopedagogía — Tutorías y apoyo psicopedagógico</title>
+  <meta name="description"
+    content="Consultorio de psicopedagogía: tutoría académica, apoyo psicopedagógico, evaluaciones y orientación a padres en Costa Rica.">
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@@1.11.3/font/bootstrap-icons.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@@400;500&family=Poppins:wght@@600;700&display=swap"
+    rel="stylesheet">
+
+
+  <link href="~/css/Styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg NavbarPublica sticky-top py-3">
+    <div class="container">
+      <a class="navbar-brand" href="#inicio">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        Mente Activa Psicopedagogía
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#MenuPrincipal"
+        aria-controls="MenuPrincipal" aria-expanded="false" aria-label="Abrir menú">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="MenuPrincipal">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item"><a class="nav-link" href="#servicios">Servicios</a></li>
+          <li class="nav-item"><a class="nav-link" href="#testimonios">Testimonios</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contacto">Contacto</a></li>
+          <li class="nav-item ms-lg-2">
+            <!-- Razor: asp-controller="Cuenta" asp-action="Login" -->
+            <a class="btn btn-outline-primary btn-sm" href="/Cuenta/Login">
+              <i class="bi bi-box-arrow-in-right me-1"></i>Iniciar sesión
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Razor: inicio de contenido de la vista -->
+
+  <header class="Hero" id="inicio">
+    <div class="container">
+      <div class="row align-items-center g-5">
+        <div class="col-lg-6">
+          <span class="badge badge-estado-activo mb-3">Consultorio de psicopedagogía</span>
+          <h1 class="mb-3">Acompañamos el aprendizaje de cada estudiante, con calidez y compromiso</h1>
+          <p class="TextoSuave mb-4">
+            Soy psicopedagoga especializada en tutoría académica y apoyo psicopedagógico
+            infantil y adolescente. Trabajo de la mano con familias y estudiantes para
+            fortalecer el aprendizaje, la confianza y el bienestar emocional en cada etapa
+            escolar.
+          </p>
+          <div class="d-flex flex-wrap gap-3">
+            <a href="#contacto" class="btn btn-primary btn-lg">
+              <i class="bi bi-calendar-check me-1"></i>Agendar una consulta
+            </a>
+            <a href="#servicios" class="btn btn-outline-primary btn-lg">Conocer servicios</a>
+          </div>
+        </div>
+        <div class="col-lg-6 text-center">
+          <!-- Razor: reemplazar por imagen real (Model.ImagenPortada) -->
+          <div class="HeroLogoMarco mx-auto" style="max-width: 420px;">
+            <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía">
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="SeccionAlterna" id="servicios">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2>Nuestros servicios</h2>
+        <p class="TextoSuave">Programas pensados para cada etapa y necesidad del estudiante.</p>
+      </div>
+
+      <!-- Razor: reemplazar por @@foreach (var servicio in Model.Servicios) -->
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-3">
+          <div class="TarjetaServicio">
+            <div class="TarjetaServicio-Icono"><i class="bi bi-journal-bookmark"></i></div>
+            <span class="badge badge-estado-nuevo">Académico</span>
+            <h3>Tutoría académica</h3>
+            <p class="TextoSuave mb-0">Refuerzo en materias específicas, técnicas de estudio y acompañamiento en tareas
+              escolares.</p>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="TarjetaServicio">
+            <div class="TarjetaServicio-Icono"><i class="bi bi-heart"></i></div>
+            <span class="badge badge-estado-cita-agendada">Psicopedagógico</span>
+            <h3>Apoyo psicopedagógico</h3>
+            <p class="TextoSuave mb-0">Atención a dificultades de aprendizaje, atención y desarrollo de habilidades
+              cognitivas.</p>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="TarjetaServicio">
+            <div class="TarjetaServicio-Icono"><i class="bi bi-clipboard-data"></i></div>
+            <span class="badge badge-estado-contactado">Evaluación</span>
+            <h3>Evaluaciones</h3>
+            <p class="TextoSuave mb-0">Valoraciones psicopedagógicas para identificar fortalezas y áreas de apoyo del
+              estudiante.</p>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="TarjetaServicio">
+            <div class="TarjetaServicio-Icono"><i class="bi bi-people"></i></div>
+            <span class="badge badge-estado-activo">Familia</span>
+            <h3>Orientación a padres</h3>
+            <p class="TextoSuave mb-0">Herramientas y pautas para acompañar el proceso de aprendizaje desde el hogar.
+            </p>
+          </div>
+        </div>
+      </div>
+      <!-- /Razor -->
+    </div>
+  </section>
+
+  <section class="SeccionFondo" id="testimonios">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2>Lo que dicen las familias</h2>
+        <p class="TextoSuave">Experiencias de padres y estudiantes que han sido parte del proceso.</p>
+      </div>
+
+      <!-- Razor: reemplazar por @@foreach (var testimonio in Model.Testimonios) -->
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="TarjetaTestimonio">
+            <i class="bi bi-quote"></i>
+            <p class="mb-0">“El acompañamiento fue clave para que mi hijo mejorara su confianza y sus notas en
+              matemáticas.”</p>
+            <p class="TarjetaTestimonio-Autor mb-0">Carlos J.</p>
+            <small class="TextoSuave">Encargado de estudiante</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="TarjetaTestimonio">
+            <i class="bi bi-quote"></i>
+            <p class="mb-0">“Muy profesional y cercana. Las sesiones se adaptaron a las necesidades específicas de mi
+              hija.”</p>
+            <p class="TarjetaTestimonio-Autor mb-0">María R.</p>
+            <small class="TextoSuave">Encargada de estudiante</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="TarjetaTestimonio">
+            <i class="bi bi-quote"></i>
+            <p class="mb-0">“Aprendí técnicas de estudio que me han servido en todas las materias, no solo en la que
+              reforzaba.”</p>
+            <p class="TarjetaTestimonio-Autor mb-0">D. Vargas</p>
+            <small class="TextoSuave">Estudiante de secundaria</small>
+          </div>
+        </div>
+      </div>
+      <!-- /Razor -->
+    </div>
+  </section>
+
+  <section class="SeccionAlterna" id="contacto">
+    <div class="container">
+      <div class="row g-5">
+        <div class="col-lg-5">
+          <h2>Conversemos</h2>
+          <p class="TextoSuave">
+            Escribinos y con gusto te contamos más sobre el proceso, horarios
+            disponibles y cómo podemos apoyar a tu estudiante.
+          </p>
+          <ul class="list-unstyled TextoSuave">
+            <li class="mb-2"><i class="bi bi-telephone me-2 text-primary"></i>8888-8888</li>
+            <li class="mb-2"><i class="bi bi-envelope me-2 text-primary"></i>contacto@@menteactiva.cr</li>
+            <li class="mb-2"><i class="bi bi-geo-alt me-2 text-primary"></i>San José, Costa Rica</li>
+          </ul>
+        </div>
+        <div class="col-lg-7">
+          <div class="Tarjeta p-4 p-md-5">
+
+            <div class="alert alert-success d-none" role="alert" id="ConfirmacionContacto">
+              <i class="bi bi-check-circle me-1"></i>
+              ¡Gracias por escribirnos! Te contactaremos muy pronto.
+            </div>
+
+            <!-- Razor: asp-controller="Contacto" asp-action="Enviar" method="post" -->
+            <form id="FormularioContacto" novalidate>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="Nombre" class="form-label CampoObligatorio">Nombre completo</label>
+                  <input type="text" class="form-control" id="Nombre" name="Nombre" placeholder="Su nombre">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="Telefono" class="form-label CampoObligatorio">Teléfono</label>
+                  <input type="tel" class="form-control" id="Telefono" name="Telefono" placeholder="8888-8888">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="CorreoElectronico" class="form-label CampoObligatorio">Correo electrónico</label>
+                  <input type="email" class="form-control" id="CorreoElectronico" name="CorreoElectronico"
+                    placeholder="correo@@ejemplo.com">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="ServicioInteres" class="form-label CampoObligatorio">Servicio de interés</label>
+                  <!-- Razor: <select> vendrá de un SelectList de servicios -->
+                  <select class="form-select" id="ServicioInteres" name="ServicioInteres">
+                    <option value="" selected>Seleccione una opción</option>
+                    <option value="TutoriaAcademica">Tutoría académica</option>
+                    <option value="ApoyoPsicopedagogico">Apoyo psicopedagógico</option>
+                    <option value="Evaluaciones">Evaluaciones</option>
+                    <option value="OrientacionPadres">Orientación a padres</option>
+                  </select>
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-12">
+                  <label for="Mensaje" class="form-label CampoObligatorio">Mensaje</label>
+                  <textarea class="form-control" id="Mensaje" name="Mensaje" rows="4"
+                    placeholder="Contanos brevemente qué necesitás"></textarea>
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg mt-4">
+                <i class="bi bi-send me-1"></i>Enviar mensaje
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Razor: /fin de contenido de la vista -->
+
+  <footer class="FooterPublico">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+            <h5 class="mb-0">Mente Activa Psicopedagogía</h5>
+          </div>
+          <p class="mb-0">Tutoría académica y apoyo psicopedagógico infantil y adolescente en Costa Rica.</p>
+        </div>
+        <div class="col-md-4">
+          <h5>Contacto</h5>
+          <ul class="list-unstyled mb-0">
+            <li class="mb-2"><i class="bi bi-telephone me-2"></i>8888-8888</li>
+            <li class="mb-2"><i class="bi bi-envelope me-2"></i>contacto@@menteactiva.cr</li>
+            <li class="mb-2"><i class="bi bi-geo-alt me-2"></i>San José, Costa Rica</li>
+          </ul>
+        </div>
+        <div class="col-md-4">
+          <h5>Síganos</h5>
+          <div class="d-flex gap-3 fs-4">
+            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://wa.me/50688888888" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+          </div>
+        </div>
+      </div>
+      <hr class="my-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+        <small>&copy; 2026 Mente Activa Psicopedagogía. Todos los derechos reservados.</small>
+        <!-- Razor: asp-controller="Cuenta" asp-action="Login" -->
+        <a href="/Cuenta/Login" class="small">Acceso administrativo</a>
+      </div>
+    </div>
+  </footer>
+
+  <a href="https://wa.me/50688888888?text=Hola%2C%20quisiera%20más%20información%20sobre%20sus%20servicios"
+    class="BotonWhatsapp" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp">
+    <i class="bi bi-whatsapp"></i>
+  </a>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="~/js/Main.js"></script>
+  <script src="~/js/Validaciones.js"></script>
+</body>
+
+</html>

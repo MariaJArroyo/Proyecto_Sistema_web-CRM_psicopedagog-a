@@ -1,0 +1,209 @@
+@{ Layout = null; }\n<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi perfil — Mente Activa Psicopedagogía</title>
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@@1.11.3/font/bootstrap-icons.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@@400;500&family=Poppins:wght@@600;700&display=swap"
+    rel="stylesheet">
+
+
+  <link href="~/css/Styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg NavbarPortal sticky-top py-2">
+    <div class="container">
+      <a class="navbar-brand" href="/Portal/Inicio">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        Mente Activa Psicopedagogía
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#MenuPortal"
+        aria-controls="MenuPortal" aria-expanded="false" aria-label="Abrir menú">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="MenuPortal">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item dropdown" data-selector-estudiante>
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-mortarboard me-1"></i>Viendo a: <span data-estudiante-etiqueta>María Rodríguez</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" data-estudiante-valor="MariaRodriguez">María Rodríguez</a></li>
+              <li><a class="dropdown-item" href="#" data-estudiante-valor="AndresJimenez">Andrés Jiménez</a></li>
+            </ul>
+          </li>
+          <!-- Razor: asp-controller="Portal" asp-action="Inicio" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Inicio">Inicio</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Citas" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Citas">Citas</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Progreso" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Progreso">Progreso</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Tareas" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Tareas">Tareas</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Pagos" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Pagos">Pagos</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Perfil" -->
+          <li class="nav-item"><a class="nav-link" href="/Portal/Perfil">Mi perfil</a></li>
+          <li class="nav-item ms-lg-2">
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <a class="btn btn-outline-secondary btn-sm" href="/Cuenta/Login">
+              <i class="bi bi-box-arrow-left me-1"></i>Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="PrincipalPortal">
+    <div class="container">
+      <div class="mb-4">
+        <h2 class="mb-1">Mi perfil</h2>
+        <p class="TextoSuave mb-0">Sus datos de contacto, contraseña y los estudiantes a su cargo.</p>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-7">
+
+          <div class="Tarjeta p-3 p-md-4 mb-3">
+            <h3 class="h5 mb-3">Datos personales</h3>
+            <form id="FormularioDatosPersonales" novalidate>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="NombrePerfil" class="form-label CampoObligatorio">Nombre completo</label>
+                  <input type="text" class="form-control" id="NombrePerfil" name="Nombre" value="Carlos Jiménez">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="TelefonoPerfil" class="form-label CampoObligatorio">Teléfono</label>
+                  <input type="tel" class="form-control" id="TelefonoPerfil" name="Telefono" value="8888-1111">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="CorreoPerfil" class="form-label CampoObligatorio">Correo electrónico</label>
+                  <input type="email" class="form-control" id="CorreoPerfil" name="CorreoElectronico"
+                    value="carlos.jimenez@@example.com">
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary mt-3">
+                <i class="bi bi-save me-1"></i>Guardar cambios
+              </button>
+            </form>
+          </div>
+
+          <div class="Tarjeta p-3 p-md-4">
+            <h3 class="h5 mb-3">Cambiar contraseña</h3>
+            <form id="FormularioCambiarContrasena" novalidate>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="ContrasenaActual" class="form-label CampoObligatorio">Contraseña actual</label>
+                  <input type="password" class="form-control" id="ContrasenaActual" autocomplete="current-password">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="ContrasenaNueva" class="form-label CampoObligatorio">Nueva contraseña</label>
+                  <input type="password" class="form-control" id="ContrasenaNueva" autocomplete="new-password">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="col-md-6">
+                  <label for="ContrasenaConfirmar" class="form-label CampoObligatorio">Confirmar nueva
+                    contraseña</label>
+                  <input type="password" class="form-control" id="ContrasenaConfirmar" autocomplete="new-password">
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary mt-3">
+                <i class="bi bi-key me-1"></i>Actualizar contraseña
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="Tarjeta p-3 p-md-4">
+            <h3 class="h5 mb-3">Estudiantes a mi cargo</h3>
+            <p class="TextoSuave small">
+              Puede cambiar entre sus estudiantes desde el menú "Viendo a" en la parte superior.
+            </p>
+            <ul class="list-unstyled mb-0">
+              <li class="mb-2"><i class="bi bi-mortarboard me-2 text-primary"></i>María Rodríguez — Primaria</li>
+              <li><i class="bi bi-mortarboard me-2 text-primary"></i>Andrés Jiménez — Preescolar</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="text-center TextoSuave small py-4 border-top mt-5">
+    &copy; 2026 Mente Activa Psicopedagogía — Portal de familias
+  </footer>
+
+  <div class="ContenedorToasts"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="~/js/Main.js"></script>
+  <script src="~/js/Validaciones.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+      document.getElementById("FormularioDatosPersonales").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("NombrePerfil"), "Ingrese su nombre completo.") && esValido;
+        esValido = ValidarTelefono(document.getElementById("TelefonoPerfil")) && esValido;
+        esValido = ValidarCorreo(document.getElementById("CorreoPerfil")) && esValido;
+        if (!esValido) {
+          return;
+        }
+        MostrarToast("Datos actualizados correctamente.");
+      });
+
+      document.getElementById("FormularioCambiarContrasena").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoActual = document.getElementById("ContrasenaActual");
+        var campoNueva = document.getElementById("ContrasenaNueva");
+        var campoConfirmar = document.getElementById("ContrasenaConfirmar");
+
+        var esValido = true;
+        esValido = ValidarObligatorio(campoActual, "Ingrese su contraseña actual.") && esValido;
+
+        if (!campoNueva.value || campoNueva.value.length < 8) {
+          MarcarCampoInvalido(campoNueva, "La nueva contraseña debe tener al menos 8 caracteres.");
+          esValido = false;
+        } else {
+          MarcarCampoValido(campoNueva);
+        }
+
+        if (!campoConfirmar.value || campoConfirmar.value !== campoNueva.value) {
+          MarcarCampoInvalido(campoConfirmar, "Las contraseñas no coinciden.");
+          esValido = false;
+        } else {
+          MarcarCampoValido(campoConfirmar);
+        }
+
+        if (!esValido) {
+          return;
+        }
+
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        MostrarToast("Contraseña actualizada correctamente.");
+      });
+    });
+  </script>
+</body>
+
+</html>

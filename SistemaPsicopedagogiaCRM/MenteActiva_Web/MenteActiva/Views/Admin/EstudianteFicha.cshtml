@@ -1,0 +1,376 @@
+@{ Layout = null; }\n<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ficha de estudiante — Mente Activa Psicopedagogía</title>
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@@1.11.3/font/bootstrap-icons.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@@400;500&family=Poppins:wght@@600;700&display=swap"
+    rel="stylesheet">
+
+
+  <link href="~/css/Styles.css" rel="stylesheet">
+</head>
+
+<body>
+
+
+  <div class="WrapperAdmin">
+
+
+    <div class="FondoSidebarMovil"></div>
+
+
+    <aside class="SidebarAdmin">
+      <a href="/Admin/Dashboard" class="SidebarAdmin-Marca">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        <span>Mente Activa</span>
+      </a>
+
+      <nav class="SidebarAdmin-Nav">
+        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
+        <a href="/Admin/Dashboard" class="SidebarAdmin-Enlace">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
+        <a href="/Admin/Clientes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
+        </a>
+        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
+        <a href="/Admin/Estudiantes" class="SidebarAdmin-Enlace activo">
+          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
+        </a>
+        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
+        <a href="/Admin/Agenda" class="SidebarAdmin-Enlace">
+          <i class="bi bi-calendar3"></i><span>Agenda</span>
+        </a>
+        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
+        <a href="/Admin/Sesiones" class="SidebarAdmin-Enlace">
+          <i class="bi bi-journal-text"></i><span>Sesiones</span>
+        </a>
+        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
+        <a href="/Admin/Planes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
+        </a>
+        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
+        <a href="/Admin/Reportes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
+        </a>
+        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <a href="/Admin/Pagos" class="SidebarAdmin-Enlace">
+          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+        </a>
+        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace">
+          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+        </a>
+        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
+        <a href="/Admin/Materiales" class="SidebarAdmin-Enlace">
+          <i class="bi bi-folder2-open"></i><span>Materiales</span>
+        </a>
+        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
+        <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace">
+          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+        </a>
+        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+        </a>
+      </nav>
+    </aside>
+
+
+    <div class="ContenidoAdmin">
+
+
+      <header class="TopbarAdmin">
+        <div class="d-flex align-items-center gap-3">
+          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
+            <i class="bi bi-list"></i>
+          </button>
+          <h1 class="TopbarAdmin-Titulo">Ficha de estudiante</h1>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="d-none d-sm-inline">Marcela Solano</span>
+            <div class="TopbarAdmin-Avatar">MS</div>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
+            <li><a class="dropdown-item" href="/Admin/MiPerfil"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <li><a class="dropdown-item" href="/Cuenta/Login"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- Razor: inicio de contenido de la vista (Model.Estudiante por id) -->
+      <main class="PrincipalAdmin">
+        <a href="/Admin/Estudiantes" class="d-inline-flex align-items-center gap-1 small mb-3">
+          <i class="bi bi-arrow-left"></i>Volver a estudiantes
+        </a>
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+          <div>
+            <h2 class="mb-1" id="FichaNombre">María Rodríguez</h2>
+            <p class="TextoSuave mb-0">
+              Última actualización: <span id="FichaFechaActualizacion">5 de julio, 2026</span>
+            </p>
+          </div>
+          <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+            data-bs-target="#ModalEditarFicha">
+            <i class="bi bi-pencil me-1"></i>Editar ficha
+          </button>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+
+            <div class="Tarjeta p-3 p-md-4 mb-3">
+              <h3 class="mb-3">Datos generales</h3>
+              <dl class="row mb-0">
+                <dt class="col-sm-4 TextoSuave fw-normal">Nombre completo</dt>
+                <dd class="col-sm-8" id="FichaDatoNombre">María Rodríguez</dd>
+                <dt class="col-sm-4 TextoSuave fw-normal">Edad</dt>
+                <dd class="col-sm-8" id="FichaDatoEdad">10 años</dd>
+                <dt class="col-sm-4 TextoSuave fw-normal">Nivel educativo</dt>
+                <dd class="col-sm-8" id="FichaDatoNivel">Primaria</dd>
+                <dt class="col-sm-4 TextoSuave fw-normal">Institución</dt>
+                <dd class="col-sm-8 mb-0" id="FichaDatoInstitucion">Escuela Buenaventura Corrales</dd>
+              </dl>
+            </div>
+
+            <div class="Tarjeta p-3 p-md-4 mb-3">
+              <h3 class="mb-3">Información académica</h3>
+              <dl class="row mb-0">
+                <dt class="col-sm-4 TextoSuave fw-normal">Materia(s) de refuerzo</dt>
+                <dd class="col-sm-8" id="FichaDatoMateria">Español y Matemáticas</dd>
+                <dt class="col-sm-4 TextoSuave fw-normal">Inicio de atención</dt>
+                <dd class="col-sm-8" id="FichaDatoInicio">3 de marzo, 2026</dd>
+                <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
+                <dd class="col-sm-8 mb-0" id="FichaDatoResumen">
+                  Estudiante con buen nivel de motivación; requiere apoyo en comprensión
+                  lectora y organización del tiempo de estudio.
+                </dd>
+              </dl>
+            </div>
+
+            <div class="Tarjeta p-3 p-md-4 mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <h3 class="mb-0">Áreas de dificultad</h3>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                  data-bs-target="#ModalAgregarArea">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar área
+                </button>
+              </div>
+
+              <div class="list-group list-group-flush" id="ListaAreasDificultad">
+                <div class="list-group-item px-0">
+                  <span class="badge badge-etiqueta-morado mb-1">Comprensión lectora</span>
+                  <p class="mb-0 TextoSuave">Dificultad para identificar la idea principal de un texto.</p>
+                </div>
+                <div class="list-group-item px-0">
+                  <span class="badge badge-etiqueta-morado mb-1">Atención sostenida</span>
+                  <p class="mb-0 TextoSuave">Se distrae con facilidad durante sesiones largas.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="Tarjeta p-3 p-md-4">
+              <h3 class="mb-3">Necesidades de apoyo</h3>
+              <ul class="mb-0">
+                <li>Refuerzo en comprensión lectora con material visual.</li>
+                <li>Pausas activas cada 20 minutos durante las sesiones.</li>
+                <li>Seguimiento cercano con la familia sobre tareas en casa.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="Tarjeta p-3 p-md-4">
+              <h3 class="mb-3">Encargado asociado</h3>
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <div class="TopbarAdmin-Avatar">CJ</div>
+                <div>
+                  <div class="fw-semibold">Carlos Jiménez</div>
+                  <div class="TextoSuave small">Encargado principal</div>
+                </div>
+              </div>
+              <ul class="list-unstyled TextoSuave small mb-3">
+                <li class="mb-2"><i class="bi bi-telephone me-2"></i>8888-1111</li>
+                <li class="mb-2"><i class="bi bi-envelope me-2"></i>carlos.jimenez@@example.com</li>
+              </ul>
+              <hr>
+              <p class="small fw-semibold mb-2">Estudiantes a su cargo</p>
+              <ul class="list-unstyled small mb-0">
+                <li class="mb-1"><i class="bi bi-mortarboard me-2 text-primary"></i>María Rodríguez <span
+                    class="TextoSuave">(esta ficha)</span></li>
+                <li><i class="bi bi-mortarboard me-2 text-primary"></i>Andrés Jiménez</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </main>
+      <!-- Razor: /fin de contenido de la vista -->
+
+      <div class="modal fade" id="ModalAgregarArea" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <!-- Razor: asp-controller="Estudiantes" asp-action="AgregarAreaDificultad" method="post" -->
+            <form id="FormularioAgregarArea" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Agregar área de dificultad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="NombreArea" class="form-label CampoObligatorio">Área</label>
+                  <input type="text" class="form-control" id="NombreArea" name="NombreArea"
+                    placeholder="Ej. Razonamiento lógico-matemático">
+                  <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-1">
+                  <label for="ObservacionArea" class="form-label CampoObligatorio">Observación</label>
+                  <textarea class="form-control" id="ObservacionArea" name="ObservacionArea" rows="3"></textarea>
+                  <div class="invalid-feedback"></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Agregar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="ModalEditarFicha" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <form id="FormularioEditarFicha" novalidate>
+              <div class="modal-header">
+                <h5 class="modal-title">Editar ficha del estudiante</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="EditarNombreFicha" class="form-label CampoObligatorio">Nombre completo</label>
+                    <input type="text" class="form-control" id="EditarNombreFicha" value="María Rodríguez">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-md-3">
+                    <label for="EditarEdadFicha" class="form-label CampoObligatorio">Edad</label>
+                    <input type="text" class="form-control" id="EditarEdadFicha" value="10 años">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-md-3">
+                    <label for="EditarNivelFicha" class="form-label CampoObligatorio">Nivel educativo</label>
+                    <select class="form-select" id="EditarNivelFicha">
+                      <option value="Preescolar">Preescolar</option>
+                      <option value="Primaria" selected>Primaria</option>
+                      <option value="Secundaria">Secundaria</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="EditarInstitucionFicha" class="form-label CampoObligatorio">Institución</label>
+                    <input type="text" class="form-control" id="EditarInstitucionFicha"
+                      value="Escuela Buenaventura Corrales">
+                    <div class="invalid-feedback"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="EditarMateriaFicha" class="form-label">Materia(s) de refuerzo</label>
+                    <input type="text" class="form-control" id="EditarMateriaFicha" value="Español y Matemáticas">
+                  </div>
+                  <div class="col-12">
+                    <label for="EditarResumenFicha" class="form-label">Resumen</label>
+                    <textarea class="form-control" id="EditarResumenFicha"
+                      rows="3">Estudiante con buen nivel de motivación; requiere apoyo en comprensión lectora y organización del tiempo de estudio.</textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ContenedorToasts"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="~/js/Main.js"></script>
+  <script src="~/js/Validaciones.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+      document.getElementById("FormularioAgregarArea").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoArea = document.getElementById("NombreArea");
+        var campoObservacion = document.getElementById("ObservacionArea");
+        var esValido = true;
+        esValido = ValidarObligatorio(campoArea, "Ingrese el nombre del área.") && esValido;
+        esValido = ValidarObligatorio(campoObservacion, "Ingrese una observación.") && esValido;
+        if (!esValido) {
+          return;
+        }
+
+        var item = document.createElement("div");
+        item.className = "list-group-item px-0";
+        item.innerHTML =
+          '<span class="badge badge-etiqueta-morado mb-1"></span>' +
+          '<p class="mb-0 TextoSuave"></p>';
+        item.querySelector(".badge").textContent = campoArea.value;
+        item.querySelector("p").textContent = campoObservacion.value;
+        document.getElementById("ListaAreasDificultad").appendChild(item);
+
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalAgregarArea")).hide();
+        MostrarToast("Área de dificultad agregada.");
+      });
+
+      document.getElementById("FormularioEditarFicha").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("EditarNombreFicha"), "Ingrese el nombre.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("EditarEdadFicha"), "Ingrese la edad.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("EditarInstitucionFicha"), "Ingrese la institución.") && esValido;
+        if (!esValido) {
+          return;
+        }
+
+        var nombre = document.getElementById("EditarNombreFicha").value;
+        document.getElementById("FichaNombre").textContent = nombre;
+        document.getElementById("FichaDatoNombre").textContent = nombre;
+        document.getElementById("FichaDatoEdad").textContent = document.getElementById("EditarEdadFicha").value;
+        document.getElementById("FichaDatoNivel").textContent = document.getElementById("EditarNivelFicha").value;
+        document.getElementById("FichaDatoInstitucion").textContent = document.getElementById("EditarInstitucionFicha").value;
+        document.getElementById("FichaDatoMateria").textContent = document.getElementById("EditarMateriaFicha").value;
+        document.getElementById("FichaDatoResumen").textContent = document.getElementById("EditarResumenFicha").value;
+        document.getElementById("FichaFechaActualizacion").textContent = "12 de julio, 2026";
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarFicha")).hide();
+        MostrarToast("Ficha actualizada correctamente.");
+      });
+    });
+  </script>
+</body>
+
+</html>

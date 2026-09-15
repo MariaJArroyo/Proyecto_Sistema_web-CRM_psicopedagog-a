@@ -1,0 +1,313 @@
+@{ Layout = null; }\n<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comunicación — Mente Activa Psicopedagogía</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@@1.11.3/font/bootstrap-icons.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@@400;500&family=Poppins:wght@@600;700&display=swap" rel="stylesheet">
+
+  <link href="~/css/Styles.css" rel="stylesheet">
+</head>
+<body>
+
+  <div class="WrapperAdmin">
+
+    <div class="FondoSidebarMovil"></div>
+
+    <aside class="SidebarAdmin">
+      <a href="/Admin/Dashboard" class="SidebarAdmin-Marca">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        <span>Mente Activa</span>
+      </a>
+
+      <nav class="SidebarAdmin-Nav">
+        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
+        <a href="/Admin/Dashboard" class="SidebarAdmin-Enlace">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
+        <a href="/Admin/Clientes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
+        </a>
+        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
+        <a href="/Admin/Estudiantes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
+        </a>
+        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
+        <a href="/Admin/Agenda" class="SidebarAdmin-Enlace">
+          <i class="bi bi-calendar3"></i><span>Agenda</span>
+        </a>
+        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
+        <a href="/Admin/Sesiones" class="SidebarAdmin-Enlace">
+          <i class="bi bi-journal-text"></i><span>Sesiones</span>
+        </a>
+        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
+        <a href="/Admin/Planes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
+        </a>
+        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
+        <a href="/Admin/Reportes" class="SidebarAdmin-Enlace">
+          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
+        </a>
+        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <a href="/Admin/Pagos" class="SidebarAdmin-Enlace">
+          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+        </a>
+        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace">
+          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+        </a>
+        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
+        <a href="/Admin/Materiales" class="SidebarAdmin-Enlace">
+          <i class="bi bi-folder2-open"></i><span>Materiales</span>
+        </a>
+        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
+        <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace">
+          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+        </a>
+        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace">
+          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+        </a>
+      </nav>
+    </aside>
+
+    <div class="ContenidoAdmin">
+
+      <header class="TopbarAdmin">
+        <div class="d-flex align-items-center gap-3">
+          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
+            <i class="bi bi-list"></i>
+          </button>
+          <h1 class="TopbarAdmin-Titulo">Comunicación</h1>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="d-none d-sm-inline">Marcela Solano</span>
+            <div class="TopbarAdmin-Avatar">MS</div>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
+            <li><a class="dropdown-item" href="/Admin/MiPerfil"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <li><a class="dropdown-item" href="/Cuenta/Login"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a></li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- Razor: inicio de contenido de la vista -->
+      <main class="PrincipalAdmin">
+        <div class="mb-4">
+          <h2 class="mb-1">Comunicación y notificaciones</h2>
+          <p class="TextoSuave mb-0">Correo, recordatorios automáticos, mensajería interna y plantillas.</p>
+        </div>
+
+        <ul class="nav nav-pills mb-3" id="SelectorComunicacion">
+          <li class="nav-item"><button type="button" class="nav-link active" data-vista="Correo">Correo</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Recordatorios">Recordatorios automáticos</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Mensajeria">Mensajería interna</button></li>
+          <li class="nav-item"><button type="button" class="nav-link" data-vista="Plantillas">Plantillas</button></li>
+        </ul>
+
+        <div class="Tarjeta p-3 p-md-4" id="VistaCorreo">
+          <h3 class="mb-3">Redactar correo</h3>
+          <!-- Razor: asp-controller="Comunicacion" asp-action="EnviarCorreo" method="post" -->
+          <form id="FormularioCorreo" novalidate>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="DestinatarioCorreo" class="form-label CampoObligatorio">Destinatario</label>
+                <select class="form-select" id="DestinatarioCorreo" name="DestinatarioId">
+                  <option value="" selected>Seleccione un cliente</option>
+                  <option value="CarlosJimenez">Carlos Jiménez — carlos.jimenez@@example.com</option>
+                  <option value="RodolfoVargas">Rodolfo Vargas — rodolfo.vargas@@example.com</option>
+                  <option value="MarjorieCastro">Marjorie Castro — marjorie.castro@@example.com</option>
+                  <option value="JoseFernandez">José Fernández — jose.fernandez@@example.com</option>
+                  <option value="LauraMendez">Laura Méndez — laura.mendez@@example.com</option>
+                </select>
+                <div class="invalid-feedback"></div>
+              </div>
+              <div class="col-md-6">
+                <label for="AsuntoCorreo" class="form-label CampoObligatorio">Asunto</label>
+                <input type="text" class="form-control" id="AsuntoCorreo" name="Asunto">
+                <div class="invalid-feedback"></div>
+              </div>
+              <div class="col-12">
+                <label for="MensajeCorreo" class="form-label CampoObligatorio">Mensaje</label>
+                <textarea class="form-control" id="MensajeCorreo" name="Mensaje" rows="5"></textarea>
+                <div class="invalid-feedback"></div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">
+              <i class="bi bi-send me-1"></i>Enviar correo
+            </button>
+          </form>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaRecordatorios">
+          <h3 class="mb-3">Recordatorios automáticos de citas</h3>
+          <p class="TextoSuave">Representación de las notificaciones programadas por el sistema.</p>
+          <div class="list-group list-group-flush">
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold"><i class="bi bi-bell me-2 text-primary"></i>Recordatorio de cita</div>
+                <div class="TextoSuave small">Se enviará a Carlos Jiménez el 12 de julio a las 8:00 a. m. sobre la cita de María Rodríguez del 13 de julio.</div>
+              </div>
+              <span class="badge badge-cita-programada">Programado</span>
+            </div>
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold"><i class="bi bi-bell me-2 text-primary"></i>Recordatorio de pago</div>
+                <div class="TextoSuave small">Se enviará a José Fernández el 14 de julio sobre el pago vencido.</div>
+              </div>
+              <span class="badge badge-cita-programada">Programado</span>
+            </div>
+            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold"><i class="bi bi-bell-fill me-2 text-success"></i>Recordatorio de cita</div>
+                <div class="TextoSuave small">Enviado a Marjorie Castro el 13 de julio sobre la evaluación de Ana Castro.</div>
+              </div>
+              <span class="badge badge-cita-completada">Enviado</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaMensajeria">
+          <h3 class="mb-3">Mensajería interna</h3>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="btn-group-vertical w-100" role="group" aria-label="Bandeja de recibidos" data-filtro-grupo="Mensajeria">
+                <button type="button" class="btn btn-outline-secondary text-start active d-flex justify-content-between align-items-center" data-filtro-valor="CarlosJimenez">
+                  <span>Carlos Jiménez</span><span class="badge badge-estado-nuevo">2</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" data-filtro-valor="RodolfoVargas">
+                  <span>Rodolfo Vargas</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" data-filtro-valor="MarjorieCastro">
+                  <span>Marjorie Castro</span>
+                </button>
+              </div>
+            </div>
+            <div class="col-md-8">
+              <div class="border rounded-3 p-3 mb-3" style="min-height: 220px;">
+                <div data-filtro-item="Mensajeria" data-tipo="CarlosJimenez">
+                  <p class="mb-2"><span class="fw-semibold">Carlos Jiménez:</span> Buenas tardes, ¿podríamos confirmar la hora de la próxima cita de María?</p>
+                  <p class="mb-2"><span class="fw-semibold text-primary">Marcela Solano:</span> ¡Buenas! Sí, queda confirmada para el lunes 13 de julio a las 9:00 a. m.</p>
+                </div>
+                <div class="d-none" data-filtro-item="Mensajeria" data-tipo="RodolfoVargas">
+                  <p class="mb-2"><span class="fw-semibold">Rodolfo Vargas:</span> Buenos días, quisiera saber cómo le fue a Diego en su primera sesión.</p>
+                </div>
+                <div class="d-none" data-filtro-item="Mensajeria" data-tipo="MarjorieCastro">
+                  <p class="mb-0 TextoSuave">Aún no hay mensajes con Marjorie Castro.</p>
+                </div>
+              </div>
+              <form id="FormularioMensajeInterno" class="d-flex gap-2">
+                <input type="text" class="form-control" id="TextoMensajeInterno" placeholder="Escriba un mensaje…">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i></button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaPlantillas">
+          <h3 class="mb-3">Plantillas de mensajes</h3>
+          <label for="SelectorPlantilla" class="form-label">Seleccionar plantilla</label>
+          <select class="form-select mb-3" id="SelectorPlantilla" style="max-width: 360px;">
+            <option value="RecordatorioCita">Recordatorio de cita</option>
+            <option value="BienvenidaCliente">Bienvenida a nuevo cliente</option>
+            <option value="SeguimientoPago">Seguimiento de pago pendiente</option>
+          </select>
+          <label for="TextoPlantilla" class="form-label">Contenido de la plantilla</label>
+          <textarea class="form-control mb-3" id="TextoPlantilla" rows="5"></textarea>
+          <button type="button" class="btn btn-primary" id="BotonGuardarPlantilla">
+            <i class="bi bi-save me-1"></i>Guardar plantilla
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="ContenedorToasts"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="~/js/Main.js"></script>
+  <script src="~/js/Validaciones.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+      var vistas = {
+        Correo: document.getElementById("VistaCorreo"),
+        Recordatorios: document.getElementById("VistaRecordatorios"),
+        Mensajeria: document.getElementById("VistaMensajeria"),
+        Plantillas: document.getElementById("VistaPlantillas")
+      };
+      document.querySelectorAll("#SelectorComunicacion [data-vista]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          document.querySelectorAll("#SelectorComunicacion .nav-link").forEach(function (b) { b.classList.remove("active"); });
+          boton.classList.add("active");
+          Object.keys(vistas).forEach(function (clave) {
+            vistas[clave].classList.toggle("d-none", clave !== boton.getAttribute("data-vista"));
+          });
+        });
+      });
+
+      document.getElementById("FormularioCorreo").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var esValido = true;
+        esValido = ValidarObligatorio(document.getElementById("DestinatarioCorreo"), "Seleccione un destinatario.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("AsuntoCorreo"), "Ingrese el asunto.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("MensajeCorreo"), "Ingrese el mensaje.") && esValido;
+        if (!esValido) {
+          return;
+        }
+        evento.target.reset();
+        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
+        MostrarToast("Correo enviado correctamente (simulado).");
+      });
+
+      document.getElementById("FormularioMensajeInterno").addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var campoTexto = document.getElementById("TextoMensajeInterno");
+        if (!campoTexto.value.trim()) {
+          return;
+        }
+        var panelVisible = document.querySelector('[data-filtro-item="Mensajeria"]:not(.d-none)');
+        if (panelVisible) {
+          var parrafo = document.createElement("p");
+          parrafo.className = "mb-2";
+          parrafo.innerHTML = '<span class="fw-semibold text-primary">Marcela Solano:</span> ';
+          parrafo.append(campoTexto.value);
+          panelVisible.appendChild(parrafo);
+        }
+        campoTexto.value = "";
+        MostrarToast("Mensaje enviado.");
+      });
+
+      var textoPlantillas = {
+        RecordatorioCita: "Hola [Encargado], le recordamos la cita de [Estudiante] el [Fecha] a las [Hora]. ¡Le esperamos!",
+        BienvenidaCliente: "¡Bienvenido/a a Mente Activa Psicopedagogía! Estamos para acompañar el proceso de aprendizaje de [Estudiante].",
+        SeguimientoPago: "Hola [Encargado], le recordamos que el pago de [Estudiante] se encuentra pendiente. Cualquier consulta, escríbanos."
+      };
+
+      var selectorPlantilla = document.getElementById("SelectorPlantilla");
+      var campoTextoPlantilla = document.getElementById("TextoPlantilla");
+
+      function CargarPlantilla() {
+        campoTextoPlantilla.value = textoPlantillas[selectorPlantilla.value];
+      }
+      selectorPlantilla.addEventListener("change", CargarPlantilla);
+      CargarPlantilla();
+
+      document.getElementById("BotonGuardarPlantilla").addEventListener("click", function () {
+        textoPlantillas[selectorPlantilla.value] = campoTextoPlantilla.value;
+        MostrarToast("Plantilla guardada correctamente.");
+      });
+    });
+  </script>
+</body>
+</html>
