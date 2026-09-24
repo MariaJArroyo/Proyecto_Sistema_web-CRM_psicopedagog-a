@@ -108,10 +108,52 @@ public class AdminController : Controller
 
     #endregion
 
+
+    #region Estudiantes
+
+    public IActionResult Estudiantes()
+    {
+        using var client = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI")
+                  + "estudiantes";
+
+        var estudiantes = client
+            .GetFromJsonAsync<List<EstudianteViewModel>>(url)
+            .Result;
+
+        return View(estudiantes ?? new List<EstudianteViewModel>());
+    }
+
+    #region Ficha Estudiante
+
+    public IActionResult EstudianteFicha(int id)
+    {
+        using var client = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI")
+                  + "estudiantes/"
+                  + id;
+
+        var estudiante = client
+            .GetFromJsonAsync<FichaEstudianteViewModel>(url)
+            .Result;
+
+        if (estudiante == null)
+        {
+            return RedirectToAction("Estudiantes");
+        }
+
+        return View(estudiante);
+    }
+
+    #endregion
+
+    #endregion
+
+
     public IActionResult Comunicacion() => View();
     public IActionResult Dashboard() => View();
-    public IActionResult EstudianteFicha() => View();
-    public IActionResult Estudiantes() => View();
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
     public IActionResult Pagos() => View();
@@ -120,4 +162,5 @@ public class AdminController : Controller
     public IActionResult Sesiones() => View();
     public IActionResult Usuarios() => View();
     public IActionResult UsuariosExternos() => View();
+    
 }

@@ -1,6 +1,6 @@
-namespace MenteActiva.Api.Models;
+﻿namespace MenteActiva.Models;
 
-public class EstudianteResponse
+public class EstudianteViewModel
 {
     public int IdEstudiante { get; set; }
     public string Estudiante { get; set; } = string.Empty;
