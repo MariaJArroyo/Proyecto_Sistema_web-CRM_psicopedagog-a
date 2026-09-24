@@ -1,118 +1,6 @@
-@{ Layout = null; }\n<!DOCTYPE html>
-<html lang="es">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Materiales educativos — Mente Activa Psicopedagogía</title>
-
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@@1.11.3/font/bootstrap-icons.css">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@@400;500&family=Poppins:wght@@600;700&display=swap"
-    rel="stylesheet">
-
-
-  <link href="~/css/Styles.css" rel="stylesheet">
-</head>
-
-<body>
-
-  <div class="WrapperAdmin">
-
-
-    <div class="FondoSidebarMovil"></div>
-
-
-    <aside class="SidebarAdmin">
-      <a href="/Admin/Dashboard" class="SidebarAdmin-Marca">
-        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
-        <span>Mente Activa</span>
-      </a>
-
-      <nav class="SidebarAdmin-Nav">
-        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
-        <a href="/Admin/Dashboard" class="SidebarAdmin-Enlace">
-          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
-        </a>
-        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
-        <a href="/Admin/Clientes" class="SidebarAdmin-Enlace">
-          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
-        </a>
-        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
-        <a href="/Admin/Estudiantes" class="SidebarAdmin-Enlace">
-          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
-        </a>
-        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
-        <a href="/Admin/Agenda" class="SidebarAdmin-Enlace">
-          <i class="bi bi-calendar3"></i><span>Agenda</span>
-        </a>
-        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
-        <a href="/Admin/Sesiones" class="SidebarAdmin-Enlace">
-          <i class="bi bi-journal-text"></i><span>Sesiones</span>
-        </a>
-        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
-        <a href="/Admin/Planes" class="SidebarAdmin-Enlace">
-          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
-        </a>
-        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
-        <a href="/Admin/Reportes" class="SidebarAdmin-Enlace">
-          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
-        </a>
-        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
-        <a href="/Admin/Pagos" class="SidebarAdmin-Enlace">
-          <i class="bi bi-cash-coin"></i><span>Pagos</span>
-        </a>
-        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
-        <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace">
-          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
-        </a>
-        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
-        <a href="/Admin/Materiales" class="SidebarAdmin-Enlace">
-          <i class="bi bi-folder2-open"></i><span>Materiales</span>
-        </a>
-        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
-        <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace">
-          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
-        </a>
-        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
-        <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace">
-          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
-        </a>
-      </nav>
-    </aside>
-
-
-    <div class="ContenidoAdmin">
-
-
-      <header class="TopbarAdmin">
-        <div class="d-flex align-items-center gap-3">
-          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
-            <i class="bi bi-list"></i>
-          </button>
-          <h1 class="TopbarAdmin-Titulo">Materiales educativos</h1>
-        </div>
-        <div class="dropdown">
-          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="d-none d-sm-inline">Marcela Solano</span>
-            <div class="TopbarAdmin-Avatar">MS</div>
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
-            <li><a class="dropdown-item" href="/Admin/MiPerfil"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
-            <li><a class="dropdown-item" href="/Cuenta/Login"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
-            </li>
-          </ul>
-        </div>
-      </header>
+@{
+    ViewData["Title"] = "Materiales educativos";
+}
 
       <main class="PrincipalAdmin">
         <div class="mb-4">
@@ -407,18 +295,11 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="ContenedorToasts"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="~/js/Main.js"></script>
+@section Scripts {
   <script src="~/js/Validaciones.js"></script>
-
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-
       // ---------- Selector de sección ----------
       var vistas = {
         Pdf: document.getElementById("VistaPdf"),
@@ -436,13 +317,11 @@
           });
         });
       });
-
       // ---------- Subir PDF (HU-MU11-01) ----------
       document.getElementById("FormularioSubirPdf").addEventListener("submit", function (evento) {
         evento.preventDefault();
         var campoArchivo = document.getElementById("ArchivoPdf");
         var archivo = campoArchivo.files[0];
-
         if (!archivo) {
           MarcarCampoInvalido(campoArchivo, "Seleccione un archivo.");
           return;
@@ -452,7 +331,6 @@
           return;
         }
         MarcarCampoValido(campoArchivo);
-
         var item = document.createElement("li");
         item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
         item.innerHTML =
@@ -460,20 +338,16 @@
           '<span class="TextoSuave small">12 jul 2026</span>';
         item.querySelector("span").append(archivo.name);
         document.getElementById("ListaMaterialesPdf").prepend(item);
-
         evento.target.reset();
         campoArchivo.classList.remove("is-valid");
         MostrarToast("Material subido correctamente.");
       });
-
       // ---------- Guías educativas: alternar publicación y editar (HU-MU11-02) ----------
       var instanciaEditarGuia = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarGuia"));
       var guiaSeleccionada = null;
-
       document.getElementById("ListaGuias").addEventListener("click", function (evento) {
         var botonPublicar = evento.target.closest('[data-accion="alternar-publicacion"]');
         var botonEditar = evento.target.closest('[data-accion="editar"]');
-
         if (botonPublicar) {
           var insignia = botonPublicar.closest(".list-group-item").querySelector(".badge");
           var estaPublicada = botonPublicar.textContent.trim() === "Despublicar";
@@ -492,7 +366,6 @@
           }
           return;
         }
-
         if (botonEditar) {
           guiaSeleccionada = botonEditar.closest(".list-group-item");
           var nivelActual = guiaSeleccionada.querySelector(".TextoSuave").textContent.replace("Nivel: ", "");
@@ -501,7 +374,6 @@
           instanciaEditarGuia.show();
         }
       });
-
       document.getElementById("FormularioEditarGuia").addEventListener("submit", function (evento) {
         evento.preventDefault();
         var esValido = true;
@@ -515,7 +387,6 @@
         instanciaEditarGuia.hide();
         MostrarToast("Guía actualizada correctamente.");
       });
-
       document.getElementById("FormularioNuevaGuia").addEventListener("submit", function (evento) {
         evento.preventDefault();
         var esValido = true;
@@ -534,13 +405,11 @@
         item.querySelector(".fw-semibold").textContent = document.getElementById("TituloGuia").value;
         item.querySelector(".TextoSuave").textContent = "Nivel: " + document.getElementById("NivelGuia").value;
         document.getElementById("ListaGuias").appendChild(item);
-
         evento.target.reset();
         evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
         bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevaGuia")).hide();
         MostrarToast("Guía guardada como borrador.");
       });
-
       // ---------- Tareas (HU-MU11-03) ----------
       document.getElementById("FormularioNuevaTarea").addEventListener("submit", function (evento) {
         evento.preventDefault();
@@ -552,7 +421,6 @@
         }
         var selectAsignada = document.getElementById("AsignadaATarea");
         var textoAsignada = selectAsignada.options[selectAsignada.selectedIndex].text;
-
         var fila = document.createElement("tr");
         fila.innerHTML =
           "<td></td><td></td><td></td>" +
@@ -562,13 +430,11 @@
         fila.children[2].textContent = "Fecha límite: " + document.getElementById("FechaLimiteTarea").value;
         document.getElementById("TablaTareas").querySelector("tbody").appendChild(fila);
         bootstrap.Tooltip.getOrCreateInstance(fila.querySelector('[data-bs-toggle="tooltip"]'));
-
         evento.target.reset();
         evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
         bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevaTarea")).hide();
         MostrarToast("Tarea asignada correctamente.");
       });
-
       document.getElementById("TablaTareas").addEventListener("click", function (evento) {
         var boton = evento.target.closest('[data-accion="eliminar-fila"]');
         if (!boton) {
@@ -577,7 +443,6 @@
         boton.closest("tr").remove();
         MostrarToast("Tarea eliminada.", "error");
       });
-
       document.getElementById("FormularioActividad").addEventListener("submit", function (evento) {
         evento.preventDefault();
         var esValido = true;
@@ -589,7 +454,6 @@
         }
         var selectTipo = document.getElementById("TipoActividadEducativa");
         var textoTipo = selectTipo.options[selectTipo.selectedIndex].text;
-
         var item = document.createElement("li");
         item.className = "list-group-item px-0";
         item.innerHTML =
@@ -598,13 +462,11 @@
         item.querySelector(".badge").textContent = textoTipo;
         item.querySelector(".TextoSuave").textContent = document.getElementById("FechaActividadEducativa").value;
         document.getElementById("ListaActividadesEducativas").prepend(item);
-
         evento.target.reset();
         document.getElementById("FechaActividadEducativa").value = "2026-07-12";
         evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
         MostrarToast("Actividad registrada correctamente.");
       });
-
       document.getElementById("FormularioNuevoEnlace").addEventListener("submit", function (evento) {
         evento.preventDefault();
         var campoNombre = document.getElementById("NombreEnlace");
@@ -623,7 +485,6 @@
         if (!esValido) {
           return;
         }
-
         var item = document.createElement("li");
         item.className = "list-group-item px-0 d-flex justify-content-between align-items-center";
         item.innerHTML =
@@ -632,13 +493,10 @@
         enlace.href = campoUrl.value;
         enlace.textContent = campoNombre.value;
         document.getElementById("ListaEnlaces").appendChild(item);
-
         evento.target.reset();
         evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
         MostrarToast("Enlace agregado correctamente.");
       });
     });
   </script>
-</body>
-
-</html>
+}

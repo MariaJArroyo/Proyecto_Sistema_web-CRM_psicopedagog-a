@@ -1,0 +1,47 @@
+@{
+    var accionPortal = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+}
+  <nav class="navbar navbar-expand-lg NavbarPortal sticky-top py-2">
+    <div class="container">
+      <a class="navbar-brand" href="/Portal/Inicio">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        Mente Activa Psicopedagogía
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#MenuPortal"
+        aria-controls="MenuPortal" aria-expanded="false" aria-label="Abrir menú">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="MenuPortal">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <!-- Selector de estudiante: para encargados con más de un estudiante a cargo (HU-M3-5) -->
+          <li class="nav-item dropdown" data-selector-estudiante>
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-mortarboard me-1"></i>Viendo a: <span data-estudiante-etiqueta>María Rodríguez</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" data-estudiante-valor="MariaRodriguez">María Rodríguez</a></li>
+              <li><a class="dropdown-item" href="#" data-estudiante-valor="AndresJimenez">Andrés Jiménez</a></li>
+            </ul>
+          </li>
+          <!-- Razor: asp-controller="Portal" asp-action="Inicio" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Inicio" ? " active" : "")" href="/Portal/Inicio">Inicio</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Citas" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Citas" ? " active" : "")" href="/Portal/Citas">Citas</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Progreso" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Progreso" ? " active" : "")" href="/Portal/Progreso">Progreso</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Tareas" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Tareas" ? " active" : "")" href="/Portal/Tareas">Tareas</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Pagos" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Pagos" ? " active" : "")" href="/Portal/Pagos">Pagos</a></li>
+          <!-- Razor: asp-controller="Portal" asp-action="Perfil" -->
+          <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" href="/Portal/Perfil">Mi perfil</a></li>
+          <li class="nav-item ms-lg-2">
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <a class="btn btn-outline-secondary btn-sm" href="/Cuenta/Login">
+              <i class="bi bi-box-arrow-left me-1"></i>Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>

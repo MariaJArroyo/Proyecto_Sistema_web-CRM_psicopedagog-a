@@ -1,0 +1,62 @@
+@{
+    var accion = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    // la ficha vive dentro de estudiantes, por eso resalta ese enlace
+    var seccion = accion == "EstudianteFicha" ? "Estudiantes" : accion;
+}
+    <aside class="SidebarAdmin">
+      <a href="/Admin/Dashboard" class="SidebarAdmin-Marca">
+        <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
+        <span>Mente Activa</span>
+      </a>
+
+      <nav class="SidebarAdmin-Nav">
+        <!-- Razor: asp-controller="Dashboard" asp-action="Index" -->
+        <a href="/Admin/Dashboard" class="SidebarAdmin-Enlace@(seccion == "Dashboard" ? " activo" : "")">
+          <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+        </a>
+        <!-- Razor: asp-controller="Clientes" asp-action="Index" -->
+        <a href="/Admin/Clientes" class="SidebarAdmin-Enlace@(seccion == "Clientes" ? " activo" : "")">
+          <i class="bi bi-person-lines-fill"></i><span>Clientes</span>
+        </a>
+        <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
+        <a href="/Admin/Estudiantes" class="SidebarAdmin-Enlace@(seccion == "Estudiantes" ? " activo" : "")">
+          <i class="bi bi-mortarboard"></i><span>Estudiantes</span>
+        </a>
+        <!-- Razor: asp-controller="Agenda" asp-action="Index" -->
+        <a href="/Admin/Agenda" class="SidebarAdmin-Enlace@(seccion == "Agenda" ? " activo" : "")">
+          <i class="bi bi-calendar3"></i><span>Agenda</span>
+        </a>
+        <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
+        <a href="/Admin/Sesiones" class="SidebarAdmin-Enlace@(seccion == "Sesiones" ? " activo" : "")">
+          <i class="bi bi-journal-text"></i><span>Sesiones</span>
+        </a>
+        <!-- Razor: asp-controller="Planes" asp-action="Index" -->
+        <a href="/Admin/Planes" class="SidebarAdmin-Enlace@(seccion == "Planes" ? " activo" : "")">
+          <i class="bi bi-clipboard2-pulse"></i><span>Planes de intervención</span>
+        </a>
+        <!-- Razor: asp-controller="Reportes" asp-action="Index" -->
+        <a href="/Admin/Reportes" class="SidebarAdmin-Enlace@(seccion == "Reportes" ? " activo" : "")">
+          <i class="bi bi-bar-chart-line"></i><span>Reportes</span>
+        </a>
+        <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <a href="/Admin/Pagos" class="SidebarAdmin-Enlace@(seccion == "Pagos" ? " activo" : "")">
+          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+        </a>
+        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace@(seccion == "Comunicacion" ? " activo" : "")">
+          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+        </a>
+        <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
+        <a href="/Admin/Materiales" class="SidebarAdmin-Enlace@(seccion == "Materiales" ? " activo" : "")">
+          <i class="bi bi-folder2-open"></i><span>Materiales</span>
+        </a>
+        <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
+        <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace@(seccion == "Usuarios" ? " activo" : "")">
+          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+        </a>
+        <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace@(seccion == "UsuariosExternos" ? " activo" : "")">
+          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+        </a>
+      </nav>
+    </aside>
