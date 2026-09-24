@@ -1,473 +1,626 @@
+@model List<MenteActiva.Models.ClienteViewModel>
+
 @{
     ViewData["Title"] = "Clientes";
 }
 
-      <main class="PrincipalAdmin">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-          <div>
+<main class="PrincipalAdmin">
+
+    ```
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <div>
             <h2 class="mb-1">Clientes</h2>
-            <p class="TextoSuave mb-0">Encargados e interesados en los servicios del consultorio.</p>
-          </div>
-          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevoCliente">
+            <p class="TextoSuave mb-0">
+                Encargados e interesados en los servicios del consultorio.
+            </p>
+        </div>
+
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#ModalNuevoCliente">
             <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
-          </button>
-        </div>
+        </button>
+    </div>
 
-        <div class="Tarjeta p-3 p-md-4">
+    <div class="Tarjeta p-3 p-md-4">
 
-          <div class="row g-2 mb-3" data-tabla-buscador="TablaClientes">
+        <div class="row g-2 mb-3" data-tabla-buscador="TablaClientes">
+
             <div class="col-md-7">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="search" class="form-control" data-buscar-texto
-                  placeholder="Buscar por nombre, teléfono o correo">
-              </div>
+                <div class="input-group">
+                    <span class="input-group-text bg-white">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="search"
+                           class="form-control"
+                           data-buscar-texto
+                           placeholder="Buscar por nombre, teléfono o correo">
+                </div>
             </div>
+
             <div class="col-md-5">
-              <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
-                <option value="">Todos los estados</option>
-                <option value="Nuevo">Nuevo</option>
-                <option value="Contactado">Contactado</option>
-                <option value="Cita agendada">Cita agendada</option>
-                <option value="Activo">Cliente activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
-            </div>
-          </div>
+                <select class="form-select"
+                        data-buscar-estado
+                        aria-label="Filtrar por estado">
 
-          <!-- Razor: reemplazar por @@foreach (var cliente in Model.Clientes) -->
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="TablaClientes">
-              <thead>
-                <tr>
-                  <th>Encargado</th>
-                  <th>Teléfono</th>
-                  <th>Correo</th>
-                  <th>Servicio de interés</th>
-                  <th>Estudiante</th>
-                  <th>Estado</th>
-                  <th class="TablaAcciones">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr data-fila data-estado="Activo">
-                  <td data-campo="encargado">Carlos Jiménez</td>
-                  <td data-campo="telefono">8888-1111</td>
-                  <td data-campo="correo">carlos.jimenez@@example.com</td>
-                  <td data-campo="servicio">Tutoría académica</td>
-                  <td data-campo="estudiante">María Rodríguez</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Cliente activo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Cita agendada">
-                  <td data-campo="encargado">Rodolfo Vargas</td>
-                  <td data-campo="telefono">8888-2222</td>
-                  <td data-campo="correo">rodolfo.vargas@@example.com</td>
-                  <td data-campo="servicio">Apoyo psicopedagógico</td>
-                  <td data-campo="estudiante">Diego Vargas</td>
-                  <td><span class="badge badge-estado-cita-agendada" data-campo-badge="estado">Cita agendada</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Contactado">
-                  <td data-campo="encargado">Marjorie Castro</td>
-                  <td data-campo="telefono">8888-3333</td>
-                  <td data-campo="correo">marjorie.castro@@example.com</td>
-                  <td data-campo="servicio">Evaluaciones</td>
-                  <td data-campo="estudiante">Ana Castro</td>
-                  <td><span class="badge badge-estado-contactado" data-campo-badge="estado">Contactado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Activo">
-                  <td data-campo="encargado">José Fernández</td>
-                  <td data-campo="telefono">8888-4444</td>
-                  <td data-campo="correo">jose.fernandez@@example.com</td>
-                  <td data-campo="servicio">Orientación a padres</td>
-                  <td data-campo="estudiante">Kevin Fernández</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Cliente activo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Nuevo">
-                  <td data-campo="encargado">Laura Méndez</td>
-                  <td data-campo="telefono">8888-5555</td>
-                  <td data-campo="correo">laura.mendez@@example.com</td>
-                  <td data-campo="servicio">Apoyo psicopedagógico</td>
-                  <td data-campo="estudiante">Fabián Méndez</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Nuevo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Activo">
-                  <td data-campo="encargado">Marta Mora</td>
-                  <td data-campo="telefono">8888-6666</td>
-                  <td data-campo="correo">marta.mora@@example.com</td>
-                  <td data-campo="servicio">Tutoría académica</td>
-                  <td data-campo="estudiante">Valeria Mora</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Cliente activo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Contactado">
-                  <td data-campo="encargado">Patricia Araya</td>
-                  <td data-campo="telefono">8888-7777</td>
-                  <td data-campo="correo">patricia.araya@@example.com</td>
-                  <td data-campo="servicio">Tutoría académica</td>
-                  <td data-campo="estudiante">Emily Araya</td>
-                  <td><span class="badge badge-estado-contactado" data-campo-badge="estado">Contactado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Inactivo">
-                  <td data-campo="encargado">Óscar Solís</td>
-                  <td data-campo="telefono">8888-8888</td>
-                  <td data-campo="correo">oscar.solis@@example.com</td>
-                  <td data-campo="servicio">Evaluaciones</td>
-                  <td data-campo="estudiante">Fabián Solís</td>
-                  <td><span class="badge badge-estado-inactivo" data-campo-badge="estado">Inactivo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- /Razor -->
+                    <option value="">Todos los estados</option>
+                    <option value="Nuevo">Nuevo</option>
+                    <option value="Contactado">Contactado</option>
+                    <option value="Cita agendada">Cita agendada</option>
+                    <option value="Cliente activo">Cliente activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                    <option value="En seguimiento">En seguimiento</option>
 
-          <div class="EstadoVacio d-none" data-tabla-vacio="TablaClientes">
-            <i class="bi bi-people"></i>
-            <p class="mb-3">No se encontraron clientes con ese criterio de búsqueda.</p>
-          </div>
-        </div>
-      </main>
-
-
-
-      <div class="modal fade" id="ModalNuevoCliente" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <!-- Razor: asp-controller="Clientes" asp-action="Crear" method="post" -->
-            <form id="FormularioNuevoCliente" novalidate>
-              <div class="modal-header">
-                <h5 class="modal-title">Nuevo cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="NombreEncargado" class="form-label CampoObligatorio">Nombre del encargado</label>
-                    <input type="text" class="form-control" id="NombreEncargado" name="NombreEncargado">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="TelefonoNuevoCliente" class="form-label CampoObligatorio">Teléfono</label>
-                    <input type="tel" class="form-control" id="TelefonoNuevoCliente" name="Telefono"
-                      placeholder="8888-8888">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="CorreoNuevoCliente" class="form-label CampoObligatorio">Correo electrónico</label>
-                    <input type="email" class="form-control" id="CorreoNuevoCliente" name="CorreoElectronico">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="ServicioInteresNuevoCliente" class="form-label CampoObligatorio">Servicio de
-                      interés</label>
-                    <select class="form-select" id="ServicioInteresNuevoCliente" name="ServicioInteres">
-                      <option value="" selected>Seleccione una opción</option>
-                      <option value="TutoriaAcademica">Tutoría académica</option>
-                      <option value="ApoyoPsicopedagogico">Apoyo psicopedagógico</option>
-                      <option value="Evaluaciones">Evaluaciones</option>
-                      <option value="OrientacionPadres">Orientación a padres</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                  </div>
-                </div>
-                <div class="alert alert-light border mt-3 mb-0 small">
-                  <i class="bi bi-info-circle text-primary me-1"></i>
-                  El estudiante se asocia a este cliente desde
-                  <!-- Razor: asp-controller="Estudiantes" asp-action="Index" -->
-                  "Estudiantes → Nuevo estudiante", seleccionándolo como persona encargada.
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar cliente</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal fade" id="ModalDetalleCliente" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <!-- Razor: asp-controller="Clientes" asp-action="CambiarEstado" method="post" -->
-            <form id="FormularioCambiarEstado">
-              <div class="modal-header">
-                <h5 class="modal-title">Detalle del cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <dl class="row mb-0">
-                  <dt class="col-5 TextoSuave fw-normal">Encargado</dt>
-                  <dd class="col-7" id="DetalleEncargado"></dd>
-                  <dt class="col-5 TextoSuave fw-normal">Teléfono</dt>
-                  <dd class="col-7" id="DetalleTelefono"></dd>
-                  <dt class="col-5 TextoSuave fw-normal">Correo</dt>
-                  <dd class="col-7" id="DetalleCorreo"></dd>
-                  <dt class="col-5 TextoSuave fw-normal">Servicio de interés</dt>
-                  <dd class="col-7" id="DetalleServicio"></dd>
-                  <dt class="col-5 TextoSuave fw-normal">Estudiante</dt>
-                  <dd class="col-7" id="DetalleEstudiante"></dd>
-                </dl>
-                <hr>
-                <label for="EstadoActual" class="form-label">Cambiar estado</label>
-                <select class="form-select" id="EstadoActual">
-                  <option value="Nuevo">Nuevo</option>
-                  <option value="Contactado">Contactado</option>
-                  <option value="Cita agendada">Cita agendada</option>
-                  <option value="Activo">Cliente activo</option>
-                  <option value="Inactivo">Inactivo</option>
                 </select>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" class="btn btn-primary">Guardar cambios</button>
-              </div>
-            </form>
-          </div>
+            </div>
+
         </div>
-      </div>
 
+        <div class="table-responsive">
 
-      <div class="modal fade" id="ModalEditarCliente" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <!-- Razor: asp-controller="Clientes" asp-action="Editar" method="post" -->
-            <form id="FormularioEditarCliente" novalidate>
-              <div class="modal-header">
-                <h5 class="modal-title">Editar cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="EditarNombreEncargado" class="form-label CampoObligatorio">Nombre del encargado</label>
-                    <input type="text" class="form-control" id="EditarNombreEncargado" name="NombreEncargado">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarTelefono" class="form-label CampoObligatorio">Teléfono</label>
-                    <input type="tel" class="form-control" id="EditarTelefono" name="Telefono">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarCorreo" class="form-label CampoObligatorio">Correo electrónico</label>
-                    <input type="email" class="form-control" id="EditarCorreo" name="CorreoElectronico">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarServicio" class="form-label CampoObligatorio">Servicio de interés</label>
-                    <select class="form-select" id="EditarServicio" name="ServicioInteres">
-                      <option value="Tutoría académica">Tutoría académica</option>
-                      <option value="Apoyo psicopedagógico">Apoyo psicopedagógico</option>
-                      <option value="Evaluaciones">Evaluaciones</option>
-                      <option value="Orientación a padres">Orientación a padres</option>
-                    </select>
-                  </div>
+            <table class="table align-middle mb-0" id="TablaClientes">
+
+                <thead>
+                    <tr>
+                        <th>Encargado</th>
+                        <th>Teléfono</th>
+                        <th>Correo</th>
+                        <th>Servicio de interés</th>
+                        <th>Estudiante</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var cliente in Model)
+                        {
+                            <tr data-fila data-estado="@cliente.Estado">
+
+                                <td data-campo="encargado">
+                                    @cliente.Encargado
+                                </td>
+
+                                <td data-campo="telefono">
+                                    @cliente.Telefono
+                                </td>
+
+                                <td data-campo="correo">
+                                    @cliente.Correo
+                                </td>
+
+                                <td data-campo="servicio">
+                                    @cliente.Servicio
+                                </td>
+
+                                <td data-campo="estudiante">
+                                    @cliente.Estudiante
+                                </td>
+
+                                <td>
+                                    @{
+                                        var estado = cliente.Estado?.Trim();
+
+                                        var claseEstado = estado switch
+                                        {
+                                            "Nuevo" => "badge-estado-nuevo",
+                                            "Contactado" => "badge-estado-contactado",
+                                            "Cita agendada" => "badge-estado-cita-agendada",
+                                            "Cliente activo" => "badge-estado-activo",
+                                            "Inactivo" => "badge-estado-inactivo",
+                                            "En seguimiento" => "badge-estado-seguimiento",
+                                            _ => "NO-ENCONTRADO"
+                                        };
+                                    }
+
+                                    <span class="badge @claseEstado"
+                                          data-campo-badge="estado">
+                                        @estado
+                                    </span>
+                                </td>
+
+                                <td class="TablaAcciones">
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary border-0"
+                                            data-accion="ver"
+                                            data-bs-toggle="tooltip"
+                                            title="Ver detalle"
+                                            data-id="@cliente.Id">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary border-0"
+                                            data-accion="editar"
+                                            data-bs-toggle="tooltip"
+                                            title="Editar"
+                                            data-id="@cliente.Id">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger border-0"
+                                            data-accion="eliminar"
+                                            data-bs-toggle="tooltip"
+                                            title="Eliminar"
+                                            data-id="@cliente.Id">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+
+                                </td>
+
+                            </tr>
+                        }
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div id="EstadoVacio"
+             class="text-center py-4"
+             style="display:@(Model == null || !Model.Any() ? "block" : "none");">
+
+            <p class="TextoSuave mt-2 mb-0">
+                No hay clientes registrados.
+            </p>
+
+        </div>
+
+    </div>
+    ```
+
+</main>
+
+<!-- MODAL NUEVO CLIENTE -->
+
+<div class="modal fade"
+     id="ModalNuevoCliente"
+     tabindex="-1"
+     aria-hidden="true">
+
+    ```
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <form asp-controller="Admin"
+                  asp-action="RegistrarCliente"
+                  method="post">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        Nuevo cliente
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar">
+                    </button>
+
                 </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar cambios</button>
-              </div>
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+
+                            <label for="NombreEncargado"
+                                   class="form-label CampoObligatorio">
+                                Nombre del encargado
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="NombreEncargado"
+                                   name="NombreEncargado"
+                                   required>
+
+                            <div class="invalid-feedback">
+                                El nombre del encargado es obligatorio.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="ApellidoEncargado"
+                                   class="form-label CampoObligatorio">
+                                Apellido del encargado
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="ApellidoEncargado"
+                                   name="ApellidoEncargado"
+                                   required>
+
+                            <div class="invalid-feedback">
+                                El apellido del encargado es obligatorio.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="TelefonoNuevoCliente"
+                                   class="form-label CampoObligatorio">
+                                Teléfono
+                            </label>
+
+                            <input type="tel"
+                                   class="form-control"
+                                   id="TelefonoNuevoCliente"
+                                   name="Telefono"
+                                   placeholder="8888-8888"
+                                   required>
+
+                            <div class="invalid-feedback">
+                                El teléfono es obligatorio.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="CorreoNuevoCliente"
+                                   class="form-label">
+                                Correo electrónico
+                            </label>
+
+                            <input type="email"
+                                   class="form-control"
+                                   id="CorreoNuevoCliente"
+                                   name="Correo">
+
+                            <div class="invalid-feedback">
+                                El correo no es válido.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="ServicioInteresNuevoCliente"
+                                   class="form-label CampoObligatorio">
+                                Servicio de interés
+                            </label>
+
+                            <select class="form-select"
+                                    id="ServicioInteresNuevoCliente"
+                                    name="IdServicioInteres"
+                                    required>
+
+                                <option value="">
+                                    Seleccione una opción
+                                </option>
+
+                                @if (ViewBag.Servicios != null)
+                                {
+                                    foreach (var servicio in ViewBag.Servicios)
+                                    {
+                                        <option value="@servicio.IdServicio">
+                                            @servicio.Nombre
+                                        </option>
+                                    }
+                                }
+
+                            </select>
+
+                            <div class="invalid-feedback">
+                                Debe seleccionar un servicio de interés.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="NombreEstudiante"
+                                   class="form-label CampoObligatorio">
+                                Nombre del estudiante
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="NombreEstudiante"
+                                   name="NombreEstudiante"
+                                   required>
+
+                            <div class="invalid-feedback">
+                                El nombre del estudiante es obligatorio.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-6">
+
+                            <label for="ApellidoEstudiante"
+                                   class="form-label CampoObligatorio">
+                                Apellido del estudiante
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="ApellidoEstudiante"
+                                   name="ApellidoEstudiante"
+                                   required>
+
+                            <div class="invalid-feedback">
+                                El apellido del estudiante es obligatorio.
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-12">
+
+                            <label for="Observaciones"
+                                   class="form-label">
+                                Observaciones
+                            </label>
+
+                            <textarea class="form-control"
+                                      id="Observaciones"
+                                      name="Observaciones"
+                                      rows="3"></textarea>
+
+                            <div class="invalid-feedback"></div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="alert alert-light border mt-3 mb-0 small">
+
+                        <i class="bi bi-info-circle text-primary me-1"></i>
+
+                        El estudiante se asociará automáticamente al encargado
+                        durante el registro.
+
+                    </div>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Guardar cliente
+                    </button>
+
+                </div>
+
             </form>
-          </div>
+
         </div>
-      </div>
 
+    </div>
+    ```
 
-      <div class="modal fade" id="ModalEliminarCliente" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL DETALLE CLIENTE -->
+<!-- ========================================================= -->
+<!-- ========================================================= -->
+<!-- MODAL EDITAR CLIENTE -->
+<!-- ========================================================= -->
+
+<div class="modal fade"
+     id="ModalEditarCliente"
+     tabindex="-1"
+     aria-hidden="true">
+
+    ```
+    <div class="modal-dialog modal-lg">
+
+        <div class="modal-content">
+
+            <form id="FormularioEditarCliente">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        Editar cliente
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+
+                            <label for="EditarNombreEncargado"
+                                   class="form-label">
+                                Nombre del encargado
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="EditarNombreEncargado">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label for="EditarTelefono"
+                                   class="form-label">
+                                Teléfono
+                            </label>
+
+                            <input type="tel"
+                                   class="form-control"
+                                   id="EditarTelefono">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label for="EditarCorreo"
+                                   class="form-label">
+                                Correo
+                            </label>
+
+                            <input type="email"
+                                   class="form-control"
+                                   id="EditarCorreo">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label for="EditarServicio"
+                                   class="form-label">
+                                Servicio
+                            </label>
+
+                            <select class="form-select"
+                                    id="EditarServicio">
+
+                                <option value="TutoriaAcademica">
+                                    Tutoría académica
+                                </option>
+
+                                <option value="ApoyoPsicopedagogico">
+                                    Apoyo psicopedagógico
+                                </option>
+
+                                <option value="Evaluaciones">
+                                    Evaluaciones
+                                </option>
+
+                                <option value="OrientacionPadres">
+                                    Orientación a padres
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Guardar cambios
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+    ```
+
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL ELIMINAR CLIENTE -->
+<!-- ========================================================= -->
+
+<div class="modal fade"
+     id="ModalEliminarCliente"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
             <div class="modal-header">
-              <h5 class="modal-title">Eliminar cliente</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                <h5 class="modal-title">
+                    Eliminar cliente
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar">
+                </button>
+
             </div>
+
             <div class="modal-body">
-              <p class="mb-0">
-                ¿Seguro que desea eliminar a <strong id="NombreClienteEliminar"></strong> de la lista de
-                clientes? Esta acción no se puede deshacer.
-              </p>
+
+                <p class="mb-0">
+                    ¿Está seguro de que desea eliminar a
+                    <strong id="NombreClienteEliminar"></strong>?
+                </p>
+
             </div>
+
             <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente">
-                <i class="bi bi-trash me-1"></i>Eliminar
-              </button>
+
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button type="button"
+                        class="btn btn-danger"
+                        id="BotonConfirmarEliminarCliente">
+                    Eliminar
+                </button>
+
             </div>
-          </div>
+
         </div>
-      </div>
+
+    </div>
+
+</div>
+
 
 @section Scripts {
-  <!-- Bootstrap 5 JS Bundle (CDN) -->
-  <script src="~/js/Validaciones.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var mapaBadgeEstado = {
-        "Nuevo": "badge-estado-nuevo",
-        "Contactado": "badge-estado-contactado",
-        "Cita agendada": "badge-estado-cita-agendada",
-        "Activo": "badge-estado-activo",
-        "Inactivo": "badge-estado-inactivo"
-      };
-      var mapaTextoEstado = {
-        "Nuevo": "Nuevo",
-        "Contactado": "Contactado",
-        "Cita agendada": "Cita agendada",
-        "Activo": "Cliente activo",
-        "Inactivo": "Inactivo"
-      };
-      var tabla = document.getElementById("TablaClientes");
-      var modalDetalleElemento = document.getElementById("ModalDetalleCliente");
-      var modalEditarElemento = document.getElementById("ModalEditarCliente");
-      var modalEliminarElemento = document.getElementById("ModalEliminarCliente");
-      var instanciaDetalle = bootstrap.Modal.getOrCreateInstance(modalDetalleElemento);
-      var instanciaEditar = bootstrap.Modal.getOrCreateInstance(modalEditarElemento);
-      var instanciaEliminar = bootstrap.Modal.getOrCreateInstance(modalEliminarElemento);
-      var filaSeleccionada = null;
-      function TextoCampo(fila, campo) {
-        return fila.querySelector('[data-campo="' + campo + '"]').textContent.trim();
-      }
-      tabla.addEventListener("click", function (evento) {
-        var boton = evento.target.closest("[data-accion]");
-        if (!boton) {
-          return;
-        }
-        filaSeleccionada = boton.closest("tr");
-        var accion = boton.getAttribute("data-accion");
-        if (accion === "ver") {
-          document.getElementById("DetalleEncargado").textContent = TextoCampo(filaSeleccionada, "encargado");
-          document.getElementById("DetalleTelefono").textContent = TextoCampo(filaSeleccionada, "telefono");
-          document.getElementById("DetalleCorreo").textContent = TextoCampo(filaSeleccionada, "correo");
-          document.getElementById("DetalleServicio").textContent = TextoCampo(filaSeleccionada, "servicio");
-          document.getElementById("DetalleEstudiante").textContent = TextoCampo(filaSeleccionada, "estudiante");
-          document.getElementById("EstadoActual").value = filaSeleccionada.getAttribute("data-estado");
-          instanciaDetalle.show();
-        } else if (accion === "editar") {
-          document.getElementById("EditarNombreEncargado").value = TextoCampo(filaSeleccionada, "encargado");
-          document.getElementById("EditarTelefono").value = TextoCampo(filaSeleccionada, "telefono");
-          document.getElementById("EditarCorreo").value = TextoCampo(filaSeleccionada, "correo");
-          document.getElementById("EditarServicio").value = TextoCampo(filaSeleccionada, "servicio");
-          instanciaEditar.show();
-        } else if (accion === "eliminar") {
-          document.getElementById("NombreClienteEliminar").textContent = TextoCampo(filaSeleccionada, "encargado");
-          instanciaEliminar.show();
-        }
-      });
-      document.getElementById("FormularioNuevoCliente").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("NombreEncargado"), "Ingrese el nombre del encargado.") && esValido;
-        esValido = ValidarTelefono(document.getElementById("TelefonoNuevoCliente")) && esValido;
-        esValido = ValidarCorreo(document.getElementById("CorreoNuevoCliente")) && esValido;
-        esValido = ValidarObligatorio(document.getElementById("ServicioInteresNuevoCliente"), "Seleccione un servicio de interés.") && esValido;
-        if (!esValido) {
-          return;
-        }
-        evento.target.reset();
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevoCliente")).hide();
-        MostrarToast("Cliente registrado correctamente.");
-      });
-      document.getElementById("FormularioCambiarEstado").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        if (!filaSeleccionada) {
-          return;
-        }
-        var nuevoEstado = document.getElementById("EstadoActual").value;
-        var insignia = filaSeleccionada.querySelector('[data-campo-badge="estado"]');
-        insignia.className = "badge " + mapaBadgeEstado[nuevoEstado];
-        insignia.textContent = mapaTextoEstado[nuevoEstado];
-        filaSeleccionada.setAttribute("data-estado", nuevoEstado);
-        instanciaDetalle.hide();
-        MostrarToast("Estado actualizado a \"" + mapaTextoEstado[nuevoEstado] + "\".");
-      });
-      document.getElementById("FormularioEditarCliente").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("EditarNombreEncargado"), "Ingrese el nombre del encargado.") && esValido;
-        esValido = ValidarTelefono(document.getElementById("EditarTelefono")) && esValido;
-        esValido = ValidarCorreo(document.getElementById("EditarCorreo")) && esValido;
-        if (!esValido || !filaSeleccionada) {
-          return;
-        }
-        filaSeleccionada.querySelector('[data-campo="encargado"]').textContent = document.getElementById("EditarNombreEncargado").value;
-        filaSeleccionada.querySelector('[data-campo="telefono"]').textContent = document.getElementById("EditarTelefono").value;
-        filaSeleccionada.querySelector('[data-campo="correo"]').textContent = document.getElementById("EditarCorreo").value;
-        filaSeleccionada.querySelector('[data-campo="servicio"]').textContent = document.getElementById("EditarServicio").value;
-        instanciaEditar.hide();
-        MostrarToast("Cliente actualizado correctamente.");
-      });
-      document.getElementById("BotonConfirmarEliminarCliente").addEventListener("click", function () {
-        if (!filaSeleccionada) {
-          return;
-        }
-        filaSeleccionada.remove();
-        instanciaEliminar.hide();
-        MostrarToast("Cliente eliminado de la lista.", "error");
-      });
-    });
-  </script>
+
+    ```
+    <script src="~/js/clientes.js"></script>
+    ```
+
 }

@@ -2,9 +2,9 @@ using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
-using SistemaPsicopedagogia.Api.Models;
+using MenteActiva.Api.Models;
 
-namespace SistemaPsicopedagogia.Api.Controllers;
+namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/comunicacion")]

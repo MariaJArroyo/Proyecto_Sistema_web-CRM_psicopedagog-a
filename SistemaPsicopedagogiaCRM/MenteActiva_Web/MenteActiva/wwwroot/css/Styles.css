@@ -163,17 +163,41 @@ a:hover {
 }
 
 .badge {
-  font-weight: 500;
-  font-size: 0.78rem;
-  padding: 0.4em 0.7em;
-  border-radius: 999px;
+    font-weight: 500;
+    font-size: 0.78rem;
+    padding: 0.4em 0.7em;
+    border-radius: 999px;
 }
 
-.badge-estado-nuevo          { background-color: #E4EBFA; color: #35528F; }
-.badge-estado-contactado     { background-color: #DFF3F8; color: #1C7C93; }
-.badge-estado-cita-agendada  { background-color: #ECE3FA; color: #6B3FA0; }
-.badge-estado-activo         { background-color: #E1F5EA; color: #2C7A52; }
-.badge-estado-inactivo       { background-color: #EAEDF1; color: #6B7A8C; }
+.badge-estado-nuevo {
+    background-color: #E4EBFA;
+    color: #35528F;
+}
+
+.badge-estado-contactado {
+    background-color: #DFF3F8;
+    color: #1C7C93;
+}
+
+.badge-estado-cita-agendada {
+    background-color: #ECE3FA;
+    color: #6B3FA0;
+}
+
+.badge-estado-activo {
+    background-color: #E1F5EA;
+    color: #2C7A52;
+}
+
+.badge-estado-inactivo {
+    background-color: #EAEDF1;
+    color: #6B7A8C;
+}
+
+.badge-estado-seguimiento {
+    background-color: #FBF1DC !important;
+    color: #96731B !important;
+}
 
 
 .badge-cita-programada  { background-color: #E4EBFA; color: #35528F; }
@@ -841,4 +865,6 @@ button.TopbarAdmin-Usuario {
     box-shadow: none !important;
     border: none !important;
   }
-}
+
+
+   

@@ -1,4 +1,4 @@
-namespace SistemaPsicopedagogia.Api.Models;
+namespace MenteActiva.Api.Models;
 
 public class SesionResponse
 {
