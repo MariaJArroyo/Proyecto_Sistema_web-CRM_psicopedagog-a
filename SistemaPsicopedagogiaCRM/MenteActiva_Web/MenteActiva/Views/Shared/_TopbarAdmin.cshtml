@@ -1,0 +1,24 @@
+      <header class="TopbarAdmin">
+        <div class="d-flex align-items-center gap-3">
+          <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
+            <i class="bi bi-list"></i>
+          </button>
+          <h1 class="TopbarAdmin-Titulo">@ViewData["Title"]</h1>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="d-none d-sm-inline">Marcela Solano</span>
+            <div class="TopbarAdmin-Avatar">MS</div>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
+            <li><a class="dropdown-item" href="/Admin/MiPerfil"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
+            <li><a class="dropdown-item" href="/Cuenta/Login"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+            </li>
+          </ul>
+        </div>
+      </header>
