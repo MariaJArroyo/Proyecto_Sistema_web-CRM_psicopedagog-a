@@ -1,0 +1,17 @@
+@{ ViewData["Title"] = "Enlace no válido"; }
+
+<div class="text-center">
+  <i class="bi bi-link-45deg text-warning" style="font-size: 2.5rem;"></i>
+  <h1 class="h5 mt-3">Este enlace no sirve</h1>
+  <p class="TextoSuave mb-4">
+    El enlace está incompleto, ya se usó o venció. Los enlaces sirven una sola vez
+    y tienen un tiempo límite.
+  </p>
+  <a asp-controller="Cuenta" asp-action="RecuperarContrasena" class="btn btn-primary w-100">
+    Solicitar un enlace nuevo
+  </a>
+</div>
+
+<p class="text-center TextoSuave small mt-4 mb-0">
+  <a asp-controller="Cuenta" asp-action="Login"><i class="bi bi-arrow-left me-1"></i>Volver a iniciar sesión</a>
+</p>

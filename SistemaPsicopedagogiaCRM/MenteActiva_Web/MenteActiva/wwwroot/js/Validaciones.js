@@ -129,24 +129,16 @@ function InicializarFormularioLogin() {
     });
   }
 
-  var destinosPorTipoAcceso = {
-    Admin: "/Admin/Dashboard",
-    Portal: "/Portal/Inicio"
-  };
-
+  // El formulario se envia al servidor. A donde entra la persona lo decide el
+  // rol que trae la base, no el tipo de acceso que eligio aqui.
   formulario.addEventListener("submit", function (evento) {
-    evento.preventDefault();
-    evento.stopPropagation();
-
     var esValido = true;
     esValido = ValidarCorreo(campoCorreo) && esValido;
     esValido = ValidarObligatorio(campoContrasena, "Ingrese su contraseña.") && esValido;
 
     if (!esValido) {
-      return;
+      evento.preventDefault();
+      evento.stopPropagation();
     }
-
-    var tipoAcceso = campoTipoAcceso ? campoTipoAcceso.value : "Admin";
-    window.location.href = destinosPorTipoAcceso[tipoAcceso] || destinosPorTipoAcceso.Admin;
   });
 }

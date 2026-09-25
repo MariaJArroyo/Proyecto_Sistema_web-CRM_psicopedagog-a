@@ -1,5 +1,14 @@
+@model IEnumerable<MenteActiva.Models.UsuarioExternoViewModel>
 @{
     ViewData["Title"] = "Usuarios externos";
+
+    string ClaseInsignia(string estado) => estado switch
+    {
+        "Activo" => "badge-estado-activo",
+        "Pendiente de activación" => "badge-estado-nuevo",
+        "Sin invitar" => "badge-estado-contactado",
+        _ => "badge-estado-inactivo"
+    };
 }
 
       <main class="PrincipalAdmin">
@@ -31,7 +40,15 @@
             </div>
           </div>
 
-          <!-- Razor: reemplazar por @@foreach (var acceso in Model.AccesosPortal) -->
+          @if (TempData["Mensaje"] is string aviso)
+          {
+            <div class="alert alert-success" role="alert">@aviso</div>
+          }
+          @if (TempData["Error"] is string problema)
+          {
+            <div class="alert alert-danger" role="alert">@problema</div>
+          }
+
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="TablaUsuariosExternos">
               <thead>
@@ -44,88 +61,35 @@
                 </tr>
               </thead>
               <tbody>
-                <tr data-fila data-estado="Activo" data-correo="carlos.jimenez@@example.com">
-                  <td>Carlos Jiménez</td>
-                  <td>carlos.jimenez@@example.com</td>
-                  <td>María Rodríguez, Andrés Jiménez</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Activo</span></td>
+                @foreach (var acceso in Model)
+                {
+                <tr data-fila data-estado="@acceso.Estado" data-correo="@acceso.Correo">
+                  <td>@acceso.Encargado</td>
+                  <td>@(acceso.Correo ?? "—")</td>
+                  <td>@(acceso.Estudiante ?? "—")</td>
+                  <td><span class="badge @ClaseInsignia(acceso.Estado)" data-campo-badge="estado">@acceso.Estado</span></td>
                   <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="restablecer">Restablecer
-                      contraseña</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger"
-                      data-accion="suspender">Suspender</button>
+                    @if (acceso.SePuedeInvitar)
+                    {
+                      <form asp-controller="Admin" asp-action="InvitarEncargado" method="post" class="d-inline">
+                        <input type="hidden" name="idEncargado" value="@acceso.IdEncargado">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Invitar al portal</button>
+                      </form>
+                    }
+                    else if (acceso.IdUsuario is null)
+                    {
+                      <span class="TextoSuave small">Falta el correo del encargado</span>
+                    }
+                    else
+                    {
+                      <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="restablecer">Restablecer
+                        contraseña</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-accion="suspender">Suspender</button>
+                    }
                   </td>
                 </tr>
-                <tr data-fila data-estado="Invitado" data-correo="rodolfo.vargas@@example.com">
-                  <td>Rodolfo Vargas</td>
-                  <td>rodolfo.vargas@@example.com</td>
-                  <td>Diego Vargas</td>
-                  <td><span class="badge badge-etiqueta-morado" data-campo-badge="estado">Invitado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="reenviar">Reenviar
-                      invitación</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Suspendido" data-correo="marta.mora@@example.com">
-                  <td>Marta Mora</td>
-                  <td>marta.mora@@example.com</td>
-                  <td>Valeria Mora</td>
-                  <td><span class="badge badge-etiqueta-rojo" data-campo-badge="estado">Suspendido</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary"
-                      data-accion="reactivar">Reactivar</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Sin invitar" data-correo="marjorie.castro@@example.com">
-                  <td>Marjorie Castro</td>
-                  <td>marjorie.castro@@example.com</td>
-                  <td>Ana Castro</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Sin invitar</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al
-                      portal</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Sin invitar" data-correo="jose.fernandez@@example.com">
-                  <td>José Fernández</td>
-                  <td>jose.fernandez@@example.com</td>
-                  <td>Kevin Fernández</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Sin invitar</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al
-                      portal</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Sin invitar" data-correo="laura.mendez@@example.com">
-                  <td>Laura Méndez</td>
-                  <td>laura.mendez@@example.com</td>
-                  <td>Fabián Méndez</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Sin invitar</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al
-                      portal</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Sin invitar" data-correo="patricia.araya@@example.com">
-                  <td>Patricia Araya</td>
-                  <td>patricia.araya@@example.com</td>
-                  <td>Emily Araya</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Sin invitar</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al
-                      portal</button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Sin invitar" data-correo="oscar.solis@@example.com">
-                  <td>Óscar Solís</td>
-                  <td>oscar.solis@@example.com</td>
-                  <td>Fabián Solís</td>
-                  <td><span class="badge badge-estado-nuevo" data-campo-badge="estado">Sin invitar</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al
-                      portal</button>
-                  </td>
-                </tr>
+                }
               </tbody>
             </table>
           </div>
