@@ -10,4 +10,5 @@ public class ClienteResponse
     public string? Estudiante { get; set; }
     public string Estado { get; set; } = string.Empty;
     public int IdEstadoCliente { get; set; }
+    public int CantidadEstudiantes { get; set; }
 }

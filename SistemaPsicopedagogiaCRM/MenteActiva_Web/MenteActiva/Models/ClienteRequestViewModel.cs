@@ -25,14 +25,6 @@ public class ClienteRequestViewModel
     [Display(Name = "Servicio de interes")]
     public int IdServicioInteres { get; set; }
 
-    [Required(ErrorMessage = "El nombre del estudiante es obligatorio.")]
-    [Display(Name = "Nombre del estudiante")]
-    public string NombreEstudiante { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "El apellido del estudiante es obligatorio.")]
-    [Display(Name = "Apellido del estudiante")]
-    public string ApellidoEstudiante { get; set; } = string.Empty;
-
     [Display(Name = "Observaciones")]
     public string? Observaciones { get; set; }
 }
