@@ -1,0 +1,40 @@
+@model MenteActiva.Models.DefinirContrasenaViewModel
+@{ ViewData["Title"] = "Definir contraseña"; }
+
+<p class="TextoSuave text-center mb-4">
+  Escriba la contraseña con la que va a entrar al sistema. Debe tener al menos 8 caracteres.
+</p>
+
+@if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+{
+  <div class="alert alert-danger" role="alert">
+    @foreach (var error in ViewData.ModelState[string.Empty]!.Errors)
+    {
+      <div>@error.ErrorMessage</div>
+    }
+  </div>
+}
+
+<form asp-controller="Cuenta" asp-action="DefinirContrasena" method="post" novalidate>
+  <input type="hidden" asp-for="Token">
+
+  <div class="mb-3">
+    <label for="Contrasena" class="form-label CampoObligatorio">Contraseña nueva</label>
+    <input type="password" class="form-control" asp-for="Contrasena" autocomplete="new-password">
+    <span asp-validation-for="Contrasena" class="text-danger small"></span>
+  </div>
+
+  <div class="mb-4">
+    <label for="ConfirmarContrasena" class="form-label CampoObligatorio">Repita la contraseña</label>
+    <input type="password" class="form-control" asp-for="ConfirmarContrasena" autocomplete="new-password">
+    <span asp-validation-for="ConfirmarContrasena" class="text-danger small"></span>
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100 btn-lg">
+    <i class="bi bi-shield-check me-1"></i>Guardar contraseña
+  </button>
+</form>
+
+<p class="text-center TextoSuave small mt-4 mb-0">
+  <a asp-controller="Cuenta" asp-action="Login"><i class="bi bi-arrow-left me-1"></i>Volver a iniciar sesión</a>
+</p>

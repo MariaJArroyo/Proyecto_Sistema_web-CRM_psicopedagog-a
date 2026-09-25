@@ -7,8 +7,8 @@
 -- sistema funciona solo con 01 y 02.
 --
 -- Se puede correr varias veces sin duplicar: Ids fijos y
--- ON DUPLICATE KEY UPDATE sin cambios. Los contrasenaHash son texto
--- de relleno, no sirven para iniciar sesion.
+-- ON DUPLICATE KEY UPDATE sin cambios. Los usuarios de la seccion
+-- "Usuarios base" traen contrasena real y sirven para entrar.
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -23,21 +23,61 @@ INSERT INTO TB_ENCARGADO (IdEncargado, IdEstadoCliente, IdServicioInteres, Nombr
   (4, 6, 4, 'Diego', 'Campos', NULL, NULL, NULL)
 ON DUPLICATE KEY UPDATE IdEncargado = IdEncargado;
 
+-- ------------------------------------------------------------
+-- Usuarios base para desarrollo
+--
+-- El hash lo genera PasswordHasher de ASP.NET Core (PBKDF2-HMAC-SHA256);
+-- el salt va dentro del mismo texto, por eso ContrasenaSalt queda en NULL.
+--
+-- Panel administrativo:
+--   admin.prueba@example.com          Admin123*    Administrador
+--   psicopedagoga.prueba@example.com  Psico123*    Psicopedagoga
+--
+-- Portal de encargados (lado del cliente):
+--   andrea.prueba@example.com         Andrea123*   un estudiante (Lucia)
+--   marco.prueba@example.com          Marco123*    dos estudiantes, sale el selector
+--   paula.prueba@example.com          --           sin contrasena todavia
+--
+-- Paula queda en "Pendiente de activacion" a proposito: es la cuenta para
+-- probar la invitacion y la pantalla de definir contrasena. Todavia no tiene
+-- contrasena, asi que el login la rechaza con el mensaje generico. Para
+-- activarla se usa "Olvido su contrasena" desde el login; mientras el API
+-- corra con Correo:Proveedor = Registro, el enlace sale en la consola del API
+-- en vez de irse por correo, y no hace falta buzon.
+--
+-- Claves de desarrollo, no se usan en despliegue.
+--
+-- A diferencia del resto del script, aqui si se pisa lo que haya: al
+-- reejecutar, las cinco cuentas vuelven a su contrasena y su estado de
+-- origen, y se limpian los intentos fallidos. Sirve para destrabar una
+-- cuenta que quedo bloqueada probando.
+-- ------------------------------------------------------------
 INSERT INTO TB_USUARIO (IdUsuario, IdEncargado, IdEstadoUsuario, NombreCompleto, Correo, ContrasenaHash) VALUES
-  (1, NULL, 1, 'Psicopedagoga de prueba', 'psicopedagoga.prueba@example.com', 'hash-de-relleno'),
-  (2, 1, 1, 'Andrea Solís Mora', 'andrea.prueba@example.com', 'hash-de-relleno')
-ON DUPLICATE KEY UPDATE IdUsuario = IdUsuario;
+  (1, NULL, 1, 'Psicopedagoga de prueba', 'psicopedagoga.prueba@example.com', 'AQAAAAIAAYagAAAAEB+yFZIUfmZakqDCJ91P8RvZxP5uLRg4oCyy+RjdOb3YzcJnaxTOP0z+ywOFU3jKdg=='),
+  (2, 1, 1, 'Andrea Solís Mora', 'andrea.prueba@example.com', 'AQAAAAIAAYagAAAAEBK2xFtBZVB7DKXjkoZtexwFA5OYmr17Jvnxs3qvCiOat32XoHHhkA79OLoBn/VtTw=='),
+  (3, NULL, 1, 'Administrador de prueba', 'admin.prueba@example.com', 'AQAAAAIAAYagAAAAEGu2RmE/YINq5W2e3sQJwgBf8Cum1alAcSV3Zmfz2GAsLSgLvvLy/hOZDtu/h2wRRA=='),
+  (4, 2, 1, 'Marco Vindas Rojas', 'marco.prueba@example.com', 'AQAAAAIAAYagAAAAEE0Ogn3JgaeZ+AV+YVRcTeYrFAs6ni4y/ppcmuhP+5BR+/IqLqdXFIj2/nz6SHgZgg=='),
+  (5, 3, 4, 'Paula Jiménez Arce', 'paula.prueba@example.com', 'PENDIENTE_ACTIVACION') AS nuevo
+ON DUPLICATE KEY UPDATE
+  ContrasenaHash = nuevo.ContrasenaHash,
+  IdEstadoUsuario = nuevo.IdEstadoUsuario,
+  IntentosFallidos = 0;
 
+-- Un rol por usuario: asi lo aplica SP_Usuario_AsignarRol
 INSERT INTO TB_USUARIO_ROL (IdUsuarioRol, IdUsuario, IdRol) VALUES
   (1, 1, 2),
-  (2, 2, 4)
+  (2, 2, 4),
+  (3, 3, 1),
+  (4, 4, 4),
+  (5, 5, 4)
 ON DUPLICATE KEY UPDATE IdUsuarioRol = IdUsuarioRol;
 
 -- Andrea con dos telefonos, uno principal
 INSERT INTO TB_TELEFONO (IdTelefono, IdEncargado, IdTipoTelefono, Numero, EsPrincipal) VALUES
   (1, 1, 1, '88880001', 1),
   (2, 1, 2, '22220001', 0),
-  (3, 2, 1, '88880002', 1)
+  (3, 2, 1, '88880002', 1),
+  (4, 3, 1, '88880003', 1)
 ON DUPLICATE KEY UPDATE IdTelefono = IdTelefono;
 
 INSERT INTO TB_ESTUDIANTE (IdEstudiante, IdNivelEducativo, IdInstitucion, Nombre, PrimerApellido, SegundoApellido, FechaNacimiento, NecesidadesApoyo) VALUES
@@ -45,11 +85,14 @@ INSERT INTO TB_ESTUDIANTE (IdEstudiante, IdNivelEducativo, IdInstitucion, Nombre
   (2, 2, 2, 'Tomás', 'Vindas', 'Campos', '2018-09-03', 'Refuerzo en operaciones básicas.')
 ON DUPLICATE KEY UPDATE IdEstudiante = IdEstudiante;
 
--- Lucia tiene dos encargados (Andrea principal) y Marco tiene dos estudiantes
+-- Lucia tiene dos encargados (Andrea principal) y Marco tiene dos estudiantes.
+-- Paula queda de tutora legal de Tomas para que su portal tenga contenido
+-- apenas active la cuenta.
 INSERT INTO TB_ESTUDIANTE_ENCARGADO (IdEstudianteEncargado, IdEstudiante, IdEncargado, IdParentesco, EsPrincipal) VALUES
   (1, 1, 1, 1, 1),
   (2, 1, 2, 2, 0),
-  (3, 2, 2, 2, 1)
+  (3, 2, 2, 2, 1),
+  (4, 2, 3, 3, 0)
 ON DUPLICATE KEY UPDATE IdEstudianteEncargado = IdEstudianteEncargado;
 
 INSERT INTO TB_ESTUDIANTE_AREA (IdEstudianteArea, IdEstudiante, IdAreaDificultad, Observacion) VALUES

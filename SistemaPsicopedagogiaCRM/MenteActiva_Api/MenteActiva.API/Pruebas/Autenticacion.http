@@ -1,0 +1,290 @@
+### Pruebas de los endpoints de autenticacion
+### Correr el API y ejecutar las peticiones de arriba hacia abajo.
+### Las cuentas de prueba salen de 03_datos_prueba.sql.
+
+@host = http://localhost:5301
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+
+
+### 1. Login correcto. Devuelve 200 con el token y el rol.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+
+### 2. Contrasena incorrecta. Devuelve 401 y suma un intento fallido.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "no-es-la-clave"
+}
+
+
+### 3. Correo que no existe. Devuelve el mismo 401 y el mismo texto que el 2.
+### Si dijera algo distinto, se podria averiguar que correos tienen cuenta.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "nadie@example.com",
+  "contrasena": "no-es-la-clave"
+}
+
+
+### 4. Correo con formato invalido. Devuelve 400 por la validacion del modelo.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "esto-no-es-un-correo",
+  "contrasena": "Admin123*"
+}
+
+
+### 5. Solicitar restablecimiento. Siempre 200, exista o no la cuenta.
+### En desarrollo la respuesta trae el token para poder seguir la prueba.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}"
+}
+
+
+### 6. Solicitar restablecimiento de un correo inexistente.
+### Tiene que responder exactamente igual que el 5, sin token.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "nadie@example.com"
+}
+
+
+### 7. Restablecer con el token del paso 5.
+### Pegar aqui el token que devolvio esa respuesta.
+POST {{host}}/api/autenticacion/restablecer
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DEL_PASO_5",
+  "contrasenaNueva": "Admin123*"
+}
+
+
+### 8. Reusar el token del paso 7. Devuelve 400: un enlace sirve una sola vez.
+POST {{host}}/api/autenticacion/restablecer
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DEL_PASO_5",
+  "contrasenaNueva": "Otra123456*"
+}
+
+
+### 9. Token inventado. Devuelve 400 con el mensaje del procedimiento.
+POST {{host}}/api/autenticacion/restablecer
+Content-Type: application/json
+
+{
+  "token": "token-que-no-existe",
+  "contrasenaNueva": "Otra123456*"
+}
+
+
+### 10. Contrasena nueva demasiado corta. Devuelve 400 por la validacion.
+POST {{host}}/api/autenticacion/restablecer
+Content-Type: application/json
+
+{
+  "token": "token-que-no-existe",
+  "contrasenaNueva": "corta"
+}
+
+
+### 11. Activar una invitacion. Mismo cuerpo que restablecer.
+### El token lo genera el alta del usuario.
+POST {{host}}/api/autenticacion/activar
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DE_LA_INVITACION",
+  "contrasenaNueva": "Clave123456*"
+}
+
+
+### ============================================================
+### Proteccion del API: nada responde sin token
+### ============================================================
+
+### 12. Sin cabecera de autorizacion. Devuelve 401 y WWW-Authenticate: Bearer.
+GET {{host}}/api/clientes
+
+
+### 13. Con un token que no es un token. Devuelve 401.
+GET {{host}}/api/clientes
+Authorization: Bearer no-es-un-token
+
+
+### 14. Con un token valido al que se le cambio un caracter. Devuelve 401:
+### la firma deja de cuadrar.
+GET {{host}}/api/clientes
+Authorization: Bearer PEGAR_TOKEN_VALIDO_CON_UN_CARACTER_CAMBIADO
+
+
+### 15. Con el token del paso 1. Devuelve 200.
+GET {{host}}/api/clientes
+Authorization: Bearer PEGAR_TOKEN_DEL_PASO_1
+
+
+### 16. El unico endpoint abierto aparte de autenticacion: comprueba que el
+### API esta arriba. Devuelve 200 sin token.
+GET {{host}}/api/home
+
+
+### ============================================================
+### HU-M13-1: asignacion de rol
+### ============================================================
+
+### 17. Asignar un rol valido. Devuelve 200.
+PUT {{host}}/api/usuarios/4/rol
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "idRol": 1
+}
+
+
+### 18. Asignar un rol que no existe. Devuelve 400 con el mensaje del
+### procedimiento y no guarda nada.
+PUT {{host}}/api/usuarios/4/rol
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "idRol": 99
+}
+
+
+### 19. Asignar rol con un token que no es de Administrador. Devuelve 403.
+PUT {{host}}/api/usuarios/4/rol
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ASISTENTE
+
+{
+  "idRol": 1
+}
+
+
+### ============================================================
+### Bloqueo por intentos fallidos
+### ============================================================
+
+### 20. Repetir esta peticion cinco veces seguidas con la misma cuenta.
+### A partir del quinto fallo la cuenta queda bloqueada.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "clave-incorrecta"
+}
+
+
+### 21. Ahora con la contrasena CORRECTA. Devuelve 401, pero con otro texto:
+### "La cuenta esta bloqueada por intentos fallidos. Restablezca su contraseña."
+### El estado solo se revela cuando la contrasena ya era buena.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+
+### 22. Pedir el enlace y usarlo (pasos 5 y 7) desbloquea la cuenta:
+### deja el estado en Activo y los intentos en cero.
+
+
+### ============================================================
+### Token vencido
+### ============================================================
+
+### 23. Para probarlo hay que levantar el API con la vigencia en negativo:
+###     Jwt__HorasVigencia=-1 dotnet run
+### Se pide un token con el paso 1 y se usa aqui. Devuelve 401 con
+### WWW-Authenticate: Bearer error="invalid_token",
+### error_description="The token expired at ..."
+GET {{host}}/api/clientes
+Authorization: Bearer PEGAR_TOKEN_EMITIDO_YA_VENCIDO
+
+
+### ============================================================
+### Administracion de usuarios
+### ============================================================
+
+### 24. Listar usuarios internos. Solo Administrador.
+GET {{host}}/api/usuarios?soloInternos=true&pagina=1&tamanoPagina=25
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+
+### 25. Crear un usuario e invitarlo. En desarrollo la respuesta trae el token
+### del enlace para poder seguir la prueba sin buzon de correo.
+POST {{host}}/api/usuarios
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "nombreCompleto": "Asistente de prueba",
+  "correo": "asistente.prueba@example.com",
+  "idRol": 3
+}
+
+
+### 26. Crear con un correo que ya existe. Devuelve 400 con el mensaje del
+### procedimiento: "Ya existe un usuario con ese correo."
+POST {{host}}/api/usuarios
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "nombreCompleto": "Repetido",
+  "correo": "admin.prueba@example.com",
+  "idRol": 3
+}
+
+
+### 27. Listar encargados con su estado de invitacion al portal.
+GET {{host}}/api/usuarios-externos
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+
+### 28. Invitar a un encargado. Repetirlo devuelve 400:
+### "Ese encargado ya tiene acceso al portal."
+POST {{host}}/api/usuarios-externos
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "idEncargado": 2
+}
+
+
+### 29. Invitar a un encargado sin correo. Devuelve 400:
+### "El encargado no tiene correo registrado."
+POST {{host}}/api/usuarios-externos
+Content-Type: application/json
+Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
+
+{
+  "idEncargado": 4
+}

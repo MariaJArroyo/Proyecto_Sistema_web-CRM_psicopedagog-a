@@ -1,3 +1,10 @@
+@{
+  var nombreUsuario = User.Identity?.Name ?? "Invitado";
+  var iniciales = string.Concat(
+    nombreUsuario.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                 .Take(2)
+                 .Select(p => char.ToUpperInvariant(p[0])));
+}
       <header class="TopbarAdmin">
         <div class="d-flex align-items-center gap-3">
           <button type="button" class="BotonSidebarToggle" aria-label="Abrir menú">
@@ -7,17 +14,22 @@
         </div>
         <div class="dropdown">
           <button type="button" class="TopbarAdmin-Usuario" data-bs-toggle="dropdown" aria-expanded="false">
-            <span class="d-none d-sm-inline">Marcela Solano</span>
-            <div class="TopbarAdmin-Avatar">MS</div>
+            <span class="d-none d-sm-inline">@nombreUsuario</span>
+            <div class="TopbarAdmin-Avatar">@iniciales</div>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <!-- Razor: asp-controller="Cuenta" asp-action="MiPerfil" -->
             <li><a class="dropdown-item" href="/Admin/MiPerfil"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
             <li>
               <hr class="dropdown-divider">
             </li>
-            <!-- Razor: asp-controller="Cuenta" asp-action="CerrarSesion" -->
-            <li><a class="dropdown-item" href="/Cuenta/Login"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+            <li>
+              <!-- Cerrar sesion va por POST: con un enlace, otro sitio podria
+                   sacar a la persona de su sesion desde una imagen -->
+              <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="m-0">
+                <button type="submit" class="dropdown-item">
+                  <i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión
+                </button>
+              </form>
             </li>
           </ul>
         </div>

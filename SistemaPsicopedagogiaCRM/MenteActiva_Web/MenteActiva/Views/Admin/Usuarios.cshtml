@@ -1,5 +1,23 @@
+@model IEnumerable<MenteActiva.Models.UsuarioViewModel>
 @{
     ViewData["Title"] = "Usuarios internos";
+
+    // Los roles son fijos y no se configuran en caliente; Encargado no va aqui
+    // porque esas cuentas se crean desde "Usuarios externos"
+    var roles = new Dictionary<int, string>
+    {
+        [1] = "Administrador",
+        [2] = "Psicopedagoga",
+        [3] = "Asistente"
+    };
+
+    string ClaseInsignia(string estado) => estado switch
+    {
+        "Activo" => "badge-estado-activo",
+        "Pendiente de activación" => "badge-estado-nuevo",
+        "Bloqueado" => "badge-estado-contactado",
+        _ => "badge-estado-inactivo"
+    };
 }
 
       <main class="PrincipalAdmin">
@@ -15,6 +33,15 @@
             <i class="bi bi-plus-lg me-1"></i>Nuevo usuario
           </button>
         </div>
+
+        @if (TempData["Mensaje"] is string aviso)
+        {
+          <div class="alert alert-success" role="alert">@aviso</div>
+        }
+        @if (TempData["Error"] is string problema)
+        {
+          <div class="alert alert-danger" role="alert">@problema</div>
+        }
 
         <div class="Tarjeta p-3 p-md-4">
 
@@ -34,7 +61,6 @@
             </div>
           </div>
 
-          <!-- Razor: reemplazar por @@foreach (var usuario in Model.UsuariosInternos) -->
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="TablaUsuarios">
               <thead>
@@ -47,12 +73,27 @@
                 </tr>
               </thead>
               <tbody>
-                <tr data-fila data-estado="Activo" data-valor-nombre="Marcela Solano"
-                  data-valor-correo="marcela.solano@@menteactiva.cr" data-valor-rol="Administradora">
-                  <td data-campo="nombre">Marcela Solano</td>
-                  <td data-campo="correo">marcela.solano@@menteactiva.cr</td>
-                  <td data-campo="rol">Administradora</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Activo</span></td>
+                @foreach (var usuario in Model)
+                {
+                <tr data-fila data-estado="@usuario.Estado" data-valor-nombre="@usuario.NombreCompleto"
+                  data-valor-correo="@usuario.Correo" data-valor-rol="@usuario.Rol">
+                  <td data-campo="nombre">@usuario.NombreCompleto</td>
+                  <td data-campo="correo">@usuario.Correo</td>
+                  <td data-campo="rol">
+                    <form asp-controller="Admin" asp-action="AsignarRol" method="post"
+                      class="d-flex align-items-center gap-1">
+                      <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                      <select name="idRol" class="form-select form-select-sm" aria-label="Rol de @usuario.NombreCompleto">
+                        @foreach (var rol in roles)
+                        {
+                          <option value="@rol.Key" selected="@(usuario.Rol == rol.Value)">@rol.Value</option>
+                        }
+                      </select>
+                      <button type="submit" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip"
+                        title="Guardar rol"><i class="bi bi-check-lg"></i></button>
+                    </form>
+                  </td>
+                  <td><span class="badge @ClaseInsignia(usuario.Estado)" data-campo-badge="estado">@usuario.Estado</span></td>
                   <td class="TablaAcciones">
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
                       data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
@@ -60,19 +101,7 @@
                       data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
                   </td>
                 </tr>
-                <tr data-fila data-estado="Activo" data-valor-nombre="Diana Rojas"
-                  data-valor-correo="diana.rojas@@menteactiva.cr" data-valor-rol="Asistente">
-                  <td data-campo="nombre">Diana Rojas</td>
-                  <td data-campo="correo">diana.rojas@@menteactiva.cr</td>
-                  <td data-campo="rol">Asistente</td>
-                  <td><span class="badge badge-estado-activo" data-campo-badge="estado">Activo</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
-                      data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
-                  </td>
-                </tr>
+                }
               </tbody>
             </table>
           </div>
@@ -89,29 +118,30 @@
       <div class="modal fade" id="ModalNuevoUsuario" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
-            <!-- Razor: asp-controller="Usuarios" asp-action="Crear" method="post" -->
-            <form id="FormularioNuevoUsuario" novalidate>
+            <form asp-controller="Admin" asp-action="CrearUsuario" method="post" id="FormularioNuevoUsuario">
               <div class="modal-header">
                 <h5 class="modal-title">Nuevo usuario interno</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
               <div class="modal-body">
                 <div class="mb-3">
-                  <label for="NombreUsuario" class="form-label CampoObligatorio">Nombre completo</label>
-                  <input type="text" class="form-control" id="NombreUsuario">
+                  <label for="NombreCompleto" class="form-label CampoObligatorio">Nombre completo</label>
+                  <input type="text" class="form-control" id="NombreCompleto" name="NombreCompleto" required>
                   <div class="invalid-feedback"></div>
                 </div>
                 <div class="mb-3">
-                  <label for="CorreoUsuario" class="form-label CampoObligatorio">Correo electrónico</label>
-                  <input type="email" class="form-control" id="CorreoUsuario">
+                  <label for="Correo" class="form-label CampoObligatorio">Correo electrónico</label>
+                  <input type="email" class="form-control" id="Correo" name="Correo" required>
                   <div class="invalid-feedback"></div>
                 </div>
                 <div class="mb-1">
-                  <label for="RolUsuario" class="form-label CampoObligatorio">Rol</label>
-                  <select class="form-select" id="RolUsuario">
+                  <label for="IdRol" class="form-label CampoObligatorio">Rol</label>
+                  <select class="form-select" id="IdRol" name="IdRol" required>
                     <option value="" selected>Seleccione</option>
-                    <option value="Administradora">Administradora</option>
-                    <option value="Asistente">Asistente</option>
+                    @foreach (var rol in roles)
+                    {
+                      <option value="@rol.Key">@rol.Value</option>
+                    }
                   </select>
                   <div class="invalid-feedback"></div>
                 </div>
