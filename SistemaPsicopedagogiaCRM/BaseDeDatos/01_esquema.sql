@@ -49,6 +49,14 @@ CREATE TABLE IF NOT EXISTS TB_ESTADO_CLIENTE (
   CONSTRAINT CK_EstadoCliente_Orden CHECK (Orden IS NULL OR Orden > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE IF NOT EXISTS TB_ESTADO_SOLICITUD (
+  IdEstadoSolicitud INT NOT NULL AUTO_INCREMENT,
+  Nombre VARCHAR(50) NOT NULL,
+  PRIMARY KEY (IdEstadoSolicitud),
+  UNIQUE KEY UX_EstadoSolicitud_Nombre (Nombre),
+  CONSTRAINT CK_EstadoSolicitud_NombreNoVacio CHECK (TRIM(Nombre) <> '')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS TB_ESTADO_CITA (
   IdEstadoCita INT NOT NULL AUTO_INCREMENT,
   Nombre VARCHAR(50) NOT NULL,
@@ -363,6 +371,41 @@ CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_ENCARGADO (
     REFERENCES TB_ENCARGADO (IdEncargado) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT FK_EstudianteEncargado_Parentesco FOREIGN KEY (IdParentesco)
     REFERENCES TB_PARENTESCO (IdParentesco) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Mensajes del formulario publico. No son clientes: el equipo los revisa y,
+-- si procede, los convierte (IdEncargado queda enlazado al cliente creado).
+CREATE TABLE IF NOT EXISTS TB_SOLICITUD_CONTACTO (
+  IdSolicitud INT NOT NULL AUTO_INCREMENT,
+  IdEstadoSolicitud INT NOT NULL DEFAULT 1,
+  IdServicioInteres INT NULL,
+  IdEncargado INT NULL,
+  IdUsuarioAtiende INT NULL,
+  Nombre VARCHAR(100) NOT NULL,
+  Apellido VARCHAR(100) NOT NULL,
+  Telefono VARCHAR(15) NOT NULL,
+  Correo VARCHAR(150) NOT NULL,
+  Mensaje VARCHAR(2000) NOT NULL,
+  NotaInterna VARCHAR(1000) NULL,
+  DireccionIp VARCHAR(45) NULL,
+  FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FechaAtencion DATETIME NULL,
+  PRIMARY KEY (IdSolicitud),
+  KEY IX_Solicitud_Estado (IdEstadoSolicitud),
+  KEY IX_Solicitud_Fecha (FechaRegistro),
+  KEY IX_Solicitud_Ip (DireccionIp, FechaRegistro),
+  CONSTRAINT FK_Solicitud_Estado FOREIGN KEY (IdEstadoSolicitud)
+    REFERENCES TB_ESTADO_SOLICITUD (IdEstadoSolicitud) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Solicitud_Servicio FOREIGN KEY (IdServicioInteres)
+    REFERENCES TB_SERVICIO (IdServicio) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Solicitud_Encargado FOREIGN KEY (IdEncargado)
+    REFERENCES TB_ENCARGADO (IdEncargado) ON DELETE SET NULL ON UPDATE RESTRICT,
+  CONSTRAINT FK_Solicitud_UsuarioAtiende FOREIGN KEY (IdUsuarioAtiende)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_Solicitud_NombreNoVacio CHECK (TRIM(Nombre) <> ''),
+  CONSTRAINT CK_Solicitud_ApellidoNoVacio CHECK (TRIM(Apellido) <> ''),
+  CONSTRAINT CK_Solicitud_MensajeNoVacio CHECK (TRIM(Mensaje) <> ''),
+  CONSTRAINT CK_Solicitud_Telefono CHECK (Telefono REGEXP '^[0-9]{8}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_AREA (
@@ -805,3 +848,6 @@ CREATE TABLE IF NOT EXISTS TB_BITACORA (
   CONSTRAINT CK_Bitacora_EntidadNoVacio CHECK (TRIM(Entidad) <> ''),
   CONSTRAINT CK_Bitacora_Accion CHECK (Accion IN ('Crear', 'Editar', 'Eliminar', 'CambiarEstado'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+

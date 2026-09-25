@@ -189,52 +189,81 @@
         <div class="col-lg-7">
           <div class="Tarjeta p-4 p-md-5">
 
-            <div class="alert alert-success d-none" role="alert" id="ConfirmacionContacto">
+                        <div class="alert alert-success d-none" role="alert" id="ConfirmacionContacto">
               <i class="bi bi-check-circle me-1"></i>
               ¡Gracias por escribirnos! Te contactaremos muy pronto.
             </div>
 
-            <!-- Razor: asp-controller="Contacto" asp-action="Enviar" method="post" -->
-            <form id="FormularioContacto" novalidate>
+            <div class="alert alert-danger d-none" role="alert" id="ErrorContacto"></div>
+
+            <form id="FormularioContacto" action="/Home/EnviarContacto" method="post" novalidate>
+
+              @Html.AntiForgeryToken()
+
+              <!-- Campo trampa para bots: fuera de la pantalla, sin tabulacion ni autocompletar -->
+              <div style="position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
+                <label for="SitioWeb">No llenar este campo</label>
+                <input type="text" id="SitioWeb" name="SitioWeb" tabindex="-1" autocomplete="off">
+              </div>
+
               <div class="row g-3">
+
                 <div class="col-md-6">
-                  <label for="Nombre" class="form-label CampoObligatorio">Nombre completo</label>
-                  <input type="text" class="form-control" id="Nombre" name="Nombre" placeholder="Su nombre">
+                  <label for="Nombre" class="form-label CampoObligatorio">Nombre</label>
+                  <input type="text" class="form-control" id="Nombre" name="Nombre" maxlength="100"
+                         autocomplete="given-name" placeholder="Su nombre">
                   <div class="invalid-feedback"></div>
                 </div>
+
+                <div class="col-md-6">
+                  <label for="Apellido" class="form-label CampoObligatorio">Apellido</label>
+                  <input type="text" class="form-control" id="Apellido" name="Apellido" maxlength="100"
+                         autocomplete="family-name" placeholder="Su apellido">
+                  <div class="invalid-feedback"></div>
+                </div>
+
                 <div class="col-md-6">
                   <label for="Telefono" class="form-label CampoObligatorio">Teléfono</label>
-                  <input type="tel" class="form-control" id="Telefono" name="Telefono" placeholder="8888-8888">
+                  <input type="tel" class="form-control" id="Telefono" name="Telefono"
+                         autocomplete="tel-national" placeholder="8888-8888">
                   <div class="invalid-feedback"></div>
                 </div>
+
                 <div class="col-md-6">
                   <label for="CorreoElectronico" class="form-label CampoObligatorio">Correo electrónico</label>
                   <input type="email" class="form-control" id="CorreoElectronico" name="CorreoElectronico"
-                    placeholder="correo@@ejemplo.com">
+                         maxlength="150" autocomplete="email" placeholder="correo@@ejemplo.com">
                   <div class="invalid-feedback"></div>
                 </div>
-                <div class="col-md-6">
+
+                <div class="col-12">
                   <label for="ServicioInteres" class="form-label CampoObligatorio">Servicio de interés</label>
-                  <!-- Razor: <select> vendrá de un SelectList de servicios -->
-                  <select class="form-select" id="ServicioInteres" name="ServicioInteres">
+                  <select class="form-select" id="ServicioInteres" name="IdServicioInteres">
                     <option value="" selected>Seleccione una opción</option>
-                    <option value="TutoriaAcademica">Tutoría académica</option>
-                    <option value="ApoyoPsicopedagogico">Apoyo psicopedagógico</option>
-                    <option value="Evaluaciones">Evaluaciones</option>
-                    <option value="OrientacionPadres">Orientación a padres</option>
+                    @if (ViewBag.Servicios != null)
+                    {
+                      foreach (var servicio in ViewBag.Servicios)
+                      {
+                        <option value="@servicio.IdServicio">@servicio.Nombre</option>
+                      }
+                    }
                   </select>
                   <div class="invalid-feedback"></div>
                 </div>
+
                 <div class="col-12">
                   <label for="Mensaje" class="form-label CampoObligatorio">Mensaje</label>
-                  <textarea class="form-control" id="Mensaje" name="Mensaje" rows="4"
-                    placeholder="Contanos brevemente qué necesitás"></textarea>
+                  <textarea class="form-control" id="Mensaje" name="Mensaje" rows="4" maxlength="2000"
+                            placeholder="Contanos brevemente qué necesitás"></textarea>
                   <div class="invalid-feedback"></div>
                 </div>
+
               </div>
-              <button type="submit" class="btn btn-primary btn-lg mt-4">
+
+              <button type="submit" class="btn btn-primary btn-lg mt-4" id="BotonEnviarContacto">
                 <i class="bi bi-send me-1"></i>Enviar mensaje
               </button>
+
             </form>
           </div>
         </div>

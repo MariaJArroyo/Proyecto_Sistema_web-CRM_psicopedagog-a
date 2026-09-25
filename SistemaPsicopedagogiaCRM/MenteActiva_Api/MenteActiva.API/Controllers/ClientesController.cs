@@ -108,6 +108,7 @@ public class ClientesController : ControllerBase
         parametros.Add("p_IdServicioInteres", request.IdServicioInteres);
         parametros.Add("p_Observaciones", request.Observaciones);
         parametros.Add("p_EstudiantesJson", estudiantesJson);
+        parametros.Add("p_IdSolicitud", request.IdSolicitud);
 
         return EjecutarSp(
             "SP_RegistrarCliente_CRM",

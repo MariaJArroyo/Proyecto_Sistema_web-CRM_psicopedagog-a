@@ -248,6 +248,86 @@ public class AdminController : Controller
 
     #endregion
 
+    #region Solicitudes
+
+    public IActionResult Solicitudes()
+    {
+        using var client = _http.CreateClient();
+
+        var solicitudes = client
+            .GetFromJsonAsync<List<SolicitudViewModel>>(UrlApi("solicitudes"))
+            .Result;
+
+        ViewBag.EstadosSolicitud = client
+            .GetFromJsonAsync<List<EstadoSolicitudViewModel>>(UrlApi("solicitudes/estados")).Result
+            ?? new List<EstadoSolicitudViewModel>();
+
+        // El modal de Nuevo cliente (convertir) necesita servicios, parentescos y niveles
+        CargarCatalogosClientes();
+
+        return View(solicitudes ?? new List<SolicitudViewModel>());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerSolicitud(int id)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.GetAsync(UrlApi("solicitudes/" + id));
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode,
+                new { mensaje = "No se pudo cargar la solicitud." });
+        }
+
+        // El API ya devuelve JSON en camelCase: se reenvia tal cual
+        return Content(await respuesta.Content.ReadAsStringAsync(), "application/json");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CambiarEstadoSolicitud(int id, int idEstadoSolicitud, string? notaInterna)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"solicitudes/{id}/estado"), new { idEstadoSolicitud, notaInterna });
+
+        return await ResponderSegunApi(respuesta, "No se pudo actualizar la solicitud.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> VincularSolicitud(int id, int idEncargado)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"solicitudes/{id}/vincular"), new { idEncargado });
+
+        return await ResponderSegunApi(respuesta, "No se pudo vincular la solicitud.");
+    }
+
+    // Lo consulta el contador del menu en todas las pantallas. Si algo falla
+    // devuelve 0: un contador caido no debe romper el panel.
+    [HttpGet]
+    public async Task<IActionResult> ContarSolicitudesPendientes()
+    {
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var json = await client.GetFromJsonAsync<JsonElement>(UrlApi("solicitudes/pendientes"));
+
+            return Json(new { pendientes = json.GetProperty("pendientes").GetInt32() });
+        }
+        catch
+        {
+            return Json(new { pendientes = 0 });
+        }
+    }
+
+    #endregion
+
 
     #region Estudiantes
 
