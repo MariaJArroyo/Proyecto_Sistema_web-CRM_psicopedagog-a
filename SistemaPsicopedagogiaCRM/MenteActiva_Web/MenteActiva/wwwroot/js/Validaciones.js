@@ -61,7 +61,6 @@ function ValidarTelefono(campo) {
   return true;
 }
 
-
 function InicializarFormularioContacto() {
   var formulario = document.getElementById("FormularioContacto");
   if (!formulario) {
@@ -69,41 +68,84 @@ function InicializarFormularioContacto() {
   }
 
   var campoNombre = document.getElementById("Nombre");
+  var campoApellido = document.getElementById("Apellido");
   var campoTelefono = document.getElementById("Telefono");
   var campoCorreo = document.getElementById("CorreoElectronico");
   var campoServicio = document.getElementById("ServicioInteres");
   var campoMensaje = document.getElementById("Mensaje");
   var alertaExito = document.getElementById("ConfirmacionContacto");
+  var alertaError = document.getElementById("ErrorContacto");
+  var boton = document.getElementById("BotonEnviarContacto");
+  var textoBoton = boton.innerHTML;
 
-  formulario.addEventListener("submit", function (evento) {
+  function MostrarError(mensaje) {
+    alertaExito.classList.add("d-none");
+    alertaError.textContent = mensaje;
+    alertaError.classList.remove("d-none");
+    alertaError.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  formulario.addEventListener("submit", async function (evento) {
     evento.preventDefault();
     evento.stopPropagation();
 
+    alertaError.classList.add("d-none");
+
     var esValido = true;
-    esValido = ValidarObligatorio(campoNombre, "Ingrese su nombre completo.") && esValido;
+    esValido = ValidarObligatorio(campoNombre, "Ingrese su nombre.") && esValido;
+    esValido = ValidarObligatorio(campoApellido, "Ingrese su apellido.") && esValido;
     esValido = ValidarTelefono(campoTelefono) && esValido;
     esValido = ValidarCorreo(campoCorreo) && esValido;
-    esValido = ValidarObligatorio(campoServicio, "Seleccione un servicio de interés.") && esValido;
+
+    // Si el API no cargo servicios, el select queda solo con "Seleccione" y no se exige
+    if (campoServicio.options.length > 1) {
+      esValido = ValidarObligatorio(campoServicio, "Seleccione un servicio de interés.") && esValido;
+    }
+
     esValido = ValidarObligatorio(campoMensaje, "Escriba un breve mensaje.") && esValido;
 
     if (!esValido) {
-      if (alertaExito) {
-        alertaExito.classList.add("d-none");
-      }
+      alertaExito.classList.add("d-none");
       return;
     }
 
-    formulario.reset();
-    formulario.querySelectorAll(".is-valid").forEach(function (campo) {
-      campo.classList.remove("is-valid");
-    });
+    boton.disabled = true;
+    boton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Enviando...';
 
-    if (alertaExito) {
-      alertaExito.classList.remove("d-none");
-      alertaExito.scrollIntoView({ behavior: "smooth", block: "center" });
+    try {
+      var respuesta = await fetch(formulario.action, {
+        method: "POST",
+        body: new FormData(formulario)
+      });
+
+      if (respuesta.ok) {
+        formulario.reset();
+        formulario.querySelectorAll(".is-valid, .is-invalid").forEach(function (campo) {
+          campo.classList.remove("is-valid", "is-invalid");
+        });
+
+        alertaExito.classList.remove("d-none");
+        alertaExito.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        var mensaje = "No se pudo enviar el mensaje. Intente de nuevo más tarde.";
+        try {
+          var json = await respuesta.json();
+          if (json && json.mensaje) {
+            mensaje = json.mensaje;
+          }
+        } catch (e) { }
+
+        MostrarError(mensaje);
+      }
+    } catch (e) {
+      MostrarError("No se pudo conectar. Revise su conexión e intente de nuevo.");
+    } finally {
+      boton.disabled = false;
+      boton.innerHTML = textoBoton;
     }
   });
 }
+
 
 
 function InicializarFormularioLogin() {

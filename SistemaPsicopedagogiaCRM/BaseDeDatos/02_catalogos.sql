@@ -42,6 +42,13 @@ INSERT INTO TB_ESTADO_CLIENTE (IdEstadoCliente, Nombre, Orden, ClaseCss) VALUES
   (6, 'En seguimiento', 3, 'estado-cliente-seguimiento')
 ON DUPLICATE KEY UPDATE IdEstadoCliente = IdEstadoCliente;
 
+INSERT INTO TB_ESTADO_SOLICITUD (IdEstadoSolicitud, Nombre) VALUES
+  (1, 'Pendiente'),
+  (2, 'Contactada'),
+  (3, 'Convertida'),
+  (4, 'Descartada')
+ON DUPLICATE KEY UPDATE IdEstadoSolicitud = IdEstadoSolicitud;
+
 INSERT INTO TB_ESTADO_CITA (IdEstadoCita, Nombre, ColorHex) VALUES
   (1, 'Programada', '#4F6FAE'),
   (2, 'Confirmada', '#7BC4A4'),
@@ -178,3 +185,5 @@ INSERT INTO TB_HORARIO_ATENCION (IdHorarioAtencion, DiaSemana, HoraInicio, HoraF
   (4, 4, '08:00:00', '17:00:00'),
   (5, 5, '08:00:00', '17:00:00')
 ON DUPLICATE KEY UPDATE IdHorarioAtencion = IdHorarioAtencion;
+
+

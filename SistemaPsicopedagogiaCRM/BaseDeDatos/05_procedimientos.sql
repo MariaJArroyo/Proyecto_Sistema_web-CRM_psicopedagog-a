@@ -842,7 +842,8 @@ CREATE PROCEDURE SP_RegistrarCliente_CRM(
     IN p_Correo            VARCHAR(150),
     IN p_IdServicioInteres INT,
     IN p_Observaciones     VARCHAR(1000),
-    IN p_EstudiantesJson   JSON
+    IN p_EstudiantesJson   JSON,
+    IN p_IdSolicitud       INT          -- NULL = registro normal; con valor = conversion de solicitud
 )
 BEGIN
     DECLARE v_IdEncargado      INT;
@@ -855,7 +856,6 @@ BEGIN
     DECLARE v_IdNivelEducativo INT;
     DECLARE v_IdParentesco     INT;
 
-    -- si algo falla a mitad de camino, se revierte todo (nada de cliente a medias)
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
@@ -868,6 +868,12 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Debe agregar al menos un estudiante.';
     END IF;
 
+    IF p_IdSolicitud IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM TB_SOLICITUD_CONTACTO
+        WHERE IdSolicitud = p_IdSolicitud AND IdEstadoSolicitud <> 3) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La solicitud no existe o ya fue convertida.';
+    END IF;
+
     START TRANSACTION;
 
     -- IdEstadoCliente = 1 ("Nuevo") siempre al registrar
@@ -877,11 +883,9 @@ BEGIN
 
     SET v_IdEncargado = LAST_INSERT_ID();
 
-    -- IdTipoTelefono = 1 ("Movil"); CodigoPais usa el default '506' (8 digitos exactos)
     INSERT INTO TB_TELEFONO (IdEncargado, IdTipoTelefono, Numero, EsPrincipal)
     VALUES (v_IdEncargado, 1, p_Telefono, 1);
 
-    -- Un estudiante por vuelta, porque cada uno necesita su Id para la relacion
     WHILE v_Fila <= v_Total DO
 
         SELECT j.Nombre, j.Apellido, j.FechaNacimiento, j.IdNivelEducativo, j.IdParentesco
@@ -901,7 +905,6 @@ BEGIN
 
         SET v_IdEstudiante = LAST_INSERT_ID();
 
-        -- Estudiante nuevo: este encargado es su principal
         INSERT INTO TB_ESTUDIANTE_ENCARGADO (IdEstudiante, IdEncargado, IdParentesco, EsPrincipal)
         VALUES (v_IdEstudiante, v_IdEncargado, IFNULL(v_IdParentesco, 3), 1);
 
@@ -912,14 +915,34 @@ BEGIN
     VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', v_IdEncargado, 'Crear',
             JSON_OBJECT('Nombre', p_NombreEncargado, 'PrimerApellido', p_ApellidoEncargado,
                         'Correo', p_Correo, 'IdEstadoCliente', 1,
-                        'CantidadEstudiantes', v_Total));
+                        'CantidadEstudiantes', v_Total, 'IdSolicitud', p_IdSolicitud));
+
+    -- Conversion: la solicitud queda enlazada al cliente creado
+    IF p_IdSolicitud IS NOT NULL THEN
+
+        UPDATE TB_SOLICITUD_CONTACTO
+        SET IdEstadoSolicitud = 3,
+            IdEncargado = v_IdEncargado,
+            IdUsuarioAtiende = p_IdUsuarioAccion,
+            FechaAtencion = NOW()
+        WHERE IdSolicitud = p_IdSolicitud
+          AND IdEstadoSolicitud <> 3;
+
+        -- Si otra persona la convirtio al mismo tiempo, se revierte todo
+        IF ROW_COUNT() = 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La solicitud ya fue convertida por otro usuario.';
+        END IF;
+
+        INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+        VALUES (p_IdUsuarioAccion, 'TB_SOLICITUD_CONTACTO', p_IdSolicitud, 'CambiarEstado',
+                JSON_OBJECT('IdEstadoSolicitud', 3, 'IdEncargado', v_IdEncargado));
+    END IF;
 
     COMMIT;
 
     SELECT v_IdEncargado AS IdEncargado;
 END$$
 DELIMITER ;
-
 
 -- Desactiva los estudiantes del encargado que ya no tengan ningun otro
 -- encargado activo. Se llama DESPUES de poner Activo = 0 al encargado.
@@ -3375,5 +3398,258 @@ BEGIN
     FROM TB_SERVICIO
     WHERE Activo = 1
     ORDER BY Nombre;
+END$$
+DELIMITER ;
+
+-- ============================================================
+-- Solicitudes de contacto (formulario publico)
+-- ============================================================
+
+-- Alta desde el sitio publico. No hay usuario, asi que no va a bitacora.
+-- Limite simple anti-abuso: maximo 5 solicitudes por IP por hora.
+DROP PROCEDURE IF EXISTS SP_RegistrarSolicitudContacto_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_RegistrarSolicitudContacto_CRM(
+    IN p_Nombre            VARCHAR(100),
+    IN p_Apellido          VARCHAR(100),
+    IN p_Telefono          VARCHAR(15),
+    IN p_Correo            VARCHAR(150),
+    IN p_IdServicioInteres INT,
+    IN p_Mensaje           VARCHAR(2000),
+    IN p_DireccionIp       VARCHAR(45)
+)
+BEGIN
+    IF p_DireccionIp IS NOT NULL AND (
+        SELECT COUNT(*) FROM TB_SOLICITUD_CONTACTO
+        WHERE DireccionIp = p_DireccionIp
+          AND FechaRegistro > NOW() - INTERVAL 1 HOUR) >= 5 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Se recibieron demasiadas solicitudes. Intente de nuevo más tarde.';
+    END IF;
+
+    -- Un servicio inexistente o inactivo no bloquea el mensaje: queda sin servicio
+    INSERT INTO TB_SOLICITUD_CONTACTO
+        (IdServicioInteres, Nombre, Apellido, Telefono, Correo, Mensaje, DireccionIp)
+    VALUES (
+        (SELECT IdServicio FROM TB_SERVICIO WHERE IdServicio = p_IdServicioInteres AND Activo = 1),
+        TRIM(p_Nombre), TRIM(p_Apellido), p_Telefono, TRIM(p_Correo),
+        TRIM(p_Mensaje), p_DireccionIp);
+
+    SELECT LAST_INSERT_ID() AS IdSolicitud;
+END$$
+DELIMITER ;
+
+
+-- Lista para la pestaña Solicitudes (se filtra por estado en pantalla)
+DROP PROCEDURE IF EXISTS SP_ConsultarSolicitudes_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ConsultarSolicitudes_CRM()
+BEGIN
+    SELECT
+      sc.IdSolicitud,
+      CONCAT(sc.Nombre, ' ', sc.Apellido) AS NombreCompleto,
+      sc.Telefono,
+      sc.Correo,
+      s.Nombre AS Servicio,
+      sc.IdEstadoSolicitud,
+      es.Nombre AS Estado,
+      sc.IdEncargado,
+      u.NombreCompleto AS AtendidaPor,
+      sc.FechaRegistro,
+      sc.FechaAtencion
+    FROM TB_SOLICITUD_CONTACTO sc
+    JOIN TB_ESTADO_SOLICITUD es ON es.IdEstadoSolicitud = sc.IdEstadoSolicitud
+    LEFT JOIN TB_SERVICIO s ON s.IdServicio = sc.IdServicioInteres
+    LEFT JOIN TB_USUARIO u ON u.IdUsuario = sc.IdUsuarioAtiende
+    ORDER BY (sc.IdEstadoSolicitud = 1) DESC, sc.FechaRegistro DESC;
+END$$
+DELIMITER ;
+
+
+-- Detalle de una solicitud. Dos resultados:
+--   1) la solicitud
+--   2) clientes existentes con el mismo telefono o correo (posibles duplicados)
+DROP PROCEDURE IF EXISTS SP_ObtenerSolicitud_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ObtenerSolicitud_CRM(
+    IN p_IdSolicitud INT
+)
+BEGIN
+    DECLARE v_Telefono VARCHAR(15) DEFAULT NULL;
+    DECLARE v_Correo   VARCHAR(150) DEFAULT NULL;
+
+    SELECT Telefono, Correo INTO v_Telefono, v_Correo
+    FROM TB_SOLICITUD_CONTACTO
+    WHERE IdSolicitud = p_IdSolicitud;
+
+    SELECT
+      sc.IdSolicitud,
+      sc.Nombre,
+      sc.Apellido,
+      sc.Telefono,
+      sc.Correo,
+      sc.IdServicioInteres,
+      s.Nombre AS Servicio,
+      sc.Mensaje,
+      sc.NotaInterna,
+      sc.IdEstadoSolicitud,
+      es.Nombre AS Estado,
+      sc.IdEncargado,
+      CONCAT(e.Nombre, ' ', e.PrimerApellido) AS ClienteVinculado,
+      u.NombreCompleto AS AtendidaPor,
+      sc.FechaRegistro,
+      sc.FechaAtencion
+    FROM TB_SOLICITUD_CONTACTO sc
+    JOIN TB_ESTADO_SOLICITUD es ON es.IdEstadoSolicitud = sc.IdEstadoSolicitud
+    LEFT JOIN TB_SERVICIO s ON s.IdServicio = sc.IdServicioInteres
+    LEFT JOIN TB_ENCARGADO e ON e.IdEncargado = sc.IdEncargado
+    LEFT JOIN TB_USUARIO u ON u.IdUsuario = sc.IdUsuarioAtiende
+    WHERE sc.IdSolicitud = p_IdSolicitud;
+
+    SELECT
+      e.IdEncargado AS Id,
+      CONCAT(e.Nombre, ' ', e.PrimerApellido) AS Encargado,
+      t.Numero AS Telefono,
+      e.Correo,
+      IF(e.Activo = 1, ec.Nombre, 'Inactivo') AS Estado
+    FROM TB_ENCARGADO e
+    JOIN TB_ESTADO_CLIENTE ec ON ec.IdEstadoCliente = e.IdEstadoCliente
+    LEFT JOIN TB_TELEFONO t ON t.IdEncargado = e.IdEncargado AND t.EsPrincipal = 1
+    WHERE EXISTS (SELECT 1 FROM TB_TELEFONO t2
+                  WHERE t2.IdEncargado = e.IdEncargado AND t2.Numero = v_Telefono)
+       OR (v_Correo IS NOT NULL AND e.Correo = v_Correo)
+    ORDER BY e.Activo DESC, e.FechaRegistro DESC;
+END$$
+DELIMITER ;
+
+
+-- Marca Pendiente / Contactada / Descartada y guarda la nota interna.
+-- "Convertida" no se pone aqui: solo se llega convirtiendo o vinculando.
+DROP PROCEDURE IF EXISTS SP_CambiarEstadoSolicitud_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_CambiarEstadoSolicitud_CRM(
+    IN p_IdUsuarioAccion   INT,
+    IN p_IdSolicitud       INT,
+    IN p_IdEstadoSolicitud INT,
+    IN p_NotaInterna       VARCHAR(1000)
+)
+BEGIN
+    DECLARE v_Anterior INT DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT IdEstadoSolicitud INTO v_Anterior
+    FROM TB_SOLICITUD_CONTACTO
+    WHERE IdSolicitud = p_IdSolicitud;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La solicitud indicada no existe.';
+    END IF;
+
+    IF v_Anterior = 3 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La solicitud ya fue convertida en cliente.';
+    END IF;
+
+    IF p_IdEstadoSolicitud NOT IN (1, 2, 4) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado no permitido para esta acción.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_SOLICITUD_CONTACTO
+    SET IdEstadoSolicitud = p_IdEstadoSolicitud,
+        NotaInterna = NULLIF(TRIM(p_NotaInterna), ''),
+        IdUsuarioAtiende = IF(p_IdEstadoSolicitud = 1, IdUsuarioAtiende, p_IdUsuarioAccion),
+        FechaAtencion = IF(p_IdEstadoSolicitud = 1, FechaAtencion, NOW())
+    WHERE IdSolicitud = p_IdSolicitud;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_SOLICITUD_CONTACTO', p_IdSolicitud, 'CambiarEstado',
+            JSON_OBJECT('IdEstadoSolicitud', v_Anterior),
+            JSON_OBJECT('IdEstadoSolicitud', p_IdEstadoSolicitud));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Enlaza la solicitud a un cliente que ya existia (caso duplicado).
+-- El mensaje se agrega a las observaciones del cliente para no perderlo.
+DROP PROCEDURE IF EXISTS SP_VincularSolicitudCliente_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_VincularSolicitudCliente_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdSolicitud     INT,
+    IN p_IdEncargado     INT
+)
+BEGIN
+    DECLARE v_Mensaje VARCHAR(2000) DEFAULT NULL;
+    DECLARE v_Fecha   DATETIME DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT Mensaje, FechaRegistro INTO v_Mensaje, v_Fecha
+    FROM TB_SOLICITUD_CONTACTO
+    WHERE IdSolicitud = p_IdSolicitud AND IdEstadoSolicitud <> 3;
+
+    IF v_Mensaje IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La solicitud no existe o ya fue convertida.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ENCARGADO WHERE IdEncargado = p_IdEncargado) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cliente indicado no existe.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_SOLICITUD_CONTACTO
+    SET IdEstadoSolicitud = 3,
+        IdEncargado = p_IdEncargado,
+        IdUsuarioAtiende = p_IdUsuarioAccion,
+        FechaAtencion = NOW()
+    WHERE IdSolicitud = p_IdSolicitud;
+
+    UPDATE TB_ENCARGADO
+    SET Observaciones = LEFT(CONCAT_WS('\n\n', Observaciones,
+            CONCAT('Solicitud web del ', DATE_FORMAT(v_Fecha, '%d/%m/%Y'), ': ', v_Mensaje)), 1000),
+        FechaModificacion = NOW()
+    WHERE IdEncargado = p_IdEncargado;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_SOLICITUD_CONTACTO', p_IdSolicitud, 'CambiarEstado',
+            JSON_OBJECT('IdEstadoSolicitud', 3, 'IdEncargado', p_IdEncargado, 'Vinculada', TRUE));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Para el contador del menu
+DROP PROCEDURE IF EXISTS SP_ContarSolicitudesPendientes_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ContarSolicitudesPendientes_CRM()
+BEGIN
+    SELECT COUNT(*) AS Pendientes
+    FROM TB_SOLICITUD_CONTACTO
+    WHERE IdEstadoSolicitud = 1;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_ListarEstadosSolicitud_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarEstadosSolicitud_CRM()
+BEGIN
+    SELECT IdEstadoSolicitud, Nombre
+    FROM TB_ESTADO_SOLICITUD
+    ORDER BY IdEstadoSolicitud;
 END$$
 DELIMITER ;

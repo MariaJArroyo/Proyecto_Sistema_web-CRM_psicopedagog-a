@@ -46,6 +46,14 @@
         <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace@(seccion == "Comunicacion" ? " activo" : "")">
           <i class="bi bi-chat-dots"></i><span>Comunicación</span>
         </a>
+        <!-- Solicitudes de contacto del sitio web, con contador de pendientes -->
+        <a href="/Admin/Solicitudes" class="SidebarAdmin-Enlace@(seccion == "Solicitudes" ? " activo" : "")">
+          <div class="SidebarAdmin-Icono">
+            <i class="bi bi-inbox"></i>
+            <sup class="SidebarAdmin-Contador d-none" id="ContadorSolicitudes"></sup>
+          </div>
+          <span>Solicitudes</span>
+        </a>
         <!-- Razor: asp-controller="Materiales" asp-action="Index" -->
         <a href="/Admin/Materiales" class="SidebarAdmin-Enlace@(seccion == "Materiales" ? " activo" : "")">
           <i class="bi bi-folder2-open"></i><span>Materiales</span>
