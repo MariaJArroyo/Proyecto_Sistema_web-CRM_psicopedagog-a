@@ -139,5 +139,5 @@ entrada natural es [`Frontend/Index.html`](Frontend/Index.html).
 
 - Jose Alejandro Lafuente Romero
 - Maria jose Campos Arroyo
-- Eduardo Antonio Solera Solano
+- Edgardo Antonio Solera Solano
 - Sergio David Mata Lopez
