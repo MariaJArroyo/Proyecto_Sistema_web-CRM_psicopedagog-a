@@ -5,11 +5,11 @@ using MenteActiva.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
 
 namespace MenteActiva.Controllers;
 
-// Todo el panel exige sesion de personal interno. Las pantallas de usuarios
-// llevan ademas su propia restriccion, mas abajo.
+
 [Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class AdminController : Controller
 {
@@ -30,81 +30,124 @@ public class AdminController : Controller
     {
         using var client = _http.CreateClient();
 
-        var url = _config.GetValue<string>("Valores:UrlAPI") + "clientes";
-
         var clientes = client
-            .GetFromJsonAsync<List<ClienteViewModel>>(url)
+            .GetFromJsonAsync<List<ClienteViewModel>>(UrlApi("clientes"))
             .Result;
 
-        CargarServicios();
+        CargarCatalogosClientes();
 
         return View(clientes ?? new List<ClienteViewModel>());
     }
 
-    #region registrar cliente
-    [HttpGet]
-    public IActionResult RegistrarCliente()
+    #region catalogos de clientes
+    private void CargarCatalogosClientes()
     {
-        return RedirectToAction("Clientes");
-    }
-
-    [HttpPost]
-    public IActionResult RegistrarCliente(ClienteRequestViewModel modelo)
-    {
-        if (!ModelState.IsValid || modelo.IdServicioInteres <= 0)
-        {
-            CargarServicios();
-            return RedirectToAction("Clientes");
-        }
-
         using var client = _http.CreateClient();
 
-        var url = _config.GetValue<string>("Valores:UrlAPI") + "clientes";
+        ViewBag.Servicios = client
+            .GetFromJsonAsync<List<ServicioViewModel>>(UrlApi("servicios")).Result
+            ?? new List<ServicioViewModel>();
 
-        var result = client
-            .PostAsJsonAsync(url, modelo)
-            .Result;
+        ViewBag.EstadosCliente = client
+            .GetFromJsonAsync<List<EstadoClienteViewModel>>(UrlApi("clientes/estados")).Result
+            ?? new List<EstadoClienteViewModel>();
 
-        if (result.IsSuccessStatusCode)
-        {
-            return RedirectToAction("Clientes");
-        }
+        ViewBag.Parentescos = client
+            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos")).Result
+            ?? new List<ParentescoViewModel>();
 
-        return Content("Error al registrar el cliente.");
+        ViewBag.NivelesEducativos = client
+            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles")).Result
+            ?? new List<NivelEducativoViewModel>();
     }
     #endregion
 
-    #region cargar servicios
-    private void CargarServicios()
+    #region registrar cliente
+    [HttpGet]
+    public IActionResult RegistrarCliente() => RedirectToAction("Clientes");
+
+    [HttpPost]
+    public async Task<IActionResult> RegistrarCliente(ClienteRegistroViewModel modelo)
+    {
+        if (modelo.Estudiantes.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Debe agregar al menos un estudiante.");
+        }
+
+        if (modelo.IdServicioInteres <= 0)
+        {
+            ModelState.AddModelError(nameof(modelo.IdServicioInteres), "Debe seleccionar un servicio de interes.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("clientes"), modelo);
+
+        return await ResponderSegunApi(respuesta, "No se pudo registrar el cliente.");
+    }
+    #endregion
+
+    #region obtener cliente
+    [HttpGet]
+    public async Task<IActionResult> ObtenerCliente(int id)
     {
         using var client = _http.CreateClient();
 
-        var url = _config.GetValue<string>("Valores:UrlAPI") + "servicios";
+        var respuesta = await client.GetAsync(UrlApi("clientes/" + id));
 
-        var servicios = client
-            .GetFromJsonAsync<List<ServicioViewModel>>(url)
-            .Result;
+        if (respuesta.StatusCode == HttpStatusCode.NotFound)
+        {
+            return NotFound(new { mensaje = "El cliente no existe." });
+        }
 
-        ViewBag.Servicios = servicios ?? new List<ServicioViewModel>();
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode,
+                new { mensaje = "No se pudo cargar el cliente." });
+        }
+
+        var cliente = await respuesta.Content.ReadFromJsonAsync<ClienteDetalleViewModel>();
+
+        return Json(cliente);
     }
+    #endregion
 
+    #region editar cliente
+    [HttpPost]
+    public async Task<IActionResult> EditarCliente(ClienteEditarViewModel modelo)
+    {
+        if (modelo.IdServicioInteres <= 0)
+        {
+            ModelState.AddModelError(nameof(modelo.IdServicioInteres), "Debe seleccionar un servicio de interes.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(UrlApi("clientes/" + modelo.Id), modelo);
+
+        return await ResponderSegunApi(respuesta, "No se pudo editar el cliente.");
+    }
     #endregion
 
     #region desactivar cliente
-    // Excepcion al token antifalsificacion: clientes.js llama esta accion por
-    // fetch y no manda el token. Sin esta linea dejaria de funcionar. Hay que
-    // arreglarlo desde el JS y quitar esta excepcion.
+    
     [HttpPost]
     [IgnoreAntiforgeryToken]
     public IActionResult DesactivarCliente(int id)
     {
         using var client = _http.CreateClient();
 
-        var url = _config.GetValue<string>("Valores:UrlAPI")
-                  + "clientes/"
-                  + id;
-
-        var result = client.PutAsync(url, null).Result;
+        var result = client.PutAsync(UrlApi("clientes/" + id + "/desactivar"), null).Result;
 
         if (result.IsSuccessStatusCode)
         {
@@ -113,8 +156,94 @@ public class AdminController : Controller
 
         return BadRequest();
     }
+    #endregion
 
+    #region estudiantes del cliente
+    [HttpPost]
+    public async Task<IActionResult> AgregarEstudianteCliente(int idCliente, EstudianteClienteViewModel modelo)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
 
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi($"clientes/{idCliente}/estudiantes"), modelo);
+
+        return await ResponderSegunApi(respuesta, "No se pudo agregar el estudiante.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditarEstudianteCliente(int idCliente, int idEstudiante, EstudianteClienteViewModel modelo)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"clientes/{idCliente}/estudiantes/{idEstudiante}"), modelo);
+
+        return await ResponderSegunApi(respuesta, "No se pudo editar el estudiante.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CambiarEstadoEstudianteCliente(int idCliente, int idEstudiante, bool activo)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"clientes/{idCliente}/estudiantes/{idEstudiante}/estado"), new { activo });
+
+        return await ResponderSegunApi(respuesta, "No se pudo cambiar el estado del estudiante.");
+    }
+    #endregion
+
+    #region auxiliares de clientes
+    private string UrlApi(string ruta)
+        => _config.GetValue<string>("Valores:UrlAPI") + ruta;
+
+    // Junta los mensajes de validacion en un solo texto para mostrarlo en el modal
+    private IActionResult ErrorDeModelo()
+    {
+        var errores = ModelState.Values
+            .SelectMany(v => v.Errors)
+            .Select(e => e.ErrorMessage)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct();
+
+        return BadRequest(new { mensaje = string.Join(" ", errores) });
+    }
+
+    
+    private static async Task<IActionResult> ResponderSegunApi(HttpResponseMessage respuesta, string mensajePorDefecto)
+    {
+        if (respuesta.IsSuccessStatusCode)
+        {
+            return new OkResult();
+        }
+
+        var mensaje = mensajePorDefecto;
+
+        try
+        {
+            var json = await respuesta.Content.ReadFromJsonAsync<JsonElement>();
+            if (json.TryGetProperty("mensaje", out var valor) && !string.IsNullOrWhiteSpace(valor.GetString()))
+            {
+                mensaje = valor.GetString()!;
+            }
+        }
+        catch
+        {
+           
+        }
+
+        return new ObjectResult(new { mensaje }) { StatusCode = (int)respuesta.StatusCode };
+    }
     #endregion
 
     #endregion

@@ -6,7 +6,6 @@
 
 <main class="PrincipalAdmin">
 
-    ```
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
             <h2 class="mb-1">Clientes</h2>
@@ -25,34 +24,30 @@
 
     <div class="Tarjeta p-3 p-md-4">
 
-        <div class="row g-2 mb-3" data-tabla-buscador="TablaClientes">
+        <div class="row g-2 mb-3">
 
             <div class="col-md-7">
                 <div class="input-group">
                     <span class="input-group-text bg-white">
                         <i class="bi bi-search"></i>
                     </span>
-
                     <input type="search"
                            class="form-control"
                            data-buscar-texto
-                           placeholder="Buscar por nombre, teléfono o correo">
+                           placeholder="Buscar por encargado, estudiante, teléfono o correo">
                 </div>
             </div>
 
             <div class="col-md-5">
-                <select class="form-select"
-                        data-buscar-estado
-                        aria-label="Filtrar por estado">
-
+                <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
                     <option value="">Todos los estados</option>
-                    <option value="Nuevo">Nuevo</option>
-                    <option value="Contactado">Contactado</option>
-                    <option value="Cita agendada">Cita agendada</option>
-                    <option value="Cliente activo">Cliente activo</option>
-                    <option value="Inactivo">Inactivo</option>
-                    <option value="En seguimiento">En seguimiento</option>
-
+                    @if (ViewBag.EstadosCliente != null)
+                    {
+                        foreach (var estadoCliente in ViewBag.EstadosCliente)
+                        {
+                            <option value="@estadoCliente.Nombre">@estadoCliente.Nombre</option>
+                        }
+                    }
                 </select>
             </div>
 
@@ -68,7 +63,7 @@
                         <th>Teléfono</th>
                         <th>Correo</th>
                         <th>Servicio de interés</th>
-                        <th>Estudiante</th>
+                        <th>Estudiantes</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -80,51 +75,42 @@
                     {
                         foreach (var cliente in Model)
                         {
-                            <tr data-fila data-estado="@cliente.Estado">
+                            var estado = cliente.Estado?.Trim();
 
-                                <td data-campo="encargado">
-                                    @cliente.Encargado
-                                </td>
+                            var claseEstado = estado switch
+                            {
+                                "Nuevo" => "badge-estado-nuevo",
+                                "Contactado" => "badge-estado-contactado",
+                                "Cita agendada" => "badge-estado-cita-agendada",
+                                "Cliente activo" => "badge-estado-activo",
+                                "Inactivo" => "badge-estado-inactivo",
+                                "En seguimiento" => "badge-estado-seguimiento",
+                                _ => ""
+                            };
 
-                                <td data-campo="telefono">
-                                    @cliente.Telefono
-                                </td>
+                            <tr data-fila data-estado="@estado">
 
-                                <td data-campo="correo">
-                                    @cliente.Correo
-                                </td>
-
-                                <td data-campo="servicio">
-                                    @cliente.Servicio
-                                </td>
+                                <td data-campo="encargado">@cliente.Encargado</td>
+                                <td data-campo="telefono">@cliente.Telefono</td>
+                                <td data-campo="correo">@cliente.Correo</td>
+                                <td data-campo="servicio">@cliente.Servicio</td>
 
                                 <td data-campo="estudiante">
                                     @cliente.Estudiante
+                                    @if (cliente.CantidadEstudiantes > 1)
+                                    {
+                                        <span class="badge rounded-pill text-bg-light border ms-1"
+                                              title="@cliente.CantidadEstudiantes estudiantes a cargo">
+                                            +@(cliente.CantidadEstudiantes - 1)
+                                        </span>
+                                    }
                                 </td>
 
                                 <td>
-                                    @{
-                                        var estado = cliente.Estado?.Trim();
-
-                                        var claseEstado = estado switch
-                                        {
-                                            "Nuevo" => "badge-estado-nuevo",
-                                            "Contactado" => "badge-estado-contactado",
-                                            "Cita agendada" => "badge-estado-cita-agendada",
-                                            "Cliente activo" => "badge-estado-activo",
-                                            "Inactivo" => "badge-estado-inactivo",
-                                            "En seguimiento" => "badge-estado-seguimiento",
-                                            _ => "NO-ENCONTRADO"
-                                        };
-                                    }
-
-                                    <span class="badge @claseEstado"
-                                          data-campo-badge="estado">
-                                        @estado
-                                    </span>
+                                    <span class="badge @claseEstado">@estado</span>
                                 </td>
 
-                                <td class="TablaAcciones">
+                                <td class="TablaAcciones text-nowrap">
 
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary border-0"
@@ -148,7 +134,7 @@
                                             class="btn btn-sm btn-outline-danger border-0"
                                             data-accion="eliminar"
                                             data-bs-toggle="tooltip"
-                                            title="Eliminar"
+                                            title="Desactivar"
                                             data-id="@cliente.Id">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -168,459 +154,507 @@
         <div id="EstadoVacio"
              class="text-center py-4"
              style="display:@(Model == null || !Model.Any() ? "block" : "none");">
+            <p class="TextoSuave mt-2 mb-0">No hay clientes registrados.</p>
+        </div>
 
-            <p class="TextoSuave mt-2 mb-0">
-                No hay clientes registrados.
-            </p>
-
+        <div id="SinResultados" class="text-center py-4" style="display:none;">
+            <p class="TextoSuave mb-0">No hay clientes que coincidan con la búsqueda.</p>
         </div>
 
     </div>
-    ```
 
 </main>
 
+
+<!-- ========================================================= -->
 <!-- MODAL NUEVO CLIENTE -->
+<!-- ========================================================= -->
 
-<div class="modal fade"
-     id="ModalNuevoCliente"
-     tabindex="-1"
-     aria-hidden="true">
+<div class="modal fade" id="ModalNuevoCliente" tabindex="-1" aria-hidden="true">
 
-    ```
     <div class="modal-dialog modal-lg">
-
         <div class="modal-content">
 
-            <form asp-controller="Admin"
+            <form id="FormularioNuevoCliente"
+                  asp-controller="Admin"
                   asp-action="RegistrarCliente"
-                  method="post">
+                  method="post"
+                  novalidate>
 
                 <div class="modal-header">
-
-                    <h5 class="modal-title">
-                        Nuevo cliente
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
-
+                    <h5 class="modal-title">Nuevo cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
 
+                    <div class="alert d-none" id="NuevoClienteError" role="alert"></div>
+
+                    <!-- Datos del encargado -->
+                    <h6 class="text-uppercase small fw-semibold TextoSuave mb-3">
+                        <i class="bi bi-person me-1"></i>Datos del encargado
+                    </h6>
+
                     <div class="row g-3">
 
                         <div class="col-md-6">
-
-                            <label for="NombreEncargado"
-                                   class="form-label CampoObligatorio">
-                                Nombre del encargado
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="NombreEncargado"
-                                   name="NombreEncargado"
-                                   required>
-
-                            <div class="invalid-feedback">
-                                El nombre del encargado es obligatorio.
-                            </div>
-
+                            <label for="NombreEncargado" class="form-label CampoObligatorio">Nombre</label>
+                            <input type="text" class="form-control" id="NombreEncargado" name="NombreEncargado" maxlength="100" required>
+                            <div class="invalid-feedback">El nombre del encargado es obligatorio.</div>
                         </div>
 
-
                         <div class="col-md-6">
-
-                            <label for="ApellidoEncargado"
-                                   class="form-label CampoObligatorio">
-                                Apellido del encargado
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="ApellidoEncargado"
-                                   name="ApellidoEncargado"
-                                   required>
-
-                            <div class="invalid-feedback">
-                                El apellido del encargado es obligatorio.
-                            </div>
-
+                            <label for="ApellidoEncargado" class="form-label CampoObligatorio">Apellido</label>
+                            <input type="text" class="form-control" id="ApellidoEncargado" name="ApellidoEncargado" maxlength="100" required>
+                            <div class="invalid-feedback">El apellido del encargado es obligatorio.</div>
                         </div>
 
-
                         <div class="col-md-6">
-
-                            <label for="TelefonoNuevoCliente"
-                                   class="form-label CampoObligatorio">
-                                Teléfono
-                            </label>
-
-                            <input type="tel"
-                                   class="form-control"
-                                   id="TelefonoNuevoCliente"
-                                   name="Telefono"
-                                   placeholder="8888-8888"
-                                   required>
-
-                            <div class="invalid-feedback">
-                                El teléfono es obligatorio.
-                            </div>
-
+                            <label for="TelefonoNuevoCliente" class="form-label CampoObligatorio">Teléfono</label>
+                            <input type="tel" class="form-control" id="TelefonoNuevoCliente" name="Telefono" placeholder="8888-8888" required>
+                            <div class="invalid-feedback">El teléfono debe tener 8 dígitos.</div>
                         </div>
 
-
                         <div class="col-md-6">
-
-                            <label for="CorreoNuevoCliente"
-                                   class="form-label">
-                                Correo electrónico
-                            </label>
-
-                            <input type="email"
-                                   class="form-control"
-                                   id="CorreoNuevoCliente"
-                                   name="Correo">
-
-                            <div class="invalid-feedback">
-                                El correo no es válido.
-                            </div>
-
+                            <label for="CorreoNuevoCliente" class="form-label">Correo electrónico</label>
+                            <input type="email" class="form-control" id="CorreoNuevoCliente" name="Correo" maxlength="150">
+                            <div class="invalid-feedback">El correo no es válido.</div>
                         </div>
 
-
                         <div class="col-md-6">
-
-                            <label for="ServicioInteresNuevoCliente"
-                                   class="form-label CampoObligatorio">
-                                Servicio de interés
-                            </label>
-
-                            <select class="form-select"
-                                    id="ServicioInteresNuevoCliente"
-                                    name="IdServicioInteres"
-                                    required>
-
-                                <option value="">
-                                    Seleccione una opción
-                                </option>
-
+                            <label for="ServicioInteresNuevoCliente" class="form-label CampoObligatorio">Servicio de interés</label>
+                            <select class="form-select" id="ServicioInteresNuevoCliente" name="IdServicioInteres" required>
+                                <option value="">Seleccione una opción</option>
                                 @if (ViewBag.Servicios != null)
                                 {
                                     foreach (var servicio in ViewBag.Servicios)
                                     {
-                                        <option value="@servicio.IdServicio">
-                                            @servicio.Nombre
-                                        </option>
+                                        <option value="@servicio.IdServicio">@servicio.Nombre</option>
                                     }
                                 }
-
                             </select>
-
-                            <div class="invalid-feedback">
-                                Debe seleccionar un servicio de interés.
-                            </div>
-
+                            <div class="invalid-feedback">Debe seleccionar un servicio de interés.</div>
                         </div>
-
-
-                        <div class="col-md-6">
-
-                            <label for="NombreEstudiante"
-                                   class="form-label CampoObligatorio">
-                                Nombre del estudiante
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="NombreEstudiante"
-                                   name="NombreEstudiante"
-                                   required>
-
-                            <div class="invalid-feedback">
-                                El nombre del estudiante es obligatorio.
-                            </div>
-
-                        </div>
-
-
-                        <div class="col-md-6">
-
-                            <label for="ApellidoEstudiante"
-                                   class="form-label CampoObligatorio">
-                                Apellido del estudiante
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="ApellidoEstudiante"
-                                   name="ApellidoEstudiante"
-                                   required>
-
-                            <div class="invalid-feedback">
-                                El apellido del estudiante es obligatorio.
-                            </div>
-
-                        </div>
-
 
                         <div class="col-12">
-
-                            <label for="Observaciones"
-                                   class="form-label">
-                                Observaciones
-                            </label>
-
-                            <textarea class="form-control"
-                                      id="Observaciones"
-                                      name="Observaciones"
-                                      rows="3"></textarea>
-
-                            <div class="invalid-feedback"></div>
-
+                            <label for="Observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="Observaciones" name="Observaciones" rows="2" maxlength="1000"></textarea>
                         </div>
 
                     </div>
 
+                    <hr class="my-4">
 
-                    <div class="alert alert-light border mt-3 mb-0 small">
-
-                        <i class="bi bi-info-circle text-primary me-1"></i>
-
-                        El estudiante se asociará automáticamente al encargado
-                        durante el registro.
-
+                    <!-- Estudiantes a cargo -->
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="text-uppercase small fw-semibold TextoSuave mb-0">
+                            <i class="bi bi-mortarboard me-1"></i>Estudiantes a cargo
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="BotonAgregarEstudianteNuevo">
+                            <i class="bi bi-plus-lg me-1"></i>Agregar estudiante
+                        </button>
                     </div>
+
+                    <div class="vstack gap-3" id="ListaEstudiantesNuevo"></div>
 
                 </div>
 
-
                 <div class="modal-footer">
-
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit"
-                            class="btn btn-primary">
-                        Guardar cliente
-                    </button>
-
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cliente</button>
                 </div>
 
             </form>
 
         </div>
-
     </div>
-    ```
 
 </div>
+
+<!-- Plantilla de cada estudiante en "Nuevo cliente". Los name e id los pone clientes.js -->
+<template id="PlantillaEstudianteNuevo">
+    <div class="border rounded-3 p-3" data-estudiante-nuevo>
+
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="fw-semibold small" data-titulo>Estudiante</span>
+            <button type="button"
+                    class="btn btn-sm btn-outline-danger border-0"
+                    data-quitar-estudiante
+                    title="Quitar estudiante">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="row g-2">
+
+            <div class="col-md-6">
+                <label class="form-label small CampoObligatorio" data-label-para="Nombre">Nombre</label>
+                <input type="text" class="form-control form-control-sm" data-campo="Nombre" maxlength="100" required>
+                <div class="invalid-feedback">Obligatorio.</div>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label small CampoObligatorio" data-label-para="Apellido">Apellido</label>
+                <input type="text" class="form-control form-control-sm" data-campo="Apellido" maxlength="100" required>
+                <div class="invalid-feedback">Obligatorio.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small CampoObligatorio" data-label-para="IdParentesco">Parentesco</label>
+                <select class="form-select form-select-sm" data-campo="IdParentesco" required>
+                    <option value="">Seleccione</option>
+                    @if (ViewBag.Parentescos != null)
+                    {
+                        foreach (var parentesco in ViewBag.Parentescos)
+                        {
+                            <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
+                        }
+                    }
+                </select>
+                <div class="invalid-feedback">Seleccione el parentesco.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small" data-label-para="FechaNacimiento">Fecha de nacimiento</label>
+                <input type="date" class="form-control form-control-sm" data-campo="FechaNacimiento">
+                <div class="invalid-feedback">No puede ser una fecha futura.</div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small" data-label-para="IdNivelEducativo">Nivel educativo</label>
+                <select class="form-select form-select-sm" data-campo="IdNivelEducativo">
+                    <option value="">Sin especificar</option>
+                    @if (ViewBag.NivelesEducativos != null)
+                    {
+                        foreach (var nivel in ViewBag.NivelesEducativos)
+                        {
+                            <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
+                        }
+                    }
+                </select>
+            </div>
+
+        </div>
+    </div>
+</template>
+
 
 <!-- ========================================================= -->
 <!-- MODAL DETALLE CLIENTE -->
 <!-- ========================================================= -->
+
+<div class="modal fade" id="ModalDetalleCliente" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-0">
+                        <span id="DetalleEncargado">-</span>
+                        <span class="badge align-middle ms-2" id="DetalleEstado">-</span>
+                    </h5>
+                    <small class="TextoSuave">Cliente desde <span id="DetalleFechaRegistro">-</span></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div class="alert d-none" id="DetalleClienteMensaje" role="alert"></div>
+
+                <!-- Datos del encargado -->
+                <h6 class="text-uppercase small fw-semibold TextoSuave mb-3">
+                    <i class="bi bi-person me-1"></i>Datos del encargado
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="TextoSuave small">Teléfono</div>
+                        <div id="DetalleTelefono">-</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="TextoSuave small">Correo</div>
+                        <div id="DetalleCorreo" class="text-break">-</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="TextoSuave small">Servicio de interés</div>
+                        <div id="DetalleServicio">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="TextoSuave small">Observaciones</div>
+                        <div id="DetalleObservaciones" style="white-space:pre-line;">-</div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Estudiantes a cargo -->
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-uppercase small fw-semibold TextoSuave mb-0">
+                        <i class="bi bi-mortarboard me-1"></i>Estudiantes a cargo
+                        <span class="badge rounded-pill text-bg-light border ms-1" id="DetalleCantidadEstudiantes">0</span>
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="BotonNuevoEstudianteCliente">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar estudiante
+                    </button>
+                </div>
+
+                <p class="small text-warning-emphasis mb-2 d-none" id="AvisoClienteInactivo">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    El cliente está inactivo. Reactívelo para agregar o activar estudiantes.
+                </p>
+
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" id="TablaEstudiantesCliente">
+                        <thead>
+                            <tr>
+                                <th>Estudiante</th>
+                                <th>Parentesco</th>
+                                <th>Nivel educativo</th>
+                                <th>Edad</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <p class="TextoSuave text-center py-3 mb-0 d-none" id="SinEstudiantesCliente">
+                    Este cliente no tiene estudiantes registrados.
+                </p>
+
+                <!-- Formulario en linea para agregar / editar un estudiante -->
+                <div class="border rounded-3 p-3 mt-3 d-none" id="PanelEstudianteCliente">
+
+                    <form id="FormularioEstudianteCliente"
+                          asp-controller="Admin"
+                          asp-action="AgregarEstudianteCliente"
+                          method="post"
+                          novalidate>
+
+                        <h6 class="fw-semibold mb-3" id="TituloPanelEstudiante">Agregar estudiante</h6>
+
+                        <div class="alert d-none" id="EstudianteClienteError" role="alert"></div>
+
+                        <div class="row g-2">
+
+                            <div class="col-md-6">
+                                <label for="EstudianteNombre" class="form-label small CampoObligatorio">Nombre</label>
+                                <input type="text" class="form-control form-control-sm" id="EstudianteNombre" name="Nombre" maxlength="100" required>
+                                <div class="invalid-feedback">Obligatorio.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="EstudianteApellido" class="form-label small CampoObligatorio">Apellido</label>
+                                <input type="text" class="form-control form-control-sm" id="EstudianteApellido" name="Apellido" maxlength="100" required>
+                                <div class="invalid-feedback">Obligatorio.</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="EstudianteParentesco" class="form-label small CampoObligatorio">Parentesco</label>
+                                <select class="form-select form-select-sm" id="EstudianteParentesco" name="IdParentesco" required>
+                                    <option value="">Seleccione</option>
+                                    @if (ViewBag.Parentescos != null)
+                                    {
+                                        foreach (var parentesco in ViewBag.Parentescos)
+                                        {
+                                            <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
+                                        }
+                                    }
+                                </select>
+                                <div class="invalid-feedback">Seleccione el parentesco.</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="EstudianteFechaNacimiento" class="form-label small">Fecha de nacimiento</label>
+                                <input type="date" class="form-control form-control-sm" id="EstudianteFechaNacimiento" name="FechaNacimiento">
+                                <div class="invalid-feedback">No puede ser una fecha futura.</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="EstudianteNivel" class="form-label small">Nivel educativo</label>
+                                <select class="form-select form-select-sm" id="EstudianteNivel" name="IdNivelEducativo">
+                                    <option value="">Sin especificar</option>
+                                    @if (ViewBag.NivelesEducativos != null)
+                                    {
+                                        foreach (var nivel in ViewBag.NivelesEducativos)
+                                        {
+                                            <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="BotonCancelarEstudiante">Cancelar</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Guardar estudiante</button>
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="BotonEditarDesdeDetalle">
+                    <i class="bi bi-pencil me-1"></i>Editar cliente
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+
 <!-- ========================================================= -->
 <!-- MODAL EDITAR CLIENTE -->
 <!-- ========================================================= -->
 
-<div class="modal fade"
-     id="ModalEditarCliente"
-     tabindex="-1"
-     aria-hidden="true">
+<div class="modal fade" id="ModalEditarCliente" tabindex="-1" aria-hidden="true">
 
-    ```
     <div class="modal-dialog modal-lg">
-
         <div class="modal-content">
 
-            <form id="FormularioEditarCliente">
+            <form id="FormularioEditarCliente"
+                  asp-controller="Admin"
+                  asp-action="EditarCliente"
+                  method="post"
+                  novalidate>
+
+                <input type="hidden" id="EditarId" name="Id">
 
                 <div class="modal-header">
-
-                    <h5 class="modal-title">
-                        Editar cliente
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
-
+                    <h5 class="modal-title">Editar cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
 
+                    <div class="alert d-none" id="EditarClienteError" role="alert"></div>
+
                     <div class="row g-3">
 
                         <div class="col-md-6">
-
-                            <label for="EditarNombreEncargado"
-                                   class="form-label">
-                                Nombre del encargado
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarNombreEncargado">
-
+                            <label for="EditarNombreEncargado" class="form-label CampoObligatorio">Nombre del encargado</label>
+                            <input type="text" class="form-control" id="EditarNombreEncargado" name="NombreEncargado" maxlength="100" required>
+                            <div class="invalid-feedback">El nombre del encargado es obligatorio.</div>
                         </div>
 
                         <div class="col-md-6">
-
-                            <label for="EditarTelefono"
-                                   class="form-label">
-                                Teléfono
-                            </label>
-
-                            <input type="tel"
-                                   class="form-control"
-                                   id="EditarTelefono">
-
+                            <label for="EditarApellidoEncargado" class="form-label CampoObligatorio">Apellido del encargado</label>
+                            <input type="text" class="form-control" id="EditarApellidoEncargado" name="ApellidoEncargado" maxlength="100" required>
+                            <div class="invalid-feedback">El apellido del encargado es obligatorio.</div>
                         </div>
 
                         <div class="col-md-6">
-
-                            <label for="EditarCorreo"
-                                   class="form-label">
-                                Correo
-                            </label>
-
-                            <input type="email"
-                                   class="form-control"
-                                   id="EditarCorreo">
-
+                            <label for="EditarTelefono" class="form-label CampoObligatorio">Teléfono</label>
+                            <input type="tel" class="form-control" id="EditarTelefono" name="Telefono" placeholder="8888-8888" required>
+                            <div class="invalid-feedback">El teléfono debe tener 8 dígitos.</div>
                         </div>
 
                         <div class="col-md-6">
+                            <label for="EditarCorreo" class="form-label">Correo electrónico</label>
+                            <input type="email" class="form-control" id="EditarCorreo" name="Correo" maxlength="150">
+                            <div class="invalid-feedback">El correo no es válido.</div>
+                        </div>
 
-                            <label for="EditarServicio"
-                                   class="form-label">
-                                Servicio
-                            </label>
-
-                            <select class="form-select"
-                                    id="EditarServicio">
-
-                                <option value="TutoriaAcademica">
-                                    Tutoría académica
-                                </option>
-
-                                <option value="ApoyoPsicopedagogico">
-                                    Apoyo psicopedagógico
-                                </option>
-
-                                <option value="Evaluaciones">
-                                    Evaluaciones
-                                </option>
-
-                                <option value="OrientacionPadres">
-                                    Orientación a padres
-                                </option>
-
+                        <div class="col-md-6">
+                            <label for="EditarServicio" class="form-label CampoObligatorio">Servicio de interés</label>
+                            <select class="form-select" id="EditarServicio" name="IdServicioInteres" required>
+                                <option value="">Seleccione una opción</option>
+                                @if (ViewBag.Servicios != null)
+                                {
+                                    foreach (var servicio in ViewBag.Servicios)
+                                    {
+                                        <option value="@servicio.IdServicio">@servicio.Nombre</option>
+                                    }
+                                }
                             </select>
-
+                            <div class="invalid-feedback">Debe seleccionar un servicio de interés.</div>
                         </div>
 
+                        <div class="col-md-6">
+                            <label for="EditarEstado" class="form-label CampoObligatorio">Estado</label>
+                            <select class="form-select" id="EditarEstado" name="IdEstadoCliente" required>
+                                <option value="">Seleccione una opción</option>
+                                @if (ViewBag.EstadosCliente != null)
+                                {
+                                    foreach (var estadoCliente in ViewBag.EstadosCliente)
+                                    {
+                                        <option value="@estadoCliente.IdEstadoCliente">@estadoCliente.Nombre</option>
+                                    }
+                                }
+                            </select>
+                            <div class="invalid-feedback">Debe seleccionar un estado.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="EditarObservaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="EditarObservaciones" name="Observaciones" rows="3" maxlength="1000"></textarea>
+                        </div>
+
+                    </div>
+
+                    <div class="alert alert-light border mt-3 mb-0 small">
+                        <i class="bi bi-info-circle text-primary me-1"></i>
+                        Si el estado se cambia a <strong>Inactivo</strong>, el cliente y sus estudiantes quedan desactivados.
+                        Los estudiantes se editan desde el detalle del cliente.
                     </div>
 
                 </div>
 
                 <div class="modal-footer">
-
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit"
-                            class="btn btn-primary">
-                        Guardar cambios
-                    </button>
-
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
                 </div>
 
             </form>
 
         </div>
-
     </div>
-    ```
 
 </div>
 
+
 <!-- ========================================================= -->
-<!-- MODAL ELIMINAR CLIENTE -->
+<!-- MODAL ELIMINAR (DESACTIVAR) CLIENTE -->
 <!-- ========================================================= -->
 
-<div class="modal fade"
-     id="ModalEliminarCliente"
-     tabindex="-1"
-     aria-hidden="true">
+<div class="modal fade" id="ModalEliminarCliente" tabindex="-1" aria-hidden="true">
 
     <div class="modal-dialog">
-
         <div class="modal-content">
 
             <div class="modal-header">
-
-                <h5 class="modal-title">
-                    Eliminar cliente
-                </h5>
-
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Cerrar">
-                </button>
-
+                <h5 class="modal-title">Eliminar cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
             <div class="modal-body">
-
                 <p class="mb-0">
-                    ¿Está seguro de que desea eliminar a
+                    ¿Está seguro de que desea desactivar a
                     <strong id="NombreClienteEliminar"></strong>?
                 </p>
-
             </div>
 
             <div class="modal-footer">
-
-                <button type="button"
-                        class="btn btn-outline-secondary"
-                        data-bs-dismiss="modal">
-                    Cancelar
-                </button>
-
-                <button type="button"
-                        class="btn btn-danger"
-                        id="BotonConfirmarEliminarCliente">
-                    Eliminar
-                </button>
-
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente">Desactivar</button>
             </div>
 
         </div>
-
     </div>
 
 </div>
 
 
 @section Scripts {
-
-    ```
     <script src="~/js/clientes.js"></script>
-    ```
-
 }

@@ -19,11 +19,5 @@ public class ClienteRequest
     [Required]
     public int IdServicioInteres { get; set; }
 
-    [Required]
-    public string NombreEstudiante { get; set; } = string.Empty;
-
-    [Required]
-    public string ApellidoEstudiante { get; set; } = string.Empty;
-
     public string? Observaciones { get; set; }
 }

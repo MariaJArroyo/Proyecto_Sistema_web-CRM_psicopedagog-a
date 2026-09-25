@@ -802,43 +802,58 @@ DROP PROCEDURE IF EXISTS SP_ConsultarClientes_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_ConsultarClientes_CRM()
 BEGIN
-    SELECT 
+    SELECT
       e.IdEncargado AS Id,
       CONCAT(e.Nombre, ' ', e.PrimerApellido) AS Encargado,
       t.Numero AS Telefono,
       e.Correo AS Correo,
       s.Nombre AS Servicio,
       CONCAT(est.Nombre, ' ', est.PrimerApellido) AS Estudiante,
-      ec.Nombre AS Estado,
-      e.IdEstadoCliente AS IdEstadoCliente
+      (SELECT COUNT(*)
+       FROM TB_ESTUDIANTE_ENCARGADO ec2
+       WHERE ec2.IdEncargado = e.IdEncargado) AS CantidadEstudiantes,
+      IF(e.Activo = 1, ec.Nombre, 'Inactivo') AS Estado,
+      IF(e.Activo = 1, e.IdEstadoCliente, 5) AS IdEstadoCliente
     FROM TB_ENCARGADO e
     JOIN TB_ESTADO_CLIENTE ec ON ec.IdEstadoCliente = e.IdEstadoCliente
     LEFT JOIN TB_SERVICIO s ON s.IdServicio = e.IdServicioInteres
     LEFT JOIN TB_TELEFONO t ON t.IdEncargado = e.IdEncargado AND t.EsPrincipal = 1
-    LEFT JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEncargado = e.IdEncargado AND ee.EsPrincipal = 1
-    LEFT JOIN TB_ESTUDIANTE est ON est.IdEstudiante = ee.IdEstudiante
-    WHERE e.Activo = 1
-    ORDER BY e.FechaRegistro DESC;
+    LEFT JOIN TB_ESTUDIANTE est ON est.IdEstudiante = (
+        SELECT ee.IdEstudiante
+        FROM TB_ESTUDIANTE_ENCARGADO ee
+        WHERE ee.IdEncargado = e.IdEncargado
+        ORDER BY ee.EsPrincipal DESC, ee.IdEstudiante
+        LIMIT 1)
+    ORDER BY e.Activo DESC, e.FechaRegistro DESC;
 END$$
 DELIMITER ;
 
--- Falta registrar en TB_BITACORA el alta del encargado y la del
--- estudiante, dentro de esta misma transaccion.
+
+-- p_EstudiantesJson, ejemplo:
+-- [{"Nombre":"Ana","Apellido":"Mora","IdParentesco":1,"FechaNacimiento":"2015-04-10","IdNivelEducativo":2},
+--  {"Nombre":"Luis","Apellido":"Mora","IdParentesco":1,"FechaNacimiento":null,"IdNivelEducativo":null}]
 DROP PROCEDURE IF EXISTS SP_RegistrarCliente_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_RegistrarCliente_CRM(
-    IN p_NombreEncargado      VARCHAR(100),
-    IN p_ApellidoEncargado    VARCHAR(100),
-    IN p_Telefono             VARCHAR(15),
-    IN p_Correo               VARCHAR(150),
-    IN p_IdServicioInteres    INT,
-    IN p_NombreEstudiante     VARCHAR(100),
-    IN p_ApellidoEstudiante   VARCHAR(100),
-    IN p_Observaciones        VARCHAR(1000)
+    IN p_IdUsuarioAccion   INT,
+    IN p_NombreEncargado   VARCHAR(100),
+    IN p_ApellidoEncargado VARCHAR(100),
+    IN p_Telefono          VARCHAR(15),
+    IN p_Correo            VARCHAR(150),
+    IN p_IdServicioInteres INT,
+    IN p_Observaciones     VARCHAR(1000),
+    IN p_EstudiantesJson   JSON
 )
 BEGIN
-    DECLARE v_IdEncargado  INT;
-    DECLARE v_IdEstudiante INT;
+    DECLARE v_IdEncargado      INT;
+    DECLARE v_IdEstudiante     INT;
+    DECLARE v_Total            INT DEFAULT 0;
+    DECLARE v_Fila             INT DEFAULT 1;
+    DECLARE v_Nombre           VARCHAR(100);
+    DECLARE v_Apellido         VARCHAR(100);
+    DECLARE v_FechaNacimiento  DATE;
+    DECLARE v_IdNivelEducativo INT;
+    DECLARE v_IdParentesco     INT;
 
     -- si algo falla a mitad de camino, se revierte todo (nada de cliente a medias)
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -847,11 +862,18 @@ BEGIN
         RESIGNAL;
     END;
 
+    SET v_Total = IFNULL(JSON_LENGTH(p_EstudiantesJson), 0);
+
+    IF v_Total = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Debe agregar al menos un estudiante.';
+    END IF;
+
     START TRANSACTION;
 
     -- IdEstadoCliente = 1 ("Nuevo") siempre al registrar
     INSERT INTO TB_ENCARGADO (IdEstadoCliente, IdServicioInteres, Nombre, PrimerApellido, Correo, Observaciones)
-    VALUES (1, p_IdServicioInteres, p_NombreEncargado, p_ApellidoEncargado, p_Correo, p_Observaciones);
+    VALUES (1, p_IdServicioInteres, TRIM(p_NombreEncargado), TRIM(p_ApellidoEncargado),
+            NULLIF(TRIM(p_Correo), ''), NULLIF(TRIM(p_Observaciones), ''));
 
     SET v_IdEncargado = LAST_INSERT_ID();
 
@@ -859,22 +881,71 @@ BEGIN
     INSERT INTO TB_TELEFONO (IdEncargado, IdTipoTelefono, Numero, EsPrincipal)
     VALUES (v_IdEncargado, 1, p_Telefono, 1);
 
-    INSERT INTO TB_ESTUDIANTE (Nombre, PrimerApellido)
-    VALUES (p_NombreEstudiante, p_ApellidoEstudiante);
+    -- Un estudiante por vuelta, porque cada uno necesita su Id para la relacion
+    WHILE v_Fila <= v_Total DO
 
-    SET v_IdEstudiante = LAST_INSERT_ID();
+        SELECT j.Nombre, j.Apellido, j.FechaNacimiento, j.IdNivelEducativo, j.IdParentesco
+          INTO v_Nombre, v_Apellido, v_FechaNacimiento, v_IdNivelEducativo, v_IdParentesco
+        FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (
+            Fila             FOR ORDINALITY,
+            Nombre           VARCHAR(100) PATH '$.Nombre',
+            Apellido         VARCHAR(100) PATH '$.Apellido',
+            FechaNacimiento  DATE         PATH '$.FechaNacimiento'  NULL ON EMPTY NULL ON ERROR,
+            IdNivelEducativo INT          PATH '$.IdNivelEducativo' NULL ON EMPTY NULL ON ERROR,
+            IdParentesco     INT          PATH '$.IdParentesco'     NULL ON EMPTY NULL ON ERROR
+        )) AS j
+        WHERE j.Fila = v_Fila;
 
-    -- TODO: IdParentesco = 3 ("Tutor legal") es un valor temporal.
-    -- Ni HU-M2-1 ni HU-M3-1 piden este dato en el formulario; confirmar con
-    -- el equipo si se agrega el campo o se deja fijo a proposito.
-    INSERT INTO TB_ESTUDIANTE_ENCARGADO (IdEstudiante, IdEncargado, IdParentesco, EsPrincipal)
-    VALUES (v_IdEstudiante, v_IdEncargado, 3, 1);
+        INSERT INTO TB_ESTUDIANTE (IdNivelEducativo, Nombre, PrimerApellido, FechaNacimiento)
+        VALUES (v_IdNivelEducativo, TRIM(v_Nombre), TRIM(v_Apellido), v_FechaNacimiento);
+
+        SET v_IdEstudiante = LAST_INSERT_ID();
+
+        -- Estudiante nuevo: este encargado es su principal
+        INSERT INTO TB_ESTUDIANTE_ENCARGADO (IdEstudiante, IdEncargado, IdParentesco, EsPrincipal)
+        VALUES (v_IdEstudiante, v_IdEncargado, IFNULL(v_IdParentesco, 3), 1);
+
+        SET v_Fila = v_Fila + 1;
+    END WHILE;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', v_IdEncargado, 'Crear',
+            JSON_OBJECT('Nombre', p_NombreEncargado, 'PrimerApellido', p_ApellidoEncargado,
+                        'Correo', p_Correo, 'IdEstadoCliente', 1,
+                        'CantidadEstudiantes', v_Total));
 
     COMMIT;
 
-    SELECT v_IdEncargado AS IdEncargado, v_IdEstudiante AS IdEstudiante;
+    SELECT v_IdEncargado AS IdEncargado;
 END$$
 DELIMITER ;
+
+
+-- Desactiva los estudiantes del encargado que ya no tengan ningun otro
+-- encargado activo. Se llama DESPUES de poner Activo = 0 al encargado.
+DROP PROCEDURE IF EXISTS SP_DesactivarEstudiantesEncargado_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_DesactivarEstudiantesEncargado_CRM(
+    IN p_IdEncargado INT
+)
+BEGIN
+    UPDATE TB_ESTUDIANTE es
+    SET es.Activo = 0,
+        es.FechaModificacion = NOW()
+    WHERE es.Activo = 1
+      AND es.IdEstudiante IN (
+          SELECT ee.IdEstudiante
+          FROM TB_ESTUDIANTE_ENCARGADO ee
+          WHERE ee.IdEncargado = p_IdEncargado)
+      AND NOT EXISTS (
+          SELECT 1
+          FROM TB_ESTUDIANTE_ENCARGADO ee2
+          JOIN TB_ENCARGADO e2 ON e2.IdEncargado = ee2.IdEncargado
+          WHERE ee2.IdEstudiante = es.IdEstudiante
+            AND e2.Activo = 1);
+END$$
+DELIMITER ;
+
 
 DROP PROCEDURE IF EXISTS SP_DesactivarCliente_CRM;
 DELIMITER $$
@@ -882,11 +953,312 @@ CREATE PROCEDURE SP_DesactivarCliente_CRM(
     IN p_IdEncargado INT
 )
 BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
 
+    START TRANSACTION;
+
+    -- 5 = "Inactivo" en TB_ESTADO_CLIENTE
     UPDATE TB_ENCARGADO
-    SET Activo = 0
+    SET Activo = 0,
+        IdEstadoCliente = 5,
+        FechaModificacion = NOW()
     WHERE IdEncargado = p_IdEncargado;
 
+    CALL SP_DesactivarEstudiantesEncargado_CRM(p_IdEncargado);
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+-- ============================================================
+-- NUEVOS SPs PARA EDICION Y DETALLE DE CLIENTES
+-- ============================================================
+
+DROP PROCEDURE IF EXISTS SP_ObtenerCliente_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ObtenerCliente_CRM(
+    IN p_IdEncargado INT
+)
+BEGIN
+    -- 1) Datos del encargado
+    SELECT
+      e.IdEncargado AS Id,
+      e.Nombre AS NombreEncargado,
+      e.PrimerApellido AS ApellidoEncargado,
+      t.Numero AS Telefono,
+      e.Correo,
+      e.Observaciones,
+      e.IdServicioInteres,
+      s.Nombre AS Servicio,
+      IF(e.Activo = 1, e.IdEstadoCliente, 5) AS IdEstadoCliente,
+      IF(e.Activo = 1, ec.Nombre, 'Inactivo') AS Estado,
+      e.Activo,
+      e.FechaRegistro
+    FROM TB_ENCARGADO e
+    JOIN TB_ESTADO_CLIENTE ec ON ec.IdEstadoCliente = e.IdEstadoCliente
+    LEFT JOIN TB_SERVICIO s ON s.IdServicio = e.IdServicioInteres
+    LEFT JOIN TB_TELEFONO t ON t.IdEncargado = e.IdEncargado AND t.EsPrincipal = 1
+    WHERE e.IdEncargado = p_IdEncargado;
+
+    -- 2) Estudiantes a cargo
+    SELECT
+      es.IdEstudiante,
+      es.Nombre,
+      es.PrimerApellido AS Apellido,
+      es.FechaNacimiento,
+      TIMESTAMPDIFF(YEAR, es.FechaNacimiento, CURDATE()) AS Edad,
+      es.IdNivelEducativo,
+      ne.Nombre AS NivelEducativo,
+      ee.IdParentesco,
+      p.Nombre AS Parentesco,
+      es.Activo
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_ESTUDIANTE es ON es.IdEstudiante = ee.IdEstudiante
+    JOIN TB_PARENTESCO p ON p.IdParentesco = ee.IdParentesco
+    LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = es.IdNivelEducativo
+    WHERE ee.IdEncargado = p_IdEncargado
+    ORDER BY es.Activo DESC, es.Nombre, es.PrimerApellido;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_EditarCliente_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_EditarCliente_CRM(
+    IN p_IdUsuarioAccion   INT,
+    IN p_IdEncargado       INT,
+    IN p_NombreEncargado   VARCHAR(100),
+    IN p_ApellidoEncargado VARCHAR(100),
+    IN p_Telefono          VARCHAR(15),
+    IN p_Correo            VARCHAR(150),
+    IN p_IdServicioInteres INT,
+    IN p_IdEstadoCliente   INT,
+    IN p_Observaciones     VARCHAR(1000)
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT JSON_OBJECT('Nombre', Nombre, 'PrimerApellido', PrimerApellido, 'Correo', Correo,
+                       'IdServicioInteres', IdServicioInteres, 'IdEstadoCliente', IdEstadoCliente,
+                       'Activo', Activo)
+      INTO v_Anterior
+    FROM TB_ENCARGADO
+    WHERE IdEncargado = p_IdEncargado;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cliente indicado no existe.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTADO_CLIENTE WHERE IdEstadoCliente = p_IdEstadoCliente) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estado indicado no existe.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_SERVICIO WHERE IdServicio = p_IdServicioInteres) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El servicio indicado no existe.';
+    END IF;
+
+    START TRANSACTION;
+
+    -- 5 = "Inactivo": desactiva al cliente. Cualquier otro estado lo reactiva.
+    UPDATE TB_ENCARGADO
+    SET Nombre = TRIM(p_NombreEncargado),
+        PrimerApellido = TRIM(p_ApellidoEncargado),
+        Correo = NULLIF(TRIM(p_Correo), ''),
+        Observaciones = NULLIF(TRIM(p_Observaciones), ''),
+        IdServicioInteres = p_IdServicioInteres,
+        IdEstadoCliente = p_IdEstadoCliente,
+        Activo = IF(p_IdEstadoCliente = 5, 0, 1),
+        FechaModificacion = NOW()
+    WHERE IdEncargado = p_IdEncargado;
+
+    -- Telefono principal: se actualiza, o se crea si el cliente no tenia
+    IF EXISTS (SELECT 1 FROM TB_TELEFONO WHERE IdEncargado = p_IdEncargado AND EsPrincipal = 1) THEN
+        UPDATE TB_TELEFONO
+        SET Numero = p_Telefono
+        WHERE IdEncargado = p_IdEncargado AND EsPrincipal = 1;
+    ELSE
+        INSERT INTO TB_TELEFONO (IdEncargado, IdTipoTelefono, Numero, EsPrincipal)
+        VALUES (p_IdEncargado, 1, p_Telefono, 1);
+    END IF;
+
+    -- Estudiantes: se desactivan con el cliente (si no tienen otro encargado activo)
+    -- y se reactivan si el cliente estaba inactivo.
+    IF p_IdEstadoCliente = 5 THEN
+        CALL SP_DesactivarEstudiantesEncargado_CRM(p_IdEncargado);
+    ELSEIF JSON_EXTRACT(v_Anterior, '$.Activo') = 0 THEN
+        UPDATE TB_ESTUDIANTE
+        SET Activo = 1,
+            FechaModificacion = NOW()
+        WHERE Activo = 0
+          AND IdEstudiante IN (
+              SELECT ee.IdEstudiante
+              FROM TB_ESTUDIANTE_ENCARGADO ee
+              WHERE ee.IdEncargado = p_IdEncargado);
+    END IF;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'Editar', v_Anterior,
+            JSON_OBJECT('Nombre', p_NombreEncargado, 'PrimerApellido', p_ApellidoEncargado,
+                        'Correo', p_Correo, 'IdServicioInteres', p_IdServicioInteres,
+                        'IdEstadoCliente', p_IdEstadoCliente,
+                        'Activo', IF(p_IdEstadoCliente = 5, 0, 1)));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+-- Edita un estudiante desde el detalle del cliente. Solo toca los campos que
+-- maneja ese formulario; el resto de la ficha (institucion, observaciones,
+-- necesidades de apoyo) queda igual.
+DROP PROCEDURE IF EXISTS SP_EditarEstudianteCliente_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_EditarEstudianteCliente_CRM(
+    IN p_IdUsuarioAccion  INT,
+    IN p_IdEncargado      INT,
+    IN p_IdEstudiante     INT,
+    IN p_Nombre           VARCHAR(100),
+    IN p_Apellido         VARCHAR(100),
+    IN p_FechaNacimiento  DATE,
+    IN p_IdNivelEducativo INT,
+    IN p_IdParentesco     INT
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO
+                   WHERE IdEstudiante = p_IdEstudiante AND IdEncargado = p_IdEncargado) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no pertenece a este cliente.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_PARENTESCO WHERE IdParentesco = p_IdParentesco) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El parentesco indicado no existe.';
+    END IF;
+
+    SELECT JSON_OBJECT('Nombre', es.Nombre, 'PrimerApellido', es.PrimerApellido,
+                       'FechaNacimiento', es.FechaNacimiento,
+                       'IdNivelEducativo', es.IdNivelEducativo, 'IdParentesco', ee.IdParentesco)
+      INTO v_Anterior
+    FROM TB_ESTUDIANTE es
+    JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = es.IdEstudiante
+    WHERE es.IdEstudiante = p_IdEstudiante AND ee.IdEncargado = p_IdEncargado;
+
+    START TRANSACTION;
+
+    UPDATE TB_ESTUDIANTE
+    SET Nombre = TRIM(p_Nombre),
+        PrimerApellido = TRIM(p_Apellido),
+        FechaNacimiento = p_FechaNacimiento,
+        IdNivelEducativo = p_IdNivelEducativo,
+        FechaModificacion = NOW()
+    WHERE IdEstudiante = p_IdEstudiante;
+
+    UPDATE TB_ESTUDIANTE_ENCARGADO
+    SET IdParentesco = p_IdParentesco
+    WHERE IdEstudiante = p_IdEstudiante AND IdEncargado = p_IdEncargado;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ESTUDIANTE', p_IdEstudiante, 'Editar', v_Anterior,
+            JSON_OBJECT('Nombre', p_Nombre, 'PrimerApellido', p_Apellido,
+                        'FechaNacimiento', p_FechaNacimiento,
+                        'IdNivelEducativo', p_IdNivelEducativo, 'IdParentesco', p_IdParentesco));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Activa o desactiva un estudiante individual. No deja activar un estudiante
+-- que no tenga ningun encargado activo.
+DROP PROCEDURE IF EXISTS SP_CambiarEstadoEstudiante_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_CambiarEstadoEstudiante_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEncargado     INT,
+    IN p_IdEstudiante    INT,
+    IN p_Activo          BOOLEAN
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO
+                   WHERE IdEstudiante = p_IdEstudiante AND IdEncargado = p_IdEncargado) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no pertenece a este cliente.';
+    END IF;
+
+    IF p_Activo = 1 AND NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE_ENCARGADO ee
+        JOIN TB_ENCARGADO e ON e.IdEncargado = ee.IdEncargado
+        WHERE ee.IdEstudiante = p_IdEstudiante AND e.Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'No se puede activar el estudiante porque su encargado esta inactivo.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_ESTUDIANTE
+    SET Activo = p_Activo,
+        FechaModificacion = NOW()
+    WHERE IdEstudiante = p_IdEstudiante;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ESTUDIANTE', p_IdEstudiante, 'CambiarEstado',
+            JSON_OBJECT('Activo', p_Activo));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_ListarParentescos_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarParentescos_CRM()
+BEGIN
+    SELECT IdParentesco, Nombre
+    FROM TB_PARENTESCO
+    ORDER BY IdParentesco;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_ListarNivelesEducativos_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarNivelesEducativos_CRM()
+BEGIN
+    SELECT IdNivelEducativo, Nombre
+    FROM TB_NIVEL_EDUCATIVO
+    ORDER BY Orden;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_ListarEstadosCliente_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarEstadosCliente_CRM()
+BEGIN
+    SELECT IdEstadoCliente, Nombre
+    FROM TB_ESTADO_CLIENTE
+    ORDER BY Orden;
 END$$
 DELIMITER ;
 
