@@ -865,7 +865,7 @@ button.TopbarAdmin-Usuario {
         box-shadow: none !important;
         border: none !important;
     }
-
+}
     /* ===== Contador de notificaciones del menu ===== */
 
     .SidebarAdmin-Icono {
@@ -1017,4 +1017,5 @@ button.TopbarAdmin-Usuario {
         background-color: #9AA5B4;
         color: #fff;
     }
+
     
