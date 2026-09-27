@@ -11,6 +11,11 @@
         [3] = "Asistente"
     };
 
+    // Para no ofrecerle al administrador que se desactive a si mismo: el API
+    // tambien lo rechaza, pero es mejor no mostrar el boton
+    var idUsuarioActual = int.Parse(
+        User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
+
     string ClaseInsignia(string estado) => estado switch
     {
         "Activo" => "badge-estado-activo",
@@ -54,8 +59,12 @@
             </div>
             <div class="col-md-5">
               <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
+                @* Los mismos textos que devuelve la base: el filtro compara
+                   contra data-estado, asi que si no coinciden no filtra nada *@
                 <option value="">Todos los estados</option>
                 <option value="Activo">Activo</option>
+                <option value="Pendiente de activación">Pendiente de activación</option>
+                <option value="Bloqueado">Bloqueado</option>
                 <option value="Inactivo">Inactivo</option>
               </select>
             </div>
@@ -76,7 +85,9 @@
                 @foreach (var usuario in Model)
                 {
                 <tr data-fila data-estado="@usuario.Estado" data-valor-nombre="@usuario.NombreCompleto"
-                  data-valor-correo="@usuario.Correo" data-valor-rol="@usuario.Rol">
+                  data-valor-correo="@usuario.Correo" data-valor-rol="@usuario.Rol"
+                  data-id-usuario="@usuario.IdUsuario"
+                  data-id-rol="@(roles.FirstOrDefault(r => r.Value == usuario.Rol).Key)">
                   <td data-campo="nombre">@usuario.NombreCompleto</td>
                   <td data-campo="correo">@usuario.Correo</td>
                   <td data-campo="rol">
@@ -97,8 +108,37 @@
                   <td class="TablaAcciones">
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
                       data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
-                      data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
+
+                    @if (usuario.Estado != "Inactivo")
+                    {
+                      <form asp-controller="Admin" asp-action="ReenviarInvitacion" method="post" class="d-inline">
+                        <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary border-0"
+                          data-bs-toggle="tooltip"
+                          title="@(usuario.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Enviar enlace para restablecer la contraseña")">
+                          <i class="bi bi-envelope"></i>
+                        </button>
+                      </form>
+                    }
+
+                    @if (usuario.IdUsuario == idUsuarioActual)
+                    {
+                      <span class="TextoSuave small ms-1">Su cuenta</span>
+                    }
+                    else if (usuario.Estado == "Inactivo")
+                    {
+                      <form asp-controller="Admin" asp-action="CambiarEstadoUsuario" method="post" class="d-inline">
+                        <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                        <input type="hidden" name="idEstadoUsuario" value="1">
+                        <button type="submit" class="btn btn-sm btn-outline-primary border-0" data-bs-toggle="tooltip"
+                          title="Activar"><i class="bi bi-person-check"></i></button>
+                      </form>
+                    }
+                    else
+                    {
+                      <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
+                        data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
+                    }
                   </td>
                 </tr>
                 }
@@ -161,8 +201,9 @@
       <div class="modal fade" id="ModalEditarUsuario" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
-            <!-- Razor: asp-controller="Usuarios" asp-action="Editar" method="post" -->
-            <form id="FormularioEditarUsuario" novalidate>
+            <form asp-controller="Admin" asp-action="EditarUsuario" method="post"
+              id="FormularioEditarUsuario" novalidate>
+              <input type="hidden" name="IdUsuario" id="EditarIdUsuario">
               <div class="modal-header">
                 <h5 class="modal-title">Editar usuario</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -170,20 +211,26 @@
               <div class="modal-body">
                 <div class="mb-3">
                   <label for="EditarNombreUsuario" class="form-label CampoObligatorio">Nombre completo</label>
-                  <input type="text" class="form-control" id="EditarNombreUsuario">
+                  <input type="text" class="form-control" id="EditarNombreUsuario" name="NombreCompleto" required>
                   <div class="invalid-feedback"></div>
                 </div>
                 <div class="mb-3">
                   <label for="EditarCorreoUsuario" class="form-label CampoObligatorio">Correo electrónico</label>
-                  <input type="email" class="form-control" id="EditarCorreoUsuario">
+                  <input type="email" class="form-control" id="EditarCorreoUsuario" name="Correo" required>
                   <div class="invalid-feedback"></div>
                 </div>
                 <div class="mb-1">
                   <label for="EditarRolUsuario" class="form-label CampoObligatorio">Rol</label>
-                  <select class="form-select" id="EditarRolUsuario">
-                    <option value="Administradora">Administradora</option>
-                    <option value="Asistente">Asistente</option>
+                  <select class="form-select" id="EditarRolUsuario" name="IdRol" required>
+                    @foreach (var rol in roles)
+                    {
+                      <option value="@rol.Key">@rol.Value</option>
+                    }
                   </select>
+                </div>
+                <div class="form-text mt-2">
+                  Si cambia el correo, los enlaces de invitación o de restablecimiento que estén
+                  pendientes dejan de servir: se enviaron a la dirección anterior.
                 </div>
               </div>
               <div class="modal-footer">
@@ -208,12 +255,16 @@
                 Esta persona ya no podrá iniciar sesión en el panel.
               </p>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="BotonConfirmarDesactivarUsuario">
-                <i class="bi bi-person-x me-1"></i>Desactivar
-              </button>
-            </div>
+            <form asp-controller="Admin" asp-action="CambiarEstadoUsuario" method="post">
+              <input type="hidden" name="idUsuario" id="DesactivarIdUsuario">
+              <input type="hidden" name="idEstadoUsuario" value="2">
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger">
+                  <i class="bi bi-person-x me-1"></i>Desactivar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -225,65 +276,50 @@
       var tabla = document.getElementById("TablaUsuarios");
       var instanciaEditar = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarUsuario"));
       var instanciaDesactivar = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalDesactivarUsuario"));
-      var filaSeleccionada = null;
       function TextoCampo(fila, campo) {
         return fila.querySelector('[data-campo="' + campo + '"]').textContent.trim();
       }
+      // Los dos modales solo recogen datos y arman el formulario. Quien decide
+      // y quien guarda es el servidor; aqui no se toca la fila ni se avisa de
+      // nada que no haya pasado de verdad.
       tabla.addEventListener("click", function (evento) {
         var boton = evento.target.closest("[data-accion]");
         if (!boton) {
           return;
         }
-        filaSeleccionada = boton.closest("tr");
+        var fila = boton.closest("tr");
         var accion = boton.getAttribute("data-accion");
         if (accion === "editar") {
-          document.getElementById("EditarNombreUsuario").value = TextoCampo(filaSeleccionada, "nombre");
-          document.getElementById("EditarCorreoUsuario").value = TextoCampo(filaSeleccionada, "correo");
-          document.getElementById("EditarRolUsuario").value = TextoCampo(filaSeleccionada, "rol");
+          document.getElementById("EditarIdUsuario").value = fila.getAttribute("data-id-usuario");
+          document.getElementById("EditarNombreUsuario").value = fila.getAttribute("data-valor-nombre");
+          document.getElementById("EditarCorreoUsuario").value = fila.getAttribute("data-valor-correo");
+          document.getElementById("EditarRolUsuario").value = fila.getAttribute("data-id-rol");
           instanciaEditar.show();
         } else if (accion === "desactivar") {
-          document.getElementById("NombreUsuarioDesactivar").textContent = TextoCampo(filaSeleccionada, "nombre");
+          document.getElementById("DesactivarIdUsuario").value = fila.getAttribute("data-id-usuario");
+          document.getElementById("NombreUsuarioDesactivar").textContent = TextoCampo(fila, "nombre");
           instanciaDesactivar.show();
         }
       });
+      // El envio lo hace el navegador contra Admin/CrearUsuario. Aqui solo se
+      // valida: si algo esta mal se frena, y si esta bien se deja pasar. El
+      // aviso de resultado llega del servidor por TempData, no se inventa aqui.
       document.getElementById("FormularioNuevoUsuario").addEventListener("submit", function (evento) {
-        evento.preventDefault();
         var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("NombreUsuario"), "Ingrese el nombre completo.") && esValido;
-        esValido = ValidarCorreo(document.getElementById("CorreoUsuario")) && esValido;
-        esValido = ValidarObligatorio(document.getElementById("RolUsuario"), "Seleccione un rol.") && esValido;
+        esValido = ValidarObligatorio(document.getElementById("NombreCompleto"), "Ingrese el nombre completo.") && esValido;
+        esValido = ValidarCorreo(document.getElementById("Correo")) && esValido;
+        esValido = ValidarObligatorio(document.getElementById("IdRol"), "Seleccione un rol.") && esValido;
         if (!esValido) {
-          return;
+          evento.preventDefault();
         }
-        evento.target.reset();
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevoUsuario")).hide();
-        MostrarToast("Invitación enviada correctamente.");
       });
       document.getElementById("FormularioEditarUsuario").addEventListener("submit", function (evento) {
-        evento.preventDefault();
         var esValido = true;
         esValido = ValidarObligatorio(document.getElementById("EditarNombreUsuario"), "Ingrese el nombre completo.") && esValido;
         esValido = ValidarCorreo(document.getElementById("EditarCorreoUsuario")) && esValido;
-        if (!esValido || !filaSeleccionada) {
-          return;
+        if (!esValido) {
+          evento.preventDefault();
         }
-        filaSeleccionada.querySelector('[data-campo="nombre"]').textContent = document.getElementById("EditarNombreUsuario").value;
-        filaSeleccionada.querySelector('[data-campo="correo"]').textContent = document.getElementById("EditarCorreoUsuario").value;
-        filaSeleccionada.querySelector('[data-campo="rol"]').textContent = document.getElementById("EditarRolUsuario").value;
-        instanciaEditar.hide();
-        MostrarToast("Usuario actualizado correctamente.");
-      });
-      document.getElementById("BotonConfirmarDesactivarUsuario").addEventListener("click", function () {
-        if (!filaSeleccionada) {
-          return;
-        }
-        var insignia = filaSeleccionada.querySelector('[data-campo-badge="estado"]');
-        insignia.className = "badge badge-estado-inactivo";
-        insignia.textContent = "Inactivo";
-        filaSeleccionada.setAttribute("data-estado", "Inactivo");
-        instanciaDesactivar.hide();
-        MostrarToast("Usuario desactivado.", "error");
       });
     });
   </script>

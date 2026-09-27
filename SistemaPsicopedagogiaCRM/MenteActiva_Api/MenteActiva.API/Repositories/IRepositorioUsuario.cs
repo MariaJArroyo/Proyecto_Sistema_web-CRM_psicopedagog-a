@@ -6,6 +6,8 @@ public interface IRepositorioUsuario
 {
     Task<UsuarioAutenticado?> ObtenerPorCorreoAsync(string correo);
 
+    Task<UsuarioDetalleResponse?> ObtenerPorIdAsync(int idUsuario);
+
     Task RegistrarIngresoAsync(int idUsuario);
 
     Task RegistrarFalloAsync(string correo);
@@ -24,4 +26,10 @@ public interface IRepositorioUsuario
     Task<IEnumerable<UsuarioExternoResponse>> ListarExternosAsync(string? busqueda);
 
     Task AsignarRolAsync(int idUsuarioAccion, int idUsuario, int idRol);
+
+    Task EditarAsync(int idUsuarioAccion, int idUsuario, string nombreCompleto, string correo, int idRol);
+
+    Task CambiarEstadoAsync(int idUsuarioAccion, int idUsuario, int idEstadoUsuario);
+
+    Task SuspenderAccesoExternoAsync(int idUsuarioAccion, int idUsuario);
 }
