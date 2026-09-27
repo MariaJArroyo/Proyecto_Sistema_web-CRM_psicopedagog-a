@@ -11,6 +11,7 @@
     };
 }
 
+
       <main class="PrincipalAdmin">
         <div class="mb-4">
           <h2 class="mb-1">Usuarios externos</h2>
@@ -31,11 +32,14 @@
             </div>
             <div class="col-md-5">
               <select class="form-select" data-buscar-estado aria-label="Filtrar por estado de acceso">
+                @* Los mismos textos que devuelve la base: el filtro compara
+                   contra data-estado, asi que si no coinciden no filtra nada *@
                 <option value="">Todos los estados</option>
                 <option value="Activo">Activo</option>
-                <option value="Invitado">Invitado</option>
+                <option value="Pendiente de activación">Pendiente de activación</option>
                 <option value="Sin invitar">Sin invitar</option>
-                <option value="Suspendido">Suspendido</option>
+                <option value="Sin correo">Sin correo</option>
+                <option value="Inactivo">Inactivo</option>
               </select>
             </div>
           </div>
@@ -63,7 +67,8 @@
               <tbody>
                 @foreach (var acceso in Model)
                 {
-                <tr data-fila data-estado="@acceso.Estado" data-correo="@acceso.Correo">
+                <tr data-fila data-estado="@acceso.Estado" data-correo="@acceso.Correo"
+                  data-id-usuario="@acceso.IdUsuario">
                   <td>@acceso.Encargado</td>
                   <td>@(acceso.Correo ?? "—")</td>
                   <td>@(acceso.Estudiante ?? "—")</td>
@@ -80,10 +85,22 @@
                     {
                       <span class="TextoSuave small">Falta el correo del encargado</span>
                     }
+                    else if (acceso.Estado == "Inactivo")
+                    {
+                      <form asp-controller="Admin" asp-action="CambiarAccesoPortal" method="post" class="d-inline">
+                        <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
+                        <input type="hidden" name="suspender" value="false">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Reactivar</button>
+                      </form>
+                    }
                     else
                     {
-                      <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="restablecer">Restablecer
-                        contraseña</button>
+                      <form asp-controller="Admin" asp-action="ReenviarInvitacionPortal" method="post" class="d-inline">
+                        <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                          @(acceso.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Restablecer contraseña")
+                        </button>
+                      </form>
                       <button type="button" class="btn btn-sm btn-outline-danger"
                         data-accion="suspender">Suspender</button>
                     }
@@ -117,12 +134,16 @@
                 Esta persona no podrá iniciar sesión hasta que se reactive su cuenta.
               </p>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="BotonConfirmarSuspenderAcceso">
-                <i class="bi bi-slash-circle me-1"></i>Suspender
-              </button>
-            </div>
+            <form asp-controller="Admin" asp-action="CambiarAccesoPortal" method="post">
+              <input type="hidden" name="idUsuario" id="SuspenderIdUsuario">
+              <input type="hidden" name="suspender" value="true">
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger">
+                  <i class="bi bi-slash-circle me-1"></i>Suspender
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -130,71 +151,21 @@
 @section Scripts {
   <script src="~/js/Validaciones.js"></script>
   <script>
+    // Lo unico que queda en el navegador es abrir el modal con el usuario
+    // correcto. Suspender, reactivar y reenviar son formularios contra el
+    // servidor: la fila cambia cuando la pagina vuelve, no antes.
     document.addEventListener("DOMContentLoaded", function () {
       var tabla = document.getElementById("TablaUsuariosExternos");
       var instanciaSuspender = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalSuspenderAcceso"));
-      var filaSeleccionada = null;
-      function ActualizarAccionesFila(fila, estado) {
-        var celdaAcciones = fila.querySelector(".TablaAcciones");
-        if (estado === "Activo") {
-          celdaAcciones.innerHTML =
-            '<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="restablecer">Restablecer contraseña</button>' +
-            '<button type="button" class="btn btn-sm btn-outline-danger" data-accion="suspender">Suspender</button>';
-        } else if (estado === "Invitado") {
-          celdaAcciones.innerHTML =
-            '<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="reenviar">Reenviar invitación</button>';
-        } else if (estado === "Suspendido") {
-          celdaAcciones.innerHTML =
-            '<button type="button" class="btn btn-sm btn-outline-primary" data-accion="reactivar">Reactivar</button>';
-        } else {
-          celdaAcciones.innerHTML =
-            '<button type="button" class="btn btn-sm btn-outline-primary" data-accion="invitar">Invitar al portal</button>';
-        }
-      }
-      var mapaBadgeAcceso = {
-        Activo: "badge-estado-activo",
-        Invitado: "badge-etiqueta-morado",
-        Suspendido: "badge-etiqueta-rojo",
-        "Sin invitar": "badge-estado-nuevo"
-      };
-      function CambiarEstadoAcceso(fila, nuevoEstado) {
-        var insignia = fila.querySelector('[data-campo-badge="estado"]');
-        insignia.className = "badge " + mapaBadgeAcceso[nuevoEstado];
-        insignia.textContent = nuevoEstado;
-        fila.setAttribute("data-estado", nuevoEstado);
-        ActualizarAccionesFila(fila, nuevoEstado);
-      }
       tabla.addEventListener("click", function (evento) {
-        var boton = evento.target.closest("[data-accion]");
+        var boton = evento.target.closest('[data-accion="suspender"]');
         if (!boton) {
           return;
         }
-        filaSeleccionada = boton.closest("tr");
-        var accion = boton.getAttribute("data-accion");
-        var correo = filaSeleccionada.getAttribute("data-correo");
-        var nombre = filaSeleccionada.querySelector("td").textContent.trim();
-        if (accion === "invitar") {
-          CambiarEstadoAcceso(filaSeleccionada, "Invitado");
-          MostrarToast("Invitación enviada a " + correo + ".");
-        } else if (accion === "reenviar") {
-          MostrarToast("Invitación reenviada a " + correo + ".");
-        } else if (accion === "restablecer") {
-          MostrarToast("Se envió un enlace para restablecer la contraseña a " + correo + ".");
-        } else if (accion === "reactivar") {
-          CambiarEstadoAcceso(filaSeleccionada, "Activo");
-          MostrarToast("Acceso reactivado para " + correo + ".");
-        } else if (accion === "suspender") {
-          document.getElementById("NombreSuspenderAcceso").textContent = nombre;
-          instanciaSuspender.show();
-        }
-      });
-      document.getElementById("BotonConfirmarSuspenderAcceso").addEventListener("click", function () {
-        if (!filaSeleccionada) {
-          return;
-        }
-        CambiarEstadoAcceso(filaSeleccionada, "Suspendido");
-        instanciaSuspender.hide();
-        MostrarToast("Acceso suspendido.", "error");
+        var fila = boton.closest("tr");
+        document.getElementById("SuspenderIdUsuario").value = fila.getAttribute("data-id-usuario");
+        document.getElementById("NombreSuspenderAcceso").textContent = fila.querySelector("td").textContent.trim();
+        instanciaSuspender.show();
       });
     });
   </script>

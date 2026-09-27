@@ -485,6 +485,62 @@ public class AdminController : Controller
         return RedirectToAction(nameof(Usuarios));
     }
 
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> EditarUsuario(EditarUsuarioViewModel modelo)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Revise los datos: el nombre, el correo y el rol son obligatorios.";
+            return RedirectToAction(nameof(Usuarios));
+        }
+
+        using var cliente = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI") + $"usuarios/{modelo.IdUsuario}";
+
+        var respuesta = await cliente.PutAsJsonAsync(url, new
+        {
+            modelo.NombreCompleto,
+            modelo.Correo,
+            modelo.IdRol
+        });
+
+        await GuardarAvisoAsync(respuesta, "No se pudo guardar el usuario.");
+
+        return RedirectToAction(nameof(Usuarios));
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> CambiarEstadoUsuario(int idUsuario, int idEstadoUsuario)
+    {
+        using var cliente = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI") + $"usuarios/{idUsuario}/estado";
+
+        var respuesta = await cliente.PutAsJsonAsync(url, new { idEstadoUsuario });
+
+        await GuardarAvisoAsync(respuesta, "No se pudo cambiar el estado de la cuenta.");
+
+        return RedirectToAction(nameof(Usuarios));
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> ReenviarInvitacion(int idUsuario)
+    {
+        using var cliente = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI") + $"usuarios/{idUsuario}/invitacion";
+
+        var respuesta = await cliente.PostAsync(url, null);
+
+        await GuardarAvisoAsync(respuesta, "No se pudo enviar el enlace.");
+
+        return RedirectToAction(nameof(Usuarios));
+    }
     private int ObtenerIdUsuarioActual()
         => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -498,20 +554,73 @@ public class AdminController : Controller
 
         var respuesta = await cliente.PostAsJsonAsync(url, new { idEncargado });
 
-        if (respuesta.IsSuccessStatusCode)
+        await GuardarAvisoAsync(respuesta, "No se pudo enviar la invitación.");
+
+        return RedirectToAction(nameof(UsuariosExternos));
+    }
+
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ReenviarInvitacionPortal(int idUsuario)
+    {
+        using var cliente = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI") + $"usuarios-externos/{idUsuario}/invitacion";
+
+        var respuesta = await cliente.PostAsync(url, null);
+
+        await GuardarAvisoAsync(respuesta, "No se pudo enviar el enlace.");
+
+        return RedirectToAction(nameof(UsuariosExternos));
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarAccesoPortal(int idUsuario, bool suspender)
+    {
+        using var cliente = _http.CreateClient();
+
+        var url = _config.GetValue<string>("Valores:UrlAPI") + $"usuarios-externos/{idUsuario}/acceso";
+
+        var respuesta = await cliente.PutAsJsonAsync(url, new { suspender });
+
+        await GuardarAvisoAsync(respuesta, "No se pudo cambiar el acceso al portal.");
+
+        return RedirectToAction(nameof(UsuariosExternos));
+    }
+
+    // El aviso lo escribe el API, no esta pantalla. Importa sobre todo cuando
+    // la operacion sale bien a medias: la cuenta queda creada pero el correo no
+    // salio, y el texto que corresponde es ese y no "listo".
+    private async Task GuardarAvisoAsync(HttpResponseMessage respuesta, string textoPorDefecto)
+    {
+        var cuerpo = await respuesta.Content.ReadFromJsonAsync<Dictionary<string, JsonElement>>();
+
+        var mensaje = cuerpo is not null
+            && cuerpo.TryGetValue("mensaje", out var texto)
+            && texto.ValueKind == JsonValueKind.String
+                ? texto.GetString()
+                : null;
+
+        if (!respuesta.IsSuccessStatusCode)
         {
-            TempData["Mensaje"] = "Se envió la invitación al portal.";
+            TempData["Error"] = mensaje ?? textoPorDefecto;
+            return;
+        }
+
+        var correoSalio = cuerpo is null
+            || !cuerpo.TryGetValue("correoEnviado", out var enviado)
+            || enviado.ValueKind != JsonValueKind.False;
+
+        if (correoSalio)
+        {
+            TempData["Mensaje"] = mensaje ?? "Listo.";
         }
         else
         {
-            var error = await respuesta.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-
-            TempData["Error"] = error is not null && error.TryGetValue("mensaje", out var mensaje)
-                ? mensaje
-                : "No se pudo enviar la invitación.";
+            TempData["Error"] = mensaje ?? "La operación se guardó, pero el correo no salió.";
         }
-
-        return RedirectToAction(nameof(UsuariosExternos));
     }
 
     #endregion

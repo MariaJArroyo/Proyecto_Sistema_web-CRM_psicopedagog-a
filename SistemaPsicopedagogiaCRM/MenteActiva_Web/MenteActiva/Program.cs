@@ -36,8 +36,16 @@ builder.Services
         opciones.Cookie.Name = "MenteActiva.Sesion";
         // HttpOnly: un script inyectado no puede leer la sesion
         opciones.Cookie.HttpOnly = true;
-        // Strict: la cookie no viaja en peticiones que vengan de otro sitio
-        opciones.Cookie.SameSite = SameSiteMode.Strict;
+        // Lax y no Strict, y no es un descuido. Con Strict la cookie tampoco
+        // viaja cuando el usuario LLEGA desde otro sitio, por ejemplo al abrir
+        // el enlace del correo de invitacion. Ese GET entraba como anonimo, el
+        // formulario salia con un token antifalsificacion de usuario anonimo, y
+        // el POST siguiente ya era del mismo sitio y si llevaba la sesion: el
+        // token decia una identidad y la peticion otra, y todo POST moria en
+        // 400. Lax deja pasar la cookie en la navegacion de entrada y sigue
+        // bloqueandola en POST, iframe y fetch de otro sitio, que es el vector
+        // que importa. Lo demas lo cubre el token antifalsificacion.
+        opciones.Cookie.SameSite = SameSiteMode.Lax;
         opciones.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     });
 

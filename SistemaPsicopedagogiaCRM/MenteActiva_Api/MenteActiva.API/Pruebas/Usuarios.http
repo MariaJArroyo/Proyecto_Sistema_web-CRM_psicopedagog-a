@@ -1,0 +1,158 @@
+### Pruebas de los endpoints de administracion de usuarios
+### Correr el API y ejecutar de arriba hacia abajo: la 1 deja el token que
+### usan las demas. Las cuentas de prueba salen de 03_datos_prueba.sql.
+###
+### El id de la 2 en adelante sale de la respuesta de la 2. Cambiar @idUsuario
+### por ese numero antes de seguir.
+
+@host = http://localhost:5301
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@idUsuario = 7
+@idUsuarioPortal = 5
+
+
+### 1. Login del administrador. De aqui sale el token.
+# @name ingreso
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+@token = {{ingreso.response.body.token}}
+
+
+### 2. Crear una cuenta interna. Devuelve el id y, en desarrollo, el enlace.
+POST {{host}}/api/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Ana Prueba Ciclo",
+  "correo": "ana.ciclo@example.com",
+  "idRol": 3
+}
+
+
+### 3. Una sola cuenta por su id.
+GET {{host}}/api/usuarios/{{idUsuario}}
+Authorization: Bearer {{token}}
+
+
+### 4. Editar nombre, correo y rol.
+PUT {{host}}/api/usuarios/{{idUsuario}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Ana Prueba Editada",
+  "correo": "ana.editada@example.com",
+  "idRol": 2
+}
+
+
+### 5. Correo que ya tiene otro usuario. Devuelve 400.
+PUT {{host}}/api/usuarios/{{idUsuario}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Ana Prueba Editada",
+  "correo": "{{correoAdmin}}",
+  "idRol": 2
+}
+
+
+### 6. Rol que no existe. Devuelve 400.
+PUT {{host}}/api/usuarios/{{idUsuario}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreCompleto": "Ana Prueba Editada",
+  "correo": "ana.editada@example.com",
+  "idRol": 99
+}
+
+
+### 7. Desactivar. La baja es logica: el usuario no se borra.
+PUT {{host}}/api/usuarios/{{idUsuario}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idEstadoUsuario": 2 }
+
+
+### 8. Reenviar con la cuenta inactiva. Devuelve 400.
+POST {{host}}/api/usuarios/{{idUsuario}}/invitacion
+Authorization: Bearer {{token}}
+
+
+### 9. Activar de nuevo.
+PUT {{host}}/api/usuarios/{{idUsuario}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idEstadoUsuario": 1 }
+
+
+### 10. Reenviar el enlace. Pendiente manda invitacion; activa, restablecimiento.
+POST {{host}}/api/usuarios/{{idUsuario}}/invitacion
+Authorization: Bearer {{token}}
+
+
+### 11. Cambiarse el estado a si mismo. Devuelve 400.
+PUT {{host}}/api/usuarios/3/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idEstadoUsuario": 2 }
+
+
+### 12. Estado que no existe. Devuelve 400 por validacion del modelo.
+PUT {{host}}/api/usuarios/{{idUsuario}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idEstadoUsuario": 9 }
+
+
+### 13. Listado de encargados con su estado de acceso al portal.
+GET {{host}}/api/usuarios-externos
+Authorization: Bearer {{token}}
+
+
+### 14. Reenviar el enlace a un encargado.
+POST {{host}}/api/usuarios-externos/{{idUsuarioPortal}}/invitacion
+Authorization: Bearer {{token}}
+
+
+### 15. Suspender el acceso al portal. El encargado sigue siendo cliente.
+PUT {{host}}/api/usuarios-externos/2/acceso
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "suspender": true }
+
+
+### 16. Reactivarlo.
+PUT {{host}}/api/usuarios-externos/2/acceso
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "suspender": false }
+
+
+### 17. Suspender por esta ruta a un usuario interno. Devuelve 400.
+PUT {{host}}/api/usuarios-externos/1/acceso
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "suspender": true }
+
+
+### 18. Sin token. Devuelve 401.
+GET {{host}}/api/usuarios/{{idUsuario}}

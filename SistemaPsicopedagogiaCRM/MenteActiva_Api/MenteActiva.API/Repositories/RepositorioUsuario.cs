@@ -31,6 +31,19 @@ public class RepositorioUsuario : IRepositorioUsuario
             commandType: CommandType.StoredProcedure);
     }
 
+    public async Task<UsuarioDetalleResponse?> ObtenerPorIdAsync(int idUsuario)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+
+        return await conexion.QueryFirstOrDefaultAsync<UsuarioDetalleResponse>(
+            "SP_Usuario_ObtenerPorId",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
     public async Task RegistrarIngresoAsync(int idUsuario)
     {
         using var conexion = new MySqlConnection(_cadenaConexion);
@@ -158,6 +171,53 @@ public class RepositorioUsuario : IRepositorioUsuario
 
         await conexion.ExecuteAsync(
             "SP_Usuario_AsignarRol",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task EditarAsync(
+        int idUsuarioAccion, int idUsuario, string nombreCompleto, string correo, int idRol)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_NombreCompleto", nombreCompleto);
+        parametros.Add("p_Correo", correo);
+        parametros.Add("p_IdRol", idRol);
+
+        await conexion.ExecuteAsync(
+            "SP_Usuario_Editar",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task CambiarEstadoAsync(int idUsuarioAccion, int idUsuario, int idEstadoUsuario)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_IdEstadoUsuario", idEstadoUsuario);
+
+        await conexion.ExecuteAsync(
+            "SP_Usuario_CambiarEstado",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task SuspenderAccesoExternoAsync(int idUsuarioAccion, int idUsuario)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_IdUsuario", idUsuario);
+
+        await conexion.ExecuteAsync(
+            "SP_UsuarioExterno_SuspenderAcceso",
             parametros,
             commandType: CommandType.StoredProcedure);
     }

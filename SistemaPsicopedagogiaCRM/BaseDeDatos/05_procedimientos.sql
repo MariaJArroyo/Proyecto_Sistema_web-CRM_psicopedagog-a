@@ -184,6 +184,111 @@ END$$
 DELIMITER ;
 
 
+-- Una sola cuenta por su Id. Lo usa el reenvio de invitacion: el correo y el
+-- nombre del destinatario se leen aqui y no se aceptan del navegador.
+DROP PROCEDURE IF EXISTS SP_Usuario_ObtenerPorId;
+DELIMITER $$
+CREATE PROCEDURE SP_Usuario_ObtenerPorId(
+  IN p_IdUsuario INT
+)
+BEGIN
+  SELECT
+    u.IdUsuario,
+    u.NombreCompleto,
+    u.Correo,
+    u.IdEstadoUsuario,
+    eu.Nombre AS Estado,
+    r.IdRol,
+    r.Nombre AS Rol,
+    u.IdEncargado
+  FROM TB_USUARIO u
+  JOIN TB_ESTADO_USUARIO eu ON eu.IdEstadoUsuario = u.IdEstadoUsuario
+  LEFT JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+  LEFT JOIN TB_ROL r ON r.IdRol = ur.IdRol
+  WHERE u.IdUsuario = p_IdUsuario;
+END$$
+DELIMITER ;
+
+
+-- Edita nombre, correo y rol en una sola transaccion.
+--
+-- Si le cambian el correo, los enlaces vivos quedan usados: se mandaron a la
+-- direccion vieja y quien la tenga no debe poder definir la contrasena de esta
+-- cuenta. Hay que mandar la invitacion de nuevo.
+DROP PROCEDURE IF EXISTS SP_Usuario_Editar;
+DELIMITER $$
+CREATE PROCEDURE SP_Usuario_Editar(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdUsuario INT,
+  IN p_NombreCompleto VARCHAR(150),
+  IN p_Correo VARCHAR(150),
+  IN p_IdRol INT
+)
+BEGIN
+  DECLARE v_Anterior JSON DEFAULT NULL;
+  DECLARE v_CorreoAnterior VARCHAR(150) DEFAULT NULL;
+  DECLARE v_RolAnterior INT DEFAULT NULL;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SELECT Correo, JSON_OBJECT('NombreCompleto', NombreCompleto, 'Correo', Correo)
+    INTO v_CorreoAnterior, v_Anterior
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuario;
+
+  IF v_Anterior IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM TB_USUARIO
+             WHERE Correo = p_Correo AND IdUsuario <> p_IdUsuario) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ya existe otro usuario con ese correo.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM TB_ROL WHERE IdRol = p_IdRol AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El rol indicado no existe o esta inactivo.';
+  END IF;
+
+  SELECT IdRol INTO v_RolAnterior
+  FROM TB_USUARIO_ROL
+  WHERE IdUsuario = p_IdUsuario
+  LIMIT 1;
+
+  START TRANSACTION;
+
+  UPDATE TB_USUARIO
+  SET NombreCompleto = p_NombreCompleto,
+      Correo = p_Correo,
+      FechaModificacion = NOW()
+  WHERE IdUsuario = p_IdUsuario;
+
+  IF v_CorreoAnterior <> p_Correo THEN
+    UPDATE TB_TOKEN_RECUPERACION
+    SET Usado = 1
+    WHERE IdUsuario = p_IdUsuario AND Usado = 0;
+  END IF;
+
+  IF v_RolAnterior IS NULL OR v_RolAnterior <> p_IdRol THEN
+    DELETE FROM TB_USUARIO_ROL WHERE IdUsuario = p_IdUsuario;
+    INSERT INTO TB_USUARIO_ROL (IdUsuario, IdRol) VALUES (p_IdUsuario, p_IdRol);
+  END IF;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_USUARIO', p_IdUsuario, 'Editar',
+          JSON_SET(v_Anterior, '$.IdRol', v_RolAnterior),
+          JSON_OBJECT('NombreCompleto', p_NombreCompleto,
+                      'Correo', p_Correo,
+                      'IdRol', p_IdRol));
+
+  COMMIT;
+END$$
+DELIMITER ;
+
+
 -- Listado de la pantalla de administracion. Busca por nombre o correo y filtra
 -- por estado. p_Busqueda y p_IdEstadoUsuario en NULL traen todo.
 DROP PROCEDURE IF EXISTS SP_Usuario_Listar;
