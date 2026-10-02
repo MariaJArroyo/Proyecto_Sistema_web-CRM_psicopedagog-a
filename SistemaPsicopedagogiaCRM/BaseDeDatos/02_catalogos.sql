@@ -172,7 +172,8 @@ INSERT INTO TB_CONFIGURACION (IdConfiguracion, Clave, Valor, Descripcion) VALUES
   (2, 'CorreoContacto', 'contacto@example.com', 'Correo de contacto del consultorio'),
   (3, 'TelefonoContacto', '00000000', 'Teléfono de contacto, solo dígitos'),
   (4, 'Moneda', 'CRC', 'Código ISO de la moneda de los montos'),
-  (5, 'HorasRecordatorioCita', '24', 'Horas de anticipación para el recordatorio de cita')
+  (5, 'HorasRecordatorioCita', '24', 'Horas de anticipación para el recordatorio de cita'),
+  (6, 'DireccionConsultorio', 'San José, Costa Rica', 'Dirección que se muestra en el sitio público')
 ON DUPLICATE KEY UPDATE IdConfiguracion = IdConfiguracion;
 
 -- GENERICO: sin al menos una franja no se puede agendar ninguna cita.
