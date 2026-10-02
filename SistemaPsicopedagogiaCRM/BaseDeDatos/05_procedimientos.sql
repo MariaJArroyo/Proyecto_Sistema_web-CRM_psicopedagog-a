@@ -1798,6 +1798,11 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una cita completada o cancelada no se reprograma.';
   END IF;
 
+  IF (SELECT IdGrupoCita FROM TB_CITA WHERE IdCita = p_IdCita) IS NOT NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Esta cita es parte de un grupo: reprograme el grupo completo o cancele solo a este estudiante.';
+  END IF;
+
   IF p_FechaHoraFin <= p_FechaHoraInicio THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La hora de fin tiene que ser posterior a la de inicio.';
   END IF;
@@ -2050,6 +2055,693 @@ BEGIN
           AND b.Inicio < c.FechaHoraFin)
     ORDER BY b.Inicio;
   END IF;
+END$$
+DELIMITER ;
+
+-- ============================================================
+-- 4b. Agenda (modulo de citas del panel)
+-- ============================================================
+
+-- ¿El rango choca con alguna cita activa?
+--   p_IdCitaExcluir:    la propia cita al reprogramar (NULL si no aplica)
+--   p_IdGrupoPermitido: las citas de ESTE grupo no cuentan como choque (NULL = todas cuentan)
+-- Es la regla de "una sola profesional": nada se traslapa, salvo los miembros de un mismo grupo.
+DROP FUNCTION IF EXISTS FN_Cita_HayConflicto;
+DELIMITER $$
+CREATE FUNCTION FN_Cita_HayConflicto(
+    p_Inicio           DATETIME,
+    p_Fin              DATETIME,
+    p_IdCitaExcluir    INT,
+    p_IdGrupoPermitido INT
+) RETURNS BOOLEAN
+READS SQL DATA
+BEGIN
+    RETURN EXISTS (
+        SELECT 1
+        FROM TB_CITA c
+        WHERE c.IdEstadoCita NOT IN (4, 5)
+          AND c.FechaHoraInicio < p_Fin
+          AND p_Inicio < c.FechaHoraFin
+          AND (p_IdCitaExcluir IS NULL OR c.IdCita <> p_IdCitaExcluir)
+          AND (p_IdGrupoPermitido IS NULL OR c.IdGrupoCita IS NULL OR c.IdGrupoCita <> p_IdGrupoPermitido));
+END$$
+DELIMITER ;
+
+
+-- ¿El rango cae dentro del horario de atencion y no es dia no laboral?
+DROP FUNCTION IF EXISTS FN_Agenda_DentroDeHorario;
+DELIMITER $$
+CREATE FUNCTION FN_Agenda_DentroDeHorario(
+    p_Inicio DATETIME,
+    p_Fin    DATETIME
+) RETURNS BOOLEAN
+READS SQL DATA
+BEGIN
+    RETURN DATE(p_Inicio) = DATE(p_Fin)
+       AND NOT EXISTS (SELECT 1 FROM TB_DIA_NO_LABORAL d WHERE d.Fecha = DATE(p_Inicio))
+       AND EXISTS (
+           SELECT 1
+           FROM TB_HORARIO_ATENCION h
+           WHERE h.DiaSemana = WEEKDAY(p_Inicio) + 1
+             AND h.Activo = 1
+             AND TIME(p_Inicio) >= h.HoraInicio
+             AND TIME(p_Fin) <= h.HoraFin);
+END$$
+DELIMITER ;
+
+-- Buscador de estudiantes para "Nueva cita". Busca por nombre del estudiante o
+-- de cualquiera de sus encargados. La collation _ai_ci ignora mayusculas y
+-- tildes: "jose" encuentra "José".
+DROP PROCEDURE IF EXISTS SP_Cita_BuscarEstudiantes_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Cita_BuscarEstudiantes_CRM(
+    IN p_Texto VARCHAR(100)
+)
+BEGIN
+    DECLARE v_Patron VARCHAR(310);
+
+    -- % y _ del usuario se escapan para que se busquen como texto, no como comodin
+    SET v_Patron = CONCAT('%',
+        REPLACE(REPLACE(REPLACE(TRIM(p_Texto), '\\', '\\\\'), '%', '\\%'), '_', '\\_'),
+        '%');
+
+    SELECT
+      es.IdEstudiante,
+      TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido, es.SegundoApellido)) AS Estudiante,
+      ne.Nombre AS NivelEducativo,
+      TRIM(CONCAT(en.Nombre, ' ', en.PrimerApellido)) AS Encargado
+    FROM TB_ESTUDIANTE es
+    LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = es.IdNivelEducativo
+    LEFT JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = es.IdEstudiante AND ee.EsPrincipal = 1
+    LEFT JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    WHERE es.Activo = 1
+      AND (
+        CONCAT_WS(' ', es.Nombre, es.PrimerApellido, es.SegundoApellido) LIKE v_Patron
+        OR EXISTS (
+            SELECT 1
+            FROM TB_ESTUDIANTE_ENCARGADO ee2
+            JOIN TB_ENCARGADO e2 ON e2.IdEncargado = ee2.IdEncargado
+            WHERE ee2.IdEstudiante = es.IdEstudiante
+              AND CONCAT_WS(' ', e2.Nombre, e2.PrimerApellido, e2.SegundoApellido) LIKE v_Patron)
+      )
+    -- Primero los que empiezan con lo escrito, despues el resto
+    ORDER BY (es.Nombre LIKE CONCAT(TRIM(p_Texto), '%')) DESC, es.Nombre, es.PrimerApellido
+    LIMIT 10;
+END$$
+DELIMITER ;
+
+
+-- Citas de un rango (semana o mes visible en el calendario).
+DROP PROCEDURE IF EXISTS SP_Cita_ConsultarAgenda_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Cita_ConsultarAgenda_CRM(
+    IN p_Desde DATETIME,
+    IN p_Hasta DATETIME
+)
+BEGIN
+    SELECT
+      c.IdCita,
+      c.IdEstudiante,
+      TRIM(CONCAT(es.Nombre, ' ', es.PrimerApellido)) AS Estudiante,
+      TRIM(CONCAT(en.Nombre, ' ', en.PrimerApellido)) AS Encargado,
+      c.FechaHoraInicio,
+      c.FechaHoraFin,
+      c.IdTipoSesion,
+      ts.Nombre AS TipoSesion,
+      c.IdModalidad,
+      m.Nombre AS Modalidad,
+      c.IdEstadoCita,
+      ec.Nombre AS Estado,
+      c.Observaciones,
+      c.MotivoCancelacion,
+      EXISTS (SELECT 1 FROM TB_SESION s WHERE s.IdCita = c.IdCita) AS TieneSesion,
+      c.IdGrupoCita,
+      g.Nombre AS NombreGrupo,
+      g.CupoMaximo AS CupoGrupo
+    FROM TB_CITA c
+    JOIN TB_ESTUDIANTE es ON es.IdEstudiante = c.IdEstudiante
+    JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
+    JOIN TB_MODALIDAD m ON m.IdModalidad = c.IdModalidad
+    JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
+    LEFT JOIN TB_GRUPO_CITA g ON g.IdGrupoCita = c.IdGrupoCita
+    LEFT JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = es.IdEstudiante AND ee.EsPrincipal = 1
+    LEFT JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    WHERE c.FechaHoraInicio >= p_Desde
+      AND c.FechaHoraInicio < p_Hasta
+    ORDER BY c.FechaHoraInicio, c.IdGrupoCita, es.Nombre;
+END$$
+DELIMITER ;
+
+
+-- Espacios libres de un dia, cada 30 minutos, del largo del tipo de sesion.
+--   p_IdCitaExcluir: al reprogramar, la propia cita no cuenta como ocupada (NULL al crear)
+--   p_Ahora: hora actual de Costa Rica, la manda el API; no se ofrecen horas pasadas
+DROP PROCEDURE IF EXISTS SP_Cita_ConsultarDisponibilidad_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Cita_ConsultarDisponibilidad_CRM(
+    IN p_Fecha          DATE,
+    IN p_IdTipoSesion   INT,
+    IN p_IdCitaExcluir  INT,
+    IN p_IdGrupoExcluir INT,
+    IN p_Ahora          DATETIME
+)
+BEGIN
+    DECLARE v_Duracion  INT DEFAULT NULL;
+    DECLARE v_DiaSemana INT;
+
+    SELECT DuracionMinutos INTO v_Duracion
+    FROM TB_TIPO_SESION
+    WHERE IdTipoSesion = p_IdTipoSesion;
+
+    SET v_Duracion = IFNULL(v_Duracion, 60);
+    SET v_DiaSemana = WEEKDAY(p_Fecha) + 1;
+
+    WITH RECURSIVE bloque AS (
+        SELECT TIMESTAMP(p_Fecha, h.HoraInicio) AS Inicio,
+               TIMESTAMP(p_Fecha, h.HoraFin)    AS Cierre
+        FROM TB_HORARIO_ATENCION h
+        WHERE h.DiaSemana = v_DiaSemana
+          AND h.Activo = 1
+          AND NOT EXISTS (SELECT 1 FROM TB_DIA_NO_LABORAL d WHERE d.Fecha = p_Fecha)
+        UNION ALL
+        SELECT b.Inicio + INTERVAL 30 MINUTE, b.Cierre
+        FROM bloque b
+        WHERE b.Inicio + INTERVAL 30 MINUTE < b.Cierre
+    )
+    SELECT b.Inicio,
+           b.Inicio + INTERVAL v_Duracion MINUTE AS Fin
+    FROM bloque b
+    WHERE b.Inicio + INTERVAL v_Duracion MINUTE <= b.Cierre
+      AND b.Inicio > p_Ahora
+      AND NOT FN_Cita_HayConflicto(b.Inicio, b.Inicio + INTERVAL v_Duracion MINUTE,
+                                   p_IdCitaExcluir, p_IdGrupoExcluir)
+    ORDER BY b.Inicio;
+END$$
+DELIMITER ;
+
+
+-- Pasa a Completada toda cita Programada o Confirmada cuya hora de fin ya paso.
+-- La llama el servicio en segundo plano del API y tambien la agenda al cargar.
+-- No va a bitacora: no hay usuario que la ejecute (TB_BITACORA exige uno).
+DROP PROCEDURE IF EXISTS SP_Cita_CompletarVencidas_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Cita_CompletarVencidas_CRM(
+    IN p_Ahora DATETIME
+)
+BEGIN
+    UPDATE TB_CITA
+    SET IdEstadoCita = 3,
+        FechaModificacion = p_Ahora
+    WHERE IdEstadoCita IN (1, 2)
+      AND FechaHoraFin <= p_Ahora;
+
+    SELECT ROW_COUNT() AS CitasCompletadas;
+END$$
+DELIMITER ;
+
+
+-- "No asistio": solo para citas que ya empezaron, que no esten canceladas y que
+-- no tengan una sesion registrada (si hay sesion, el estudiante si vino).
+DROP PROCEDURE IF EXISTS SP_Cita_MarcarNoAsistio_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Cita_MarcarNoAsistio_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdCita          INT,
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_Estado INT DEFAULT NULL;
+    DECLARE v_Inicio DATETIME DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT IdEstadoCita, FechaHoraInicio INTO v_Estado, v_Inicio
+    FROM TB_CITA
+    WHERE IdCita = p_IdCita;
+
+    IF v_Estado IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita indicada no existe.';
+    END IF;
+
+    IF v_Estado = 4 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una cita cancelada no se puede marcar como no asistió.';
+    END IF;
+
+    IF v_Estado = 5 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita ya está marcada como no asistió.';
+    END IF;
+
+    IF v_Inicio > p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se puede marcar cuando la hora de la cita ya pasó.';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM TB_SESION WHERE IdCita = p_IdCita) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita tiene una sesión registrada: el estudiante sí asistió.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_CITA
+    SET IdEstadoCita = 5,
+        FechaModificacion = p_Ahora
+    WHERE IdCita = p_IdCita;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_CITA', p_IdCita, 'CambiarEstado',
+            JSON_OBJECT('IdEstadoCita', v_Estado),
+            JSON_OBJECT('IdEstadoCita', 5));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Catalogos del formulario. La duracion se usa para calcular la hora de fin.
+DROP PROCEDURE IF EXISTS SP_ListarTiposSesion_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarTiposSesion_CRM()
+BEGIN
+    SELECT IdTipoSesion, Nombre, IFNULL(DuracionMinutos, 60) AS DuracionMinutos
+    FROM TB_TIPO_SESION
+    ORDER BY Nombre;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_ListarModalidades_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_ListarModalidades_CRM()
+BEGIN
+    SELECT IdModalidad, Nombre
+    FROM TB_MODALIDAD
+    ORDER BY IdModalidad;
+END$$
+DELIMITER ;
+
+-- Crea el grupo y una cita por estudiante, en una sola transaccion.
+-- p_EstudiantesJson: arreglo de ids, por ejemplo '[4, 7, 12]'
+DROP PROCEDURE IF EXISTS SP_Grupo_Crear_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_Crear_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdTipoSesion    INT,
+    IN p_IdModalidad     INT,
+    IN p_Nombre          VARCHAR(100),
+    IN p_Inicio          DATETIME,
+    IN p_Fin             DATETIME,
+    IN p_CupoMaximo      INT,
+    IN p_EstudiantesJson JSON,
+    IN p_Observaciones   VARCHAR(500)
+)
+BEGIN
+    DECLARE v_IdGrupo   INT;
+    DECLARE v_Total     INT DEFAULT 0;
+    DECLARE v_Distintos INT DEFAULT 0;
+    DECLARE v_Activos   INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_Total = IFNULL(JSON_LENGTH(p_EstudiantesJson), 0);
+
+    IF v_Total = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Agregue al menos un estudiante al grupo.';
+    END IF;
+
+    IF p_CupoMaximo IS NULL OR p_CupoMaximo NOT BETWEEN 2 AND 30 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cupo del grupo debe estar entre 2 y 30.';
+    END IF;
+
+    IF v_Total > p_CupoMaximo THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hay más estudiantes que cupos en el grupo.';
+    END IF;
+
+    SELECT COUNT(DISTINCT j.Id) INTO v_Distintos
+    FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (Id INT PATH '$')) AS j;
+
+    IF v_Distintos <> v_Total THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hay estudiantes repetidos en el grupo.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_Activos
+    FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (Id INT PATH '$')) AS j
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.Id AND e.Activo = 1;
+
+    IF v_Activos <> v_Total THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Uno de los estudiantes no existe o está inactivo.';
+    END IF;
+
+    IF NOT FN_Agenda_DentroDeHorario(p_Inicio, p_Fin) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El grupo queda fuera del horario de atención o en un día no laboral.';
+    END IF;
+
+    IF FN_Cita_HayConflicto(p_Inicio, p_Fin, NULL, NULL) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El horario se traslapa con otra cita ya agendada.';
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_GRUPO_CITA (IdTipoSesion, IdModalidad, IdUsuarioRegistro, Nombre,
+                               FechaHoraInicio, FechaHoraFin, CupoMaximo)
+    VALUES (p_IdTipoSesion, p_IdModalidad, p_IdUsuarioAccion, NULLIF(TRIM(p_Nombre), ''),
+            p_Inicio, p_Fin, p_CupoMaximo);
+
+    SET v_IdGrupo = LAST_INSERT_ID();
+
+    INSERT INTO TB_CITA (IdEstudiante, IdTipoSesion, IdModalidad, IdEstadoCita, IdUsuarioRegistro,
+                         IdGrupoCita, FechaHoraInicio, FechaHoraFin, Observaciones)
+    SELECT j.Id, p_IdTipoSesion, p_IdModalidad, 1, p_IdUsuarioAccion,
+           v_IdGrupo, p_Inicio, p_Fin, NULLIF(TRIM(p_Observaciones), '')
+    FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (Id INT PATH '$')) AS j;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_GRUPO_CITA', v_IdGrupo, 'Crear',
+            JSON_OBJECT('FechaHoraInicio', p_Inicio, 'CupoMaximo', p_CupoMaximo,
+                        'Estudiantes', p_EstudiantesJson));
+
+    COMMIT;
+
+    SELECT v_IdGrupo AS IdGrupoCita;
+END$$
+DELIMITER ;
+
+
+-- Suma un estudiante a un grupo existente. Bloquea la fila del grupo
+-- (FOR UPDATE) para que dos personas no ocupen el ultimo cupo a la vez.
+DROP PROCEDURE IF EXISTS SP_Grupo_AgregarEstudiante_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_AgregarEstudiante_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdGrupoCita     INT,
+    IN p_IdEstudiante    INT,
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_IdTipoSesion INT DEFAULT NULL;
+    DECLARE v_IdModalidad  INT;
+    DECLARE v_Inicio       DATETIME;
+    DECLARE v_Fin          DATETIME;
+    DECLARE v_Cupo         INT;
+    DECLARE v_Activo       BOOLEAN;
+    DECLARE v_Inscritos    INT DEFAULT 0;
+    DECLARE v_IdCita       INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT IdTipoSesion, IdModalidad, FechaHoraInicio, FechaHoraFin, CupoMaximo, Activo
+      INTO v_IdTipoSesion, v_IdModalidad, v_Inicio, v_Fin, v_Cupo, v_Activo
+    FROM TB_GRUPO_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita
+    FOR UPDATE;
+
+    IF v_IdTipoSesion IS NULL OR v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo no existe o fue cancelado.';
+    END IF;
+
+    IF v_Inicio <= p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo ya empezó: no se pueden agregar estudiantes.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM TB_CITA
+               WHERE IdGrupoCita = p_IdGrupoCita AND IdEstudiante = p_IdEstudiante
+                 AND IdEstadoCita <> 4) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante ya está en este grupo.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_Inscritos
+    FROM TB_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita AND IdEstadoCita <> 4;
+
+    IF v_Inscritos >= v_Cupo THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo ya no tiene cupo disponible.';
+    END IF;
+
+    -- Solo los miembros del propio grupo pueden compartir el horario
+    IF FN_Cita_HayConflicto(v_Inicio, v_Fin, NULL, p_IdGrupoCita) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El horario del grupo se traslapa con otra cita.';
+    END IF;
+
+    INSERT INTO TB_CITA (IdEstudiante, IdTipoSesion, IdModalidad, IdEstadoCita, IdUsuarioRegistro,
+                         IdGrupoCita, FechaHoraInicio, FechaHoraFin)
+    VALUES (p_IdEstudiante, v_IdTipoSesion, v_IdModalidad, 1, p_IdUsuarioAccion,
+            p_IdGrupoCita, v_Inicio, v_Fin);
+
+    SET v_IdCita = LAST_INSERT_ID();
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_CITA', v_IdCita, 'Crear',
+            JSON_OBJECT('IdEstudiante', p_IdEstudiante, 'IdGrupoCita', p_IdGrupoCita));
+
+    COMMIT;
+
+    SELECT v_IdCita AS IdCita;
+END$$
+DELIMITER ;
+
+
+-- Mueve el grupo completo. Solo se mueven las citas pendientes;
+-- las canceladas quedan con su hora original en el historial.
+DROP PROCEDURE IF EXISTS SP_Grupo_Reprogramar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_Reprogramar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdGrupoCita     INT,
+    IN p_Inicio          DATETIME,
+    IN p_Fin             DATETIME,
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_InicioActual DATETIME DEFAULT NULL;
+    DECLARE v_Activo       BOOLEAN;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT FechaHoraInicio, Activo INTO v_InicioActual, v_Activo
+    FROM TB_GRUPO_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita;
+
+    IF v_InicioActual IS NULL OR v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo no existe o fue cancelado.';
+    END IF;
+
+    IF v_InicioActual <= p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Un grupo que ya empezó no se puede reprogramar.';
+    END IF;
+
+    IF p_Inicio <= p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La nueva hora tiene que ser posterior a la actual.';
+    END IF;
+
+    IF NOT FN_Agenda_DentroDeHorario(p_Inicio, p_Fin) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El nuevo horario queda fuera del horario de atención o en un día no laboral.';
+    END IF;
+
+    IF FN_Cita_HayConflicto(p_Inicio, p_Fin, NULL, p_IdGrupoCita) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nuevo horario se traslapa con otra cita.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_GRUPO_CITA
+    SET FechaHoraInicio = p_Inicio,
+        FechaHoraFin = p_Fin,
+        FechaModificacion = p_Ahora
+    WHERE IdGrupoCita = p_IdGrupoCita;
+
+    UPDATE TB_CITA
+    SET FechaHoraInicio = p_Inicio,
+        FechaHoraFin = p_Fin,
+        FechaModificacion = p_Ahora
+    WHERE IdGrupoCita = p_IdGrupoCita
+      AND IdEstadoCita IN (1, 2);
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_GRUPO_CITA', p_IdGrupoCita, 'Editar',
+            JSON_OBJECT('FechaHoraInicio', v_InicioActual),
+            JSON_OBJECT('FechaHoraInicio', p_Inicio));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Cancela el grupo completo: todas sus citas pendientes con el mismo motivo.
+DROP PROCEDURE IF EXISTS SP_Grupo_Cancelar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_Cancelar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdGrupoCita     INT,
+    IN p_Motivo          VARCHAR(500),
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_Inicio DATETIME DEFAULT NULL;
+    DECLARE v_Activo BOOLEAN;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_Motivo IS NULL OR TRIM(p_Motivo) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el motivo de la cancelación.';
+    END IF;
+
+    SELECT FechaHoraInicio, Activo INTO v_Inicio, v_Activo
+    FROM TB_GRUPO_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita;
+
+    IF v_Inicio IS NULL OR v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo no existe o ya fue cancelado.';
+    END IF;
+
+    IF v_Inicio <= p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Un grupo que ya empezó no se puede cancelar.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_CITA
+    SET IdEstadoCita = 4,
+        MotivoCancelacion = TRIM(p_Motivo),
+        FechaModificacion = p_Ahora
+    WHERE IdGrupoCita = p_IdGrupoCita
+      AND IdEstadoCita IN (1, 2);
+
+    UPDATE TB_GRUPO_CITA
+    SET Activo = 0,
+        FechaModificacion = p_Ahora
+    WHERE IdGrupoCita = p_IdGrupoCita;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_GRUPO_CITA', p_IdGrupoCita, 'CambiarEstado',
+            JSON_OBJECT('Activo', 0, 'Motivo', TRIM(p_Motivo)));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Cambia nombre y cupo. El cupo nunca queda por debajo de los inscritos.
+DROP PROCEDURE IF EXISTS SP_Grupo_Editar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_Editar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdGrupoCita     INT,
+    IN p_Nombre          VARCHAR(100),
+    IN p_CupoMaximo      INT
+)
+BEGIN
+    DECLARE v_Anterior  JSON DEFAULT NULL;
+    DECLARE v_Inscritos INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT JSON_OBJECT('Nombre', Nombre, 'CupoMaximo', CupoMaximo) INTO v_Anterior
+    FROM TB_GRUPO_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita AND Activo = 1;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El grupo no existe o fue cancelado.';
+    END IF;
+
+    IF p_CupoMaximo IS NULL OR p_CupoMaximo NOT BETWEEN 2 AND 30 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cupo del grupo debe estar entre 2 y 30.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_Inscritos
+    FROM TB_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita AND IdEstadoCita <> 4;
+
+    IF p_CupoMaximo < v_Inscritos THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El cupo no puede ser menor que la cantidad de estudiantes inscritos.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_GRUPO_CITA
+    SET Nombre = NULLIF(TRIM(p_Nombre), ''),
+        CupoMaximo = p_CupoMaximo
+    WHERE IdGrupoCita = p_IdGrupoCita;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_GRUPO_CITA', p_IdGrupoCita, 'Editar', v_Anterior,
+            JSON_OBJECT('Nombre', p_Nombre, 'CupoMaximo', p_CupoMaximo));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Grupos de un dia que todavia aceptan estudiantes (para "Unirse a un grupo").
+DROP PROCEDURE IF EXISTS SP_Grupo_ConsultarDisponibles_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_ConsultarDisponibles_CRM(
+    IN p_Fecha DATE,
+    IN p_Ahora DATETIME
+)
+BEGIN
+    SELECT
+      g.IdGrupoCita,
+      g.Nombre,
+      g.FechaHoraInicio AS Inicio,
+      g.FechaHoraFin AS Fin,
+      ts.Nombre AS TipoSesion,
+      m.Nombre AS Modalidad,
+      g.CupoMaximo,
+      (SELECT COUNT(*) FROM TB_CITA c
+       WHERE c.IdGrupoCita = g.IdGrupoCita AND c.IdEstadoCita <> 4) AS Inscritos
+    FROM TB_GRUPO_CITA g
+    JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = g.IdTipoSesion
+    JOIN TB_MODALIDAD m ON m.IdModalidad = g.IdModalidad
+    WHERE g.Activo = 1
+      AND g.FechaHoraInicio >= p_Fecha
+      AND g.FechaHoraInicio < p_Fecha + INTERVAL 1 DAY
+      AND g.FechaHoraInicio > p_Ahora
+      AND NOT FN_Cita_HayConflicto(g.FechaHoraInicio, g.FechaHoraFin, NULL, g.IdGrupoCita)
+    HAVING Inscritos < g.CupoMaximo
+    ORDER BY g.FechaHoraInicio;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Grupo_Obtener_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Grupo_Obtener_CRM(
+    IN p_IdGrupoCita INT
+)
+BEGIN
+    SELECT IdGrupoCita, IdTipoSesion, FechaHoraInicio, Activo
+    FROM TB_GRUPO_CITA
+    WHERE IdGrupoCita = p_IdGrupoCita;
 END$$
 DELIMITER ;
 
@@ -3758,3 +4450,6 @@ BEGIN
     ORDER BY IdEstadoSolicitud;
 END$$
 DELIMITER ;
+
+
+

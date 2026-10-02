@@ -20,7 +20,7 @@ INSERT INTO TB_ENCARGADO (IdEncargado, IdEstadoCliente, IdServicioInteres, Nombr
   (1, 4, 2, 'Andrea', 'Solís', 'Mora', '100000001', 'andrea.prueba@example.com'),
   (2, 4, 1, 'Marco', 'Vindas', 'Rojas', '100000002', 'marco.prueba@example.com'),
   (3, 1, 3, 'Paula', 'Jiménez', 'Arce', NULL, 'paula.prueba@example.com'),
-  (4, 6, 4, 'Diego', 'Campos', NULL, NULL, NULL)
+  (4, 4, 4, 'Diego', 'Campos', NULL, NULL, NULL)
 ON DUPLICATE KEY UPDATE IdEncargado = IdEncargado;
 
 -- ------------------------------------------------------------

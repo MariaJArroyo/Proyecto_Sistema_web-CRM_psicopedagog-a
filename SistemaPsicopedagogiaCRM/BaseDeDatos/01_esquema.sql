@@ -450,6 +450,34 @@ CREATE TABLE IF NOT EXISTS TB_DIA_NO_LABORAL (
   CONSTRAINT CK_DiaNoLaboral_MotivoNoVacio CHECK (TRIM(Motivo) <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Grupo de citas: varios estudiantes a la misma hora (por ejemplo, hermanos).
+-- Va antes de TB_CITA porque TB_CITA tiene una llave foranea hacia aqui.
+CREATE TABLE IF NOT EXISTS TB_GRUPO_CITA (
+  IdGrupoCita INT NOT NULL AUTO_INCREMENT,
+  IdTipoSesion INT NOT NULL,
+  IdModalidad INT NOT NULL,
+  IdUsuarioRegistro INT NOT NULL,
+  Nombre VARCHAR(100) NULL,
+  FechaHoraInicio DATETIME NOT NULL,
+  FechaHoraFin DATETIME NOT NULL,
+  CupoMaximo INT NOT NULL DEFAULT 6,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
+  FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FechaModificacion DATETIME NULL,
+  PRIMARY KEY (IdGrupoCita),
+  KEY IX_GrupoCita_FechaHoraInicio (FechaHoraInicio),
+  CONSTRAINT FK_GrupoCita_TipoSesion FOREIGN KEY (IdTipoSesion)
+    REFERENCES TB_TIPO_SESION (IdTipoSesion) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_GrupoCita_Modalidad FOREIGN KEY (IdModalidad)
+    REFERENCES TB_MODALIDAD (IdModalidad) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_GrupoCita_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_GrupoCita_RangoFechas CHECK (FechaHoraFin > FechaHoraInicio),
+  CONSTRAINT CK_GrupoCita_Cupo CHECK (CupoMaximo BETWEEN 2 AND 30)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Cada estudiante tiene su propia cita. IdGrupoCita es NULL en las citas
+-- individuales; en las de grupo une a todos los participantes.
 CREATE TABLE IF NOT EXISTS TB_CITA (
   IdCita INT NOT NULL AUTO_INCREMENT,
   IdEstudiante INT NOT NULL,
@@ -457,6 +485,7 @@ CREATE TABLE IF NOT EXISTS TB_CITA (
   IdModalidad INT NOT NULL,
   IdEstadoCita INT NOT NULL,
   IdUsuarioRegistro INT NOT NULL,
+  IdGrupoCita INT NULL,
   FechaHoraInicio DATETIME NOT NULL,
   FechaHoraFin DATETIME NOT NULL,
   Observaciones VARCHAR(500) NULL,
@@ -470,6 +499,7 @@ CREATE TABLE IF NOT EXISTS TB_CITA (
   KEY IX_Cita_Modalidad (IdModalidad),
   KEY IX_Cita_EstadoCita (IdEstadoCita),
   KEY IX_Cita_UsuarioRegistro (IdUsuarioRegistro),
+  KEY IX_Cita_GrupoCita (IdGrupoCita),
   CONSTRAINT FK_Cita_Estudiante FOREIGN KEY (IdEstudiante)
     REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Cita_TipoSesion FOREIGN KEY (IdTipoSesion)
@@ -480,6 +510,8 @@ CREATE TABLE IF NOT EXISTS TB_CITA (
     REFERENCES TB_ESTADO_CITA (IdEstadoCita) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Cita_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
     REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Cita_GrupoCita FOREIGN KEY (IdGrupoCita)
+    REFERENCES TB_GRUPO_CITA (IdGrupoCita) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT CK_Cita_RangoFechas CHECK (FechaHoraFin > FechaHoraInicio)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
+using System.Globalization;
 
 namespace MenteActiva.Controllers;
 
@@ -22,7 +23,224 @@ public class AdminController : Controller
         _config = config;
     }
 
-    public IActionResult Agenda() => View();
+    #region Agenda
+
+    public async Task<IActionResult> Agenda(CancellationToken cancelacion)
+    {
+        var catalogos = new CatalogosAgendaViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            catalogos = await client.GetFromJsonAsync<CatalogosAgendaViewModel>(
+                UrlApi("citas/catalogos"), cancelacion) ?? catalogos;
+        }
+        catch (HttpRequestException)
+        {
+            // Sin catalogos la agenda igual se ve; solo "Nueva cita" queda deshabilitado
+            ViewBag.ErrorCarga = "No se pudieron cargar los catálogos de la agenda.";
+        }
+
+        return View(catalogos);
+    }
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarAgenda(DateOnly desde, DateOnly hasta, CancellationToken cancelacion)
+        => ReenviarGetAsync($"citas?desde={FormatoFecha(desde)}&hasta={FormatoFecha(hasta)}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> BuscarEstudiantesCita(string? texto, CancellationToken cancelacion)
+        => ReenviarGetAsync($"citas/estudiantes?texto={Uri.EscapeDataString(texto ?? string.Empty)}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> DisponibilidadCita(
+            DateOnly fecha, int idTipoSesion, int? idCitaExcluir, int? idGrupoExcluir, CancellationToken cancelacion)
+    {
+        var ruta = $"citas/disponibilidad?fecha={FormatoFecha(fecha)}&idTipoSesion={idTipoSesion}";
+
+        if (idCitaExcluir is not null)
+        {
+            ruta += $"&idCitaExcluir={idCitaExcluir}";
+        }
+
+        if (idGrupoExcluir is not null)
+        {
+            ruta += $"&idGrupoExcluir={idGrupoExcluir}";
+        }
+
+        return ReenviarGetAsync(ruta, cancelacion);
+    }
+
+    // ---------- acciones (por fetch, con token antifalsificacion en el FormData) ----------
+
+    [HttpPost]
+    public async Task<IActionResult> CrearCita(CrearCitaViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("citas"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo agendar la cita.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ReprogramarCita(int id, DateTime? fechaHoraInicio, CancellationToken cancelacion)
+    {
+        if (fechaHoraInicio is null)
+        {
+            return BadRequest(new { mensaje = "Seleccione el nuevo horario." });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"citas/{id}/reprogramar"), new { fechaHoraInicio }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo reprogramar la cita.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CancelarCita(int id, string? motivo, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return BadRequest(new { mensaje = "Indique el motivo de la cancelación." });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"citas/{id}/cancelar"), new { motivo }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo cancelar la cita.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarcarNoAsistioCita(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsync(UrlApi($"citas/{id}/no-asistio"), null, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo marcar la cita.");
+    }
+
+    // ---------- grupos ----------
+
+    [HttpGet]
+    public Task<IActionResult> GruposDisponiblesCita(DateOnly fecha, CancellationToken cancelacion)
+        => ReenviarGetAsync($"citas/grupos/disponibles?fecha={FormatoFecha(fecha)}", cancelacion);
+
+    [HttpPost]
+    public async Task<IActionResult> CrearGrupoCita(CrearGrupoViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("citas/grupos"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo crear el grupo.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AgregarEstudianteGrupo(int id, int idEstudiante, CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un estudiante." });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi($"citas/grupos/{id}/estudiantes"), new { idEstudiante }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo agregar el estudiante al grupo.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditarGrupoCita(int id, string? nombre, int cupoMaximo, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"citas/grupos/{id}"), new { nombre, cupoMaximo }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo actualizar el grupo.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ReprogramarGrupoCita(int id, DateTime? fechaHoraInicio, CancellationToken cancelacion)
+    {
+        if (fechaHoraInicio is null)
+        {
+            return BadRequest(new { mensaje = "Seleccione el nuevo horario." });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"citas/grupos/{id}/reprogramar"), new { fechaHoraInicio }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo reprogramar el grupo.");
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CancelarGrupoCita(int id, string? motivo, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return BadRequest(new { mensaje = "Indique el motivo de la cancelación." });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"citas/grupos/{id}/cancelar"), new { motivo }, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo cancelar el grupo.");
+    }
+
+    // ---------- auxiliares ----------
+
+    // Reenvia la respuesta del API (JSON y codigo) sin deserializar: para consultas
+    // que la pantalla consume directo
+    private async Task<IActionResult> ReenviarGetAsync(string ruta, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(UrlApi(ruta), cancelacion);
+
+        var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode && string.IsNullOrWhiteSpace(contenido))
+        {
+            contenido = "{\"mensaje\":\"No se pudo completar la consulta.\"}";
+        }
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    private static string FormatoFecha(DateOnly fecha)
+        => fecha.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    #endregion
 
     #region Clientes
 
