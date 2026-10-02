@@ -37,9 +37,8 @@ INSERT INTO TB_ESTADO_CLIENTE (IdEstadoCliente, Nombre, Orden, ClaseCss) VALUES
   (1, 'Nuevo', 1, 'estado-cliente-nuevo'),
   (2, 'Contactado', 2, 'estado-cliente-contactado'),
   (3, 'Cita agendada', 4, 'estado-cliente-cita-agendada'),
-  (4, 'Cliente activo', 5, 'estado-cliente-activo'),
-  (5, 'Inactivo', 6, 'estado-cliente-inactivo'),
-  (6, 'En seguimiento', 3, 'estado-cliente-seguimiento')
+  (4, 'Activo', 5, 'estado-cliente-activo'),
+  (5, 'Inactivo', 6, 'estado-cliente-inactivo')
 ON DUPLICATE KEY UPDATE IdEstadoCliente = IdEstadoCliente;
 
 INSERT INTO TB_ESTADO_SOLICITUD (IdEstadoSolicitud, Nombre) VALUES

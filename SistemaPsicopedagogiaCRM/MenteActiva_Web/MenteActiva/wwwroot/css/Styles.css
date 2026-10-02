@@ -1017,5 +1017,295 @@ button.TopbarAdmin-Usuario {
         background-color: #9AA5B4;
         color: #fff;
     }
+/* =========================================================
+   Campos de formulario: borde visible siempre, no solo al escribir
+   ========================================================= */
 
-    
+.form-control,
+.form-select {
+    border: 1px solid #B9C3D1;
+    background-color: #fff;
+}
+
+    .form-control::placeholder {
+        color: #9AA5B4;
+    }
+
+    .form-control:hover:not(:focus):not(:disabled):not(.is-invalid),
+    .form-select:hover:not(:focus):not(:disabled):not(.is-invalid) {
+        border-color: #8E9AAD;
+    }
+
+.form-check-input {
+    border: 1px solid #8E9AAD;
+}
+
+.form-control:disabled,
+.form-select:disabled,
+.form-control[readonly] {
+    background-color: var(--color-fondo);
+}
+
+/* =========================================================
+   Buscador de estudiantes (lookup)
+   ========================================================= */
+
+.Buscador {
+    position: relative;
+}
+
+.Buscador-Lista {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1060;
+    margin-top: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+    background-color: #fff;
+    border: 1px solid #B9C3D1;
+    border-radius: var(--radio-boton);
+    box-shadow: var(--sombra-media);
+}
+
+.Buscador-Opcion {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-borde);
+}
+
+    .Buscador-Opcion:last-child {
+        border-bottom: 0;
+    }
+
+    .Buscador-Opcion small {
+        display: block;
+        color: var(--color-texto-suave);
+    }
+
+    .Buscador-Opcion:hover,
+    .Buscador-Opcion.activa {
+        background-color: #EEF2FA;
+    }
+
+.Buscador-Mensaje {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-texto-suave);
+}
+
+.Buscador-Seleccion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--color-primario);
+    border-radius: var(--radio-boton);
+    background-color: #EEF2FA;
+}
+
+/* =========================================================
+   Agenda
+   ========================================================= */
+
+.AgendaSemana-Columna.hoy {
+    outline: 2px solid var(--color-primario);
+    outline-offset: -2px;
+}
+
+.AgendaSemana-Vacio {
+    font-size: 0.8rem;
+    color: var(--color-texto-suave);
+    text-align: center;
+    padding: 0.5rem 0;
+}
+
+.TarjetaCita-cancelada {
+    opacity: 0.6;
+}
+
+    .TarjetaCita-cancelada .small:first-of-type {
+        text-decoration: line-through;
+    }
+
+.TarjetaCita:focus-visible,
+.CalendarioMes-Celda:focus-visible {
+    outline: 2px solid var(--color-primario);
+    outline-offset: 2px;
+}
+
+.CalendarioMes-Celda {
+    cursor: pointer;
+    overflow: hidden;
+}
+
+    .CalendarioMes-Celda:hover {
+        border-color: #8E9AAD;
+    }
+
+    .CalendarioMes-Celda.hoy {
+        border: 2px solid var(--color-primario);
+    }
+
+.CalendarioMes-Numero {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.CalendarioMes-Cita {
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-left: 3px solid var(--color-primario);
+    padding-left: 4px;
+    margin-top: 2px;
+}
+
+.CalendarioMes-Cita-programada {
+    border-left-color: #35528F;
+}
+
+.CalendarioMes-Cita-confirmada {
+    border-left-color: #2FA968;
+}
+
+.CalendarioMes-Cita-completada {
+    border-left-color: #226B44;
+}
+
+.CalendarioMes-Cita-cancelada {
+    border-left-color: #6B7A8C;
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.CalendarioMes-Cita-no-asistio {
+    border-left-color: #B4433E;
+}
+
+.CalendarioMes-Mas {
+    font-size: 0.7rem;
+    color: var(--color-texto-suave);
+    margin-top: 2px;
+}
+
+.EspaciosHorario {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+    .EspaciosHorario.is-invalid {
+        padding: 0.35rem;
+        border: 1px solid var(--color-peligro);
+        border-radius: var(--radio-boton);
+    }
+
+/* Puntos de colores en la vista Mes */
+.CalendarioMes-Puntos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
+}
+
+    .CalendarioMes-Puntos .CalendarioMes-Punto {
+        width: 9px;
+        height: 9px;
+        margin: 0;
+    }
+
+.punto-programada {
+    background-color: #35528F;
+}
+
+.punto-confirmada {
+    background-color: #2FA968;
+}
+
+.punto-completada {
+    background-color: #226B44;
+}
+
+.punto-cancelada {
+    background-color: #6B7A8C;
+    opacity: 0.55;
+}
+
+.punto-no-asistio {
+    background-color: #B4433E;
+}
+
+.CalendarioMes-Puntos .CalendarioMes-Mas {
+    margin-top: 0;
+    line-height: 9px;
+}
+
+/* =========================================================
+   Agenda: grupos
+   ========================================================= */
+
+.TarjetaCita-grupo {
+    border-right: 3px solid currentColor;
+    background-image: linear-gradient(90deg, rgba(79, 111, 174, 0.06), transparent 60%);
+}
+
+    .TarjetaCita-grupo .bi-people-fill {
+        color: var(--color-primario);
+    }
+
+/* En el mes, el grupo es un punto con aro */
+.CalendarioMes-Punto.punto-grupo {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3px currentColor;
+    color: var(--color-primario-oscuro);
+    margin: 0 3px;
+}
+
+/* Selector Individual / Grupo / Unirse */
+.SelectorModoCita .btn {
+    flex: 1 1 0;
+}
+
+/* Participantes del grupo en "Nueva cita" */
+.ListaParticipantes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-height: 2.25rem;
+    padding: 0.35rem;
+    border: 1px dashed #B9C3D1;
+    border-radius: var(--radio-boton);
+}
+
+    .ListaParticipantes.is-invalid {
+        border: 1px solid var(--color-peligro);
+    }
+
+.ChipParticipante {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+    border-radius: 999px;
+    background-color: #EEF2FA;
+    border: 1px solid #C9D4EA;
+    font-size: 0.85rem;
+}
+
+    .ChipParticipante .btn-close {
+        font-size: 0.55rem;
+    }
+
+/* Grupos disponibles para "Unirse a un grupo" */
+.OpcionGrupo {
+    text-align: left;
+}
+
+    .OpcionGrupo small {
+        display: block;
+        opacity: 0.85;
+    }
