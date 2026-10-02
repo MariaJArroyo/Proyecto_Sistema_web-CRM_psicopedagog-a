@@ -1,0 +1,245 @@
+﻿@{
+    ViewData["Title"] = "Configuración";
+}
+
+<main class="PrincipalAdmin">
+    @Html.AntiForgeryToken()
+
+    <div class="mb-4">
+        <h2 class="mb-1">Configuración</h2>
+        <p class="TextoSuave mb-0">Horario de atención, días no laborales, tipos de sesión y datos del consultorio.</p>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="PestanasConfiguracion" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="TabHorario" data-bs-toggle="tab" data-bs-target="#PanelHorario"
+                    type="button" role="tab" aria-controls="PanelHorario" aria-selected="true">
+                <i class="bi bi-clock me-1"></i>Horario de atención
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="TabDias" data-bs-toggle="tab" data-bs-target="#PanelDias"
+                    type="button" role="tab" aria-controls="PanelDias" aria-selected="false">
+                <i class="bi bi-calendar-x me-1"></i>Días no laborales
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="TabTipos" data-bs-toggle="tab" data-bs-target="#PanelTipos"
+                    type="button" role="tab" aria-controls="PanelTipos" aria-selected="false">
+                <i class="bi bi-hourglass-split me-1"></i>Tipos de sesión
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="TabConsultorio" data-bs-toggle="tab" data-bs-target="#PanelConsultorio"
+                    type="button" role="tab" aria-controls="PanelConsultorio" aria-selected="false">
+                <i class="bi bi-building me-1"></i>Datos del consultorio
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- ========== HORARIO ========== -->
+        <section class="tab-pane fade show active" id="PanelHorario" role="tabpanel" aria-labelledby="TabHorario" tabindex="0">
+            <div class="Tarjeta p-3 p-md-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                    <div>
+                        <h5 class="mb-1">Horario semanal</h5>
+                        <p class="TextoSuave small mb-0">
+                            Las citas solo se pueden agendar dentro de estas franjas. Use horas en punto o y media.
+                            Cambiar el horario no mueve las citas ya agendadas.
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="BotonCopiarLunes">
+                        <i class="bi bi-copy me-1"></i>Copiar lunes a martes–viernes
+                    </button>
+                </div>
+
+                <div class="alert d-none" id="AlertaHorario" role="alert"></div>
+
+                <div id="ListaHorario"></div>
+
+                <div id="CitasFueraHorario" aria-live="polite"></div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="button" class="btn btn-primary" id="BotonGuardarHorario">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar horario
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== DIAS NO LABORALES ========== -->
+        <section class="tab-pane fade" id="PanelDias" role="tabpanel" aria-labelledby="TabDias" tabindex="0">
+            <div class="Tarjeta p-3 p-md-4">
+                <h5 class="mb-1">Días no laborales</h5>
+                <p class="TextoSuave small mb-3">
+                    Feriados, vacaciones o capacitaciones. Esos días la agenda queda bloqueada.
+                    No se puede marcar un día que ya tiene citas activas.
+                </p>
+
+                <div class="alert d-none" id="AlertaDias" role="alert"></div>
+
+                <form id="FormularioDiaNoLaboral" class="row g-2 align-items-end mb-4" novalidate>
+                    <div class="col-sm-4 col-lg-3">
+                        <label for="FechaNoLaboral" class="form-label">Fecha</label>
+                        <input type="date" id="FechaNoLaboral" class="form-control" required>
+                        <div class="invalid-feedback">Seleccione una fecha de hoy en adelante.</div>
+                    </div>
+                    <div class="col-sm-8 col-lg-5">
+                        <label for="MotivoNoLaboral" class="form-label">Motivo</label>
+                        <input type="text" id="MotivoNoLaboral" class="form-control" maxlength="150"
+                               placeholder="Ej.: Vacaciones, capacitación, Día de la Madre" required>
+                        <div class="invalid-feedback">Indique el motivo.</div>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="EsFeriado">
+                            <label class="form-check-label" for="EsFeriado">Es feriado</label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg-2 d-grid">
+                        <button type="submit" class="btn btn-primary" id="BotonAgregarDia">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Agregar
+                        </button>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Motivo</th>
+                                <th>Tipo</th>
+                                <th class="text-end ColumnaAcciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="TablaDiasNoLaborales"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== TIPOS DE SESION ========== -->
+        <section class="tab-pane fade" id="PanelTipos" role="tabpanel" aria-labelledby="TabTipos" tabindex="0">
+            <div class="Tarjeta p-3 p-md-4">
+                <h5 class="mb-1">Tipos de sesión</h5>
+                <p class="TextoSuave small mb-3">
+                    La duración define la hora de fin de cada cita y los espacios libres de la agenda.
+                    Un cambio de duración aplica solo a las citas nuevas.
+                </p>
+
+                <div class="alert d-none" id="AlertaTipos" role="alert"></div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th class="ColumnaDuracion">Duración (min)</th>
+                                <th class="text-end ColumnaAcciones"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="TablaTiposSesion"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td>
+                                    <input type="text" id="NombreTipoNuevo" class="form-control form-control-sm"
+                                           maxlength="50" placeholder="Nuevo tipo de sesión" aria-label="Nombre del nuevo tipo de sesión">
+                                </td>
+                                <td>
+                                    <input type="number" id="DuracionTipoNuevo" class="form-control form-control-sm"
+                                           min="15" max="240" step="15" value="60" aria-label="Duración del nuevo tipo en minutos">
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-primary btn-sm" id="BotonAgregarTipo">
+                                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                                        <i class="bi bi-plus-lg me-1"></i>Agregar
+                                    </button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== DATOS DEL CONSULTORIO ========== -->
+        <section class="tab-pane fade" id="PanelConsultorio" role="tabpanel" aria-labelledby="TabConsultorio" tabindex="0">
+            <div class="Tarjeta p-3 p-md-4">
+                <h5 class="mb-1">Datos del consultorio</h5>
+                <p class="TextoSuave small mb-3">Se usan en el sitio público y en los correos.</p>
+
+                <div class="alert d-none" id="AlertaConsultorio" role="alert"></div>
+
+                <form id="FormularioConsultorio" class="row g-3" novalidate>
+                    <div class="col-md-6">
+                        <label for="NombreConsultorio" class="form-label">Nombre del consultorio</label>
+                        <input type="text" id="NombreConsultorio" name="NombreConsultorio" class="form-control" maxlength="150" required>
+                        <div class="invalid-feedback">Indique el nombre.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="CorreoContacto" class="form-label">Correo de contacto</label>
+                        <input type="email" id="CorreoContacto" name="CorreoContacto" class="form-control" maxlength="150" required>
+                        <div class="invalid-feedback">Indique un correo válido.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="TelefonoContacto" class="form-label">Teléfono</label>
+                        <input type="tel" id="TelefonoContacto" name="TelefonoContacto" class="form-control"
+                               pattern="[0-9 \-]{8,11}" placeholder="2222-3333" required>
+                        <div class="invalid-feedback">Indique 8 dígitos.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="HorasRecordatorioCita" class="form-label">Recordatorio de cita (horas antes)</label>
+                        <input type="number" id="HorasRecordatorioCita" name="HorasRecordatorioCita" class="form-control"
+                               min="1" max="72" required>
+                        <div class="invalid-feedback">Entre 1 y 72 horas.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="Moneda" class="form-label">Moneda</label>
+                        <input type="text" id="Moneda" class="form-control" readonly aria-describedby="AyudaMoneda">
+                        <div id="AyudaMoneda" class="form-text">No se edita aquí: afecta los montos ya registrados.</div>
+                    </div>
+                    <div class="col-12">
+                        <label for="DireccionConsultorio" class="form-label">Dirección</label>
+                        <input type="text" id="DireccionConsultorio" name="DireccionConsultorio" class="form-control" maxlength="255" required>
+                        <div class="invalid-feedback">Indique la dirección.</div>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary" id="BotonGuardarConsultorio">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar datos
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<!-- Confirmacion para quitar un dia no laboral -->
+<div class="modal fade" id="ModalEliminarDia" tabindex="-1" aria-labelledby="TituloEliminarDia" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="TituloEliminarDia">Quitar día no laboral</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                ¿Quitar <strong id="TextoEliminarDia"></strong> de los días no laborales?
+                La agenda volverá a permitir citas esa fecha.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarDia">
+                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Quitar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/configuracion.js" asp-append-version="true"></script>
+}

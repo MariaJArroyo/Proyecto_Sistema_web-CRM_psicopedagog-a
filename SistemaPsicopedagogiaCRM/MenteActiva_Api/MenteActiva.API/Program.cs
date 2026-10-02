@@ -46,6 +46,8 @@ builder.Services.AddSingleton<IRelojNegocio, RelojNegocio>();
 builder.Services.AddScoped<IRepositorioCita, RepositorioCita>();
 builder.Services.AddScoped<IServicioCitas, ServicioCitas>();
 builder.Services.AddHostedService<ServicioCompletarCitasVencidas>();
+builder.Services.AddScoped<IRepositorioConfiguracion, RepositorioConfiguracion>();
+builder.Services.AddScoped<IServicioConfiguracion, ServicioConfiguracion>();
 
 // ---------- Errores ----------
 builder.Services.AddExceptionHandler<ManejadorExcepciones>();

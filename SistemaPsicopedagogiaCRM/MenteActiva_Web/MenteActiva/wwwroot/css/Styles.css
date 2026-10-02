@@ -564,6 +564,17 @@ a:hover {
   font-weight: 500;
 }
 
+/* Pie del sidebar: Configuración siempre visible al fondo */
+.SidebarAdmin-Pie {
+    flex-shrink: 0;
+    padding: 0.5rem 0.5rem 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+    .SidebarAdmin-Pie .SidebarAdmin-Enlace {
+        margin-bottom: 0;
+    }
+
 .ContenidoAdmin {
   margin-left: var(--ancho-sidebar);
   flex: 1;
@@ -944,11 +955,6 @@ button.TopbarAdmin-Usuario {
 
     /* ===== Contador de notificaciones del menu ===== */
 
-    .SidebarAdmin-Icono {
-        position: relative;
-        display: inline-flex;
-    }
-
     .SidebarAdmin-Contador {
         position: absolute;
         top: -0.45rem;
@@ -1309,3 +1315,93 @@ button.TopbarAdmin-Usuario {
         display: block;
         opacity: 0.85;
     }
+
+/* ---------- Configuracion: horario semanal ---------- */
+.HorarioDia {
+    display: grid;
+    grid-template-columns: 150px 1fr auto;
+    align-items: start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--color-borde);
+}
+
+    .HorarioDia:last-child {
+        border-bottom: 0;
+    }
+
+.HorarioDia-Nombre {
+    padding-top: 0.3rem;
+}
+
+.HorarioDia-Franjas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+    min-height: 31px;
+}
+
+.HorarioFranja {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+    .HorarioFranja input[type="time"] {
+        width: 7.5rem;
+    }
+
+@media (max-width: 575.98px) {
+    .HorarioDia {
+        grid-template-columns: 1fr auto;
+    }
+
+    .HorarioDia-Franjas {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+.ColumnaDuracion {
+    width: 160px;
+}
+
+.ColumnaAcciones {
+    width: 130px;
+}
+
+/* ---------- Agenda: dias no laborales ---------- */
+.AgendaSemana-Columna.no-laboral,
+.CalendarioMes-Celda.no-laboral {
+    background-image: repeating-linear-gradient( 135deg, rgba(107, 122, 140, 0.09) 0 8px, transparent 8px 16px);
+}
+
+.AvisoNoLaboral {
+    font-size: 0.78rem;
+    color: var(--color-texto-suave);
+    background-color: var(--color-superficie);
+    border: 1px dashed var(--color-borde);
+    border-radius: 8px;
+    padding: 0.4rem 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.CalendarioMes-NoLaboral {
+    font-size: 0.7rem;
+    color: var(--color-texto-suave);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.LeyendaNoLaboral {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+    border: 1px dashed var(--color-texto-suave);
+    border-radius: 3px;
+    background-image: repeating-linear-gradient( 135deg, rgba(107, 122, 140, 0.35) 0 3px, transparent 3px 6px);
+}

@@ -74,6 +74,11 @@ public class AdminController : Controller
         return ReenviarGetAsync(ruta, cancelacion);
     }
 
+    [HttpGet]
+    public Task<IActionResult> DiasNoLaboralesAgenda(DateOnly desde, DateOnly hasta, CancellationToken cancelacion)
+       => ReenviarGetAsync(
+           $"agenda/dias-no-laborales?desde={FormatoFecha(desde)}&hasta={FormatoFecha(hasta)}", cancelacion);
+
     // ---------- acciones (por fetch, con token antifalsificacion en el FormData) ----------
 
     [HttpPost]
@@ -598,6 +603,139 @@ public class AdminController : Controller
     public IActionResult Planes() => View();
     public IActionResult Reportes() => View();
     public IActionResult Sesiones() => View();
+
+    #region Configuracion
+
+    // La clase permite 3 roles; cada accion de esta region exige ademas Administrador
+    // (dos [Authorize] se combinan: hay que cumplir los dos).
+
+    [Authorize(Roles = "Administrador")]
+    public IActionResult Configuracion() => View();
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador")]
+    public Task<IActionResult> ConfiguracionHorario(CancellationToken cancelacion)
+        => ReenviarGetAsync("configuracion/horario", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador")]
+    public Task<IActionResult> ConfiguracionDiasNoLaborales(CancellationToken cancelacion)
+        => ReenviarGetAsync("configuracion/dias-no-laborales", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador")]
+    public Task<IActionResult> ConfiguracionTiposSesion(CancellationToken cancelacion)
+        => ReenviarGetAsync("configuracion/tipos-sesion", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador")]
+    public Task<IActionResult> ConfiguracionConsultorio(CancellationToken cancelacion)
+        => ReenviarGetAsync("configuracion/consultorio", cancelacion);
+
+    // ---------- acciones (por fetch, con token antifalsificacion en el FormData) ----------
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> GuardarHorario(GuardarHorarioViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(UrlApi("configuracion/horario"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar el horario.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> AgregarDiaNoLaboral(AgregarDiaNoLaboralViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(UrlApi("configuracion/dias-no-laborales"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo agregar el día no laboral.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> EliminarDiaNoLaboral(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.DeleteAsync(UrlApi($"configuracion/dias-no-laborales/{id}"), cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo eliminar el día no laboral.", cancelacion);
+    }
+
+    // idTipoSesion vacio = crear; con valor = editar
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> GuardarTipoSesion(
+        int? idTipoSesion, GuardarTipoSesionViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = idTipoSesion is null
+            ? await client.PostAsJsonAsync(UrlApi("configuracion/tipos-sesion"), modelo, cancelacion)
+            : await client.PutAsJsonAsync(UrlApi($"configuracion/tipos-sesion/{idTipoSesion}"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar el tipo de sesión.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> GuardarConsultorio(DatosConsultorioViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(UrlApi("configuracion/consultorio"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudieron guardar los datos del consultorio.", cancelacion);
+    }
+
+    // ---------- auxiliares ----------
+
+    // Como ResponderSegunApi, pero tambien en exito reenvia el JSON del API
+    // (mensaje, id creado, citas que quedaron fuera del horario...)
+    private static async Task<IActionResult> ReenviarRespuestaAsync(
+        HttpResponseMessage respuesta, string mensajePorDefecto, CancellationToken cancelacion)
+    {
+        var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (string.IsNullOrWhiteSpace(contenido))
+        {
+            contenido = JsonSerializer.Serialize(new
+            {
+                mensaje = respuesta.IsSuccessStatusCode ? "Operación completada." : mensajePorDefecto
+            });
+        }
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
 
     #region Usuarios
 

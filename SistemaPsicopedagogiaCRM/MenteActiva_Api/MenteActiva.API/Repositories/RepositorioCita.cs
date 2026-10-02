@@ -1,26 +1,19 @@
-﻿using System.Data;
-using Dapper;
-using MenteActiva.Api.Infraestructura;
+﻿using Dapper;
 using MenteActiva.Api.Models;
-using MySqlConnector;
 
 namespace MenteActiva.Api.Repositories;
 
-// Lo unico que abre conexion y llama procedimientos de citas. Aqui no hay
-// reglas de negocio: los SIGNAL '45000' de las SPs se traducen a
-// ReglaNegocioException y el resto sube tal cual.
-public sealed class RepositorioCita : IRepositorioCita
+// Lo unico que llama procedimientos de citas. Aqui no hay reglas de negocio:
+// la conexion y la traduccion de SIGNAL '45000' a ReglaNegocioException
+// viven en RepositorioBase.
+public sealed class RepositorioCita : RepositorioBase, IRepositorioCita
 {
-    private const string ErrorReglaDeNegocio = "45000";
-
-    private readonly string _cadenaConexion;
-
     public RepositorioCita(IConfiguration config)
+        : base(config)
     {
-        _cadenaConexion = config.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "Falta la cadena de conexion DefaultConnection en la configuracion.");
     }
+
+    // ---------- consultas ----------
 
     public Task<IReadOnlyList<CitaAgendaFila>> ConsultarAgendaAsync(
         DateTime desde, DateTime hasta, CancellationToken cancelacion)
@@ -71,7 +64,9 @@ public sealed class RepositorioCita : IRepositorioCita
     public Task<IReadOnlyList<ModalidadResponse>> ListarModalidadesAsync(CancellationToken cancelacion)
         => ConsultarAsync<ModalidadResponse>("SP_ListarModalidades_CRM", null, cancelacion);
 
-    public async Task<int> CrearAsync(
+    // ---------- citas individuales ----------
+
+    public Task<int> CrearAsync(
         int idUsuarioAccion, int idEstudiante, int idTipoSesion, int idModalidad,
         DateTime inicio, DateTime fin, string? observaciones, CancellationToken cancelacion)
     {
@@ -84,10 +79,7 @@ public sealed class RepositorioCita : IRepositorioCita
         parametros.Add("p_FechaHoraFin", fin);
         parametros.Add("p_Observaciones", observaciones);
 
-        await using var conexion = new MySqlConnection(_cadenaConexion);
-
-        return await TraducirErroresAsync(() => conexion.ExecuteScalarAsync<int>(
-            Comando("SP_Cita_Crear", parametros, cancelacion)));
+        return EscalarAsync("SP_Cita_Crear", parametros, cancelacion);
     }
 
     public Task ReprogramarAsync(
@@ -122,15 +114,13 @@ public sealed class RepositorioCita : IRepositorioCita
         return EjecutarAsync("SP_Cita_MarcarNoAsistio_CRM", parametros, cancelacion);
     }
 
-    public async Task<int> CompletarVencidasAsync(DateTime ahora, CancellationToken cancelacion)
+    // La usa el servicio en segundo plano; devuelve cuantas citas se completaron
+    public Task<int> CompletarVencidasAsync(DateTime ahora, CancellationToken cancelacion)
     {
         var parametros = new DynamicParameters();
         parametros.Add("p_Ahora", ahora);
 
-        await using var conexion = new MySqlConnection(_cadenaConexion);
-
-        return await conexion.ExecuteScalarAsync<int>(
-            Comando("SP_Cita_CompletarVencidas_CRM", parametros, cancelacion));
+        return EscalarAsync("SP_Cita_CompletarVencidas_CRM", parametros, cancelacion);
     }
 
     // ---------- grupos ----------
@@ -222,53 +212,5 @@ public sealed class RepositorioCita : IRepositorioCita
         parametros.Add("p_CupoMaximo", cupoMaximo);
 
         return EjecutarAsync("SP_Grupo_Editar_CRM", parametros, cancelacion);
-    }
-
-    // ---------- auxiliares ----------
-
-    private static CommandDefinition Comando(
-        string procedimiento, DynamicParameters? parametros, CancellationToken cancelacion)
-        => new(procedimiento, parametros, commandType: CommandType.StoredProcedure, cancellationToken: cancelacion);
-
-    private async Task<IReadOnlyList<T>> ConsultarAsync<T>(
-        string procedimiento, DynamicParameters? parametros, CancellationToken cancelacion)
-    {
-        await using var conexion = new MySqlConnection(_cadenaConexion);
-
-        var filas = await TraducirErroresAsync(() =>
-            conexion.QueryAsync<T>(Comando(procedimiento, parametros, cancelacion)));
-
-        return filas.AsList();
-    }
-
-    private async Task EjecutarAsync(
-        string procedimiento, DynamicParameters parametros, CancellationToken cancelacion)
-    {
-        await using var conexion = new MySqlConnection(_cadenaConexion);
-
-        await TraducirErroresAsync(() =>
-            conexion.ExecuteAsync(Comando(procedimiento, parametros, cancelacion)));
-    }
-
-    // Para las SPs que terminan con un SELECT del id creado
-    private async Task<int> EscalarAsync(
-        string procedimiento, DynamicParameters parametros, CancellationToken cancelacion)
-    {
-        await using var conexion = new MySqlConnection(_cadenaConexion);
-
-        return await TraducirErroresAsync(() =>
-            conexion.ExecuteScalarAsync<int>(Comando(procedimiento, parametros, cancelacion)));
-    }
-
-    private static async Task<T> TraducirErroresAsync<T>(Func<Task<T>> operacion)
-    {
-        try
-        {
-            return await operacion();
-        }
-        catch (MySqlException ex) when (ex.SqlState == ErrorReglaDeNegocio)
-        {
-            throw new ReglaNegocioException(ex.Message, ex);
-        }
     }
 }

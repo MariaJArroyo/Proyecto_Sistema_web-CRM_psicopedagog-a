@@ -4451,5 +4451,379 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- ============================================================
+-- 14. Configuracion (solo Administrador)
+-- ============================================================
+
+-- ---------- Horario de atencion ----------
+
+DROP PROCEDURE IF EXISTS SP_Horario_Listar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Horario_Listar_CRM()
+BEGIN
+    SELECT IdHorarioAtencion, DiaSemana, HoraInicio, HoraFin
+    FROM TB_HORARIO_ATENCION
+    WHERE Activo = 1
+    ORDER BY DiaSemana, HoraInicio;
+END$$
+DELIMITER ;
+
+
+-- Reemplaza el horario de toda la semana en una sola transaccion.
+-- p_FranjasJson: [{"DiaSemana":1,"HoraInicio":"08:00","HoraFin":"12:00"}, ...]  (1 = lunes ... 7 = domingo)
+-- Las citas existentes NO se tocan: al final devuelve las citas futuras que
+-- quedaron fuera del nuevo horario, para avisarlas en pantalla.
+DROP PROCEDURE IF EXISTS SP_Horario_Guardar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Horario_Guardar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_FranjasJson     JSON,
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF IFNULL(JSON_LENGTH(p_FranjasJson), 0) = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Defina al menos una franja de atención: sin horario no se pueden agendar citas.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM JSON_TABLE(p_FranjasJson, '$[*]' COLUMNS (
+            DiaSemana  INT  PATH '$.DiaSemana',
+            HoraInicio TIME PATH '$.HoraInicio',
+            HoraFin    TIME PATH '$.HoraFin')) AS f
+        WHERE f.DiaSemana IS NULL OR f.DiaSemana NOT BETWEEN 1 AND 7
+           OR f.HoraInicio IS NULL OR f.HoraFin IS NULL
+           OR f.HoraFin <= f.HoraInicio) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Hay franjas inválidas: la hora de cierre debe ser posterior a la de apertura.';
+    END IF;
+
+    -- Dos franjas del mismo dia no pueden traslaparse
+    IF EXISTS (
+        SELECT 1
+        FROM JSON_TABLE(p_FranjasJson, '$[*]' COLUMNS (
+                 Fila FOR ORDINALITY,
+                 DiaSemana  INT  PATH '$.DiaSemana',
+                 HoraInicio TIME PATH '$.HoraInicio',
+                 HoraFin    TIME PATH '$.HoraFin')) AS a
+        JOIN JSON_TABLE(p_FranjasJson, '$[*]' COLUMNS (
+                 Fila FOR ORDINALITY,
+                 DiaSemana  INT  PATH '$.DiaSemana',
+                 HoraInicio TIME PATH '$.HoraInicio',
+                 HoraFin    TIME PATH '$.HoraFin')) AS b
+          ON a.DiaSemana = b.DiaSemana
+         AND a.Fila < b.Fila
+         AND a.HoraInicio < b.HoraFin
+         AND b.HoraInicio < a.HoraFin) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hay franjas que se traslapan en un mismo día.';
+    END IF;
+
+    SELECT JSON_ARRAYAGG(JSON_OBJECT('DiaSemana', DiaSemana,
+                                     'HoraInicio', TIME_FORMAT(HoraInicio, '%H:%i'),
+                                     'HoraFin', TIME_FORMAT(HoraFin, '%H:%i')))
+      INTO v_Anterior
+    FROM TB_HORARIO_ATENCION
+    WHERE Activo = 1;
+
+    START TRANSACTION;
+
+    -- WHERE por llave para que funcione aunque Workbench tenga el modo seguro activo
+    DELETE FROM TB_HORARIO_ATENCION WHERE IdHorarioAtencion > 0;
+
+    INSERT INTO TB_HORARIO_ATENCION (DiaSemana, HoraInicio, HoraFin, Activo)
+    SELECT f.DiaSemana, f.HoraInicio, f.HoraFin, 1
+    FROM JSON_TABLE(p_FranjasJson, '$[*]' COLUMNS (
+        DiaSemana  INT  PATH '$.DiaSemana',
+        HoraInicio TIME PATH '$.HoraInicio',
+        HoraFin    TIME PATH '$.HoraFin')) AS f
+    ORDER BY f.DiaSemana, f.HoraInicio;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_HORARIO_ATENCION', 0, 'Editar', v_Anterior, p_FranjasJson);
+
+    COMMIT;
+
+    -- Citas pendientes que quedaron fuera del horario nuevo (o en un dia no laboral)
+    SELECT
+      c.IdCita,
+      c.IdGrupoCita,
+      TRIM(CONCAT(es.Nombre, ' ', es.PrimerApellido)) AS Estudiante,
+      c.FechaHoraInicio,
+      c.FechaHoraFin
+    FROM TB_CITA c
+    JOIN TB_ESTUDIANTE es ON es.IdEstudiante = c.IdEstudiante
+    WHERE c.IdEstadoCita IN (1, 2)
+      AND c.FechaHoraInicio > p_Ahora
+      AND NOT FN_Agenda_DentroDeHorario(c.FechaHoraInicio, c.FechaHoraFin)
+    ORDER BY c.FechaHoraInicio;
+END$$
+DELIMITER ;
+
+
+-- ---------- Dias no laborales ----------
+
+DROP PROCEDURE IF EXISTS SP_DiaNoLaboral_Listar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_DiaNoLaboral_Listar_CRM(
+    IN p_Desde DATE
+)
+BEGIN
+    SELECT IdDiaNoLaboral, Fecha, Motivo, EsFeriado
+    FROM TB_DIA_NO_LABORAL
+    WHERE Fecha >= p_Desde
+    ORDER BY Fecha;
+END$$
+DELIMITER ;
+
+
+-- No deja cerrar un dia que ya tiene citas activas: primero hay que moverlas.
+DROP PROCEDURE IF EXISTS SP_DiaNoLaboral_Agregar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_DiaNoLaboral_Agregar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_Fecha           DATE,
+    IN p_Motivo          VARCHAR(150),
+    IN p_EsFeriado       BOOLEAN,
+    IN p_Hoy             DATE
+)
+BEGIN
+    DECLARE v_Citas   INT DEFAULT 0;
+    DECLARE v_Mensaje VARCHAR(255);
+    DECLARE v_Id      INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_Motivo IS NULL OR TRIM(p_Motivo) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el motivo.';
+    END IF;
+
+    IF p_Fecha < p_Hoy THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden marcar fechas de hoy en adelante.';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM TB_DIA_NO_LABORAL WHERE Fecha = p_Fecha) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Esa fecha ya está marcada como no laboral.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_Citas
+    FROM TB_CITA
+    WHERE IdEstadoCita IN (1, 2)
+      AND FechaHoraInicio >= p_Fecha
+      AND FechaHoraInicio < p_Fecha + INTERVAL 1 DAY;
+
+    IF v_Citas > 0 THEN
+        SET v_Mensaje = CONCAT('Ese día tiene ', v_Citas,
+            IF(v_Citas = 1, ' cita activa', ' citas activas'),
+            '. Reprográmelas o cancélelas antes de marcarlo como no laboral.');
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_Mensaje;
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_DIA_NO_LABORAL (Fecha, Motivo, EsFeriado)
+    VALUES (p_Fecha, TRIM(p_Motivo), IFNULL(p_EsFeriado, 0));
+
+    SET v_Id = LAST_INSERT_ID();
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_DIA_NO_LABORAL', v_Id, 'Crear',
+            JSON_OBJECT('Fecha', p_Fecha, 'Motivo', TRIM(p_Motivo), 'EsFeriado', IFNULL(p_EsFeriado, 0)));
+
+    COMMIT;
+
+    SELECT v_Id AS IdDiaNoLaboral;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_DiaNoLaboral_Eliminar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_DiaNoLaboral_Eliminar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdDiaNoLaboral  INT
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT JSON_OBJECT('Fecha', Fecha, 'Motivo', Motivo, 'EsFeriado', EsFeriado)
+      INTO v_Anterior
+    FROM TB_DIA_NO_LABORAL
+    WHERE IdDiaNoLaboral = p_IdDiaNoLaboral;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El día indicado no existe.';
+    END IF;
+
+    START TRANSACTION;
+
+    DELETE FROM TB_DIA_NO_LABORAL WHERE IdDiaNoLaboral = p_IdDiaNoLaboral;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior)
+    VALUES (p_IdUsuarioAccion, 'TB_DIA_NO_LABORAL', p_IdDiaNoLaboral, 'Eliminar', v_Anterior);
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- ---------- Tipos de sesion ----------
+-- Para listar se reutiliza SP_ListarTiposSesion_CRM (ya existe).
+
+-- Crea (p_IdTipoSesion NULL) o edita un tipo de sesion. La duracion nueva solo
+-- aplica a citas futuras: las ya agendadas conservan su hora de fin.
+DROP PROCEDURE IF EXISTS SP_TipoSesion_Guardar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_TipoSesion_Guardar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdTipoSesion    INT,
+    IN p_Nombre          VARCHAR(50),
+    IN p_DuracionMinutos INT
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+    DECLARE v_Id       INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el nombre del tipo de sesión.';
+    END IF;
+
+    IF p_DuracionMinutos IS NULL OR p_DuracionMinutos NOT BETWEEN 15 AND 240 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duración debe estar entre 15 y 240 minutos.';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM TB_TIPO_SESION
+               WHERE Nombre = TRIM(p_Nombre)
+                 AND (p_IdTipoSesion IS NULL OR IdTipoSesion <> p_IdTipoSesion)) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ya existe un tipo de sesión con ese nombre.';
+    END IF;
+
+    IF p_IdTipoSesion IS NOT NULL THEN
+        SELECT JSON_OBJECT('Nombre', Nombre, 'DuracionMinutos', DuracionMinutos)
+          INTO v_Anterior
+        FROM TB_TIPO_SESION
+        WHERE IdTipoSesion = p_IdTipoSesion;
+
+        IF v_Anterior IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de sesión indicado no existe.';
+        END IF;
+    END IF;
+
+    START TRANSACTION;
+
+    IF p_IdTipoSesion IS NULL THEN
+        INSERT INTO TB_TIPO_SESION (Nombre, DuracionMinutos)
+        VALUES (TRIM(p_Nombre), p_DuracionMinutos);
+
+        SET v_Id = LAST_INSERT_ID();
+    ELSE
+        UPDATE TB_TIPO_SESION
+        SET Nombre = TRIM(p_Nombre),
+            DuracionMinutos = p_DuracionMinutos
+        WHERE IdTipoSesion = p_IdTipoSesion;
+
+        SET v_Id = p_IdTipoSesion;
+    END IF;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_TIPO_SESION', v_Id,
+            IF(p_IdTipoSesion IS NULL, 'Crear', 'Editar'), v_Anterior,
+            JSON_OBJECT('Nombre', TRIM(p_Nombre), 'DuracionMinutos', p_DuracionMinutos));
+
+    COMMIT;
+
+    SELECT v_Id AS IdTipoSesion;
+END$$
+DELIMITER ;
+
+
+-- ---------- Datos del consultorio (TB_CONFIGURACION) ----------
+
+DROP PROCEDURE IF EXISTS SP_Configuracion_Listar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Configuracion_Listar_CRM()
+BEGIN
+    SELECT Clave, Valor, Descripcion
+    FROM TB_CONFIGURACION
+    ORDER BY IdConfiguracion;
+END$$
+DELIMITER ;
+
+
+-- Actualiza varias claves de una vez. Solo modifica claves que ya existen:
+-- las claves nuevas se agregan por script, no desde la pantalla.
+-- p_ValoresJson: [{"Clave":"CorreoContacto","Valor":"info@..."}, ...]
+-- El formato de cada valor (correo, telefono, numeros) lo valida el API.
+DROP PROCEDURE IF EXISTS SP_Configuracion_Guardar_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Configuracion_Guardar_CRM(
+    IN p_IdUsuarioAccion INT,
+    IN p_ValoresJson     JSON
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF IFNULL(JSON_LENGTH(p_ValoresJson), 0) = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No hay cambios para guardar.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM JSON_TABLE(p_ValoresJson, '$[*]' COLUMNS (Clave VARCHAR(100) PATH '$.Clave')) AS j
+        LEFT JOIN TB_CONFIGURACION c ON c.Clave = j.Clave
+        WHERE c.IdConfiguracion IS NULL) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hay claves de configuración que no existen.';
+    END IF;
+
+    SELECT JSON_OBJECTAGG(c.Clave, c.Valor) INTO v_Anterior
+    FROM TB_CONFIGURACION c
+    JOIN JSON_TABLE(p_ValoresJson, '$[*]' COLUMNS (Clave VARCHAR(100) PATH '$.Clave')) AS j
+      ON j.Clave = c.Clave;
+
+    START TRANSACTION;
+
+    UPDATE TB_CONFIGURACION c
+    JOIN JSON_TABLE(p_ValoresJson, '$[*]' COLUMNS (
+             Clave VARCHAR(100)  PATH '$.Clave',
+             Valor VARCHAR(1000) PATH '$.Valor')) AS j
+      ON j.Clave = c.Clave
+    SET c.Valor = TRIM(IFNULL(j.Valor, ''));
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_CONFIGURACION', 0, 'Editar', v_Anterior, p_ValoresJson);
+
+    COMMIT;
+END$$
+DELIMITER ;
 
 
