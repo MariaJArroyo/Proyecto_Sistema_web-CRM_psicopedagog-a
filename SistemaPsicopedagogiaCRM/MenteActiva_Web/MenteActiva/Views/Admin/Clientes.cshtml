@@ -1,19 +1,19 @@
 @model List<MenteActiva.Models.ClienteViewModel>
-
+ 
 @{
-    ViewData["Title"] = "Clientes";
+    ViewData["Title"] = "Encargados";
 }
-
+ 
 <main class="PrincipalAdmin">
-
+ 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
-            <h2 class="mb-1">Clientes</h2>
+            <h2 class="mb-1">Encargados</h2>
             <p class="TextoSuave mb-0">
                 Encargados e interesados en los servicios del consultorio.
             </p>
         </div>
-
+ 
         <button type="button"
                 class="btn btn-primary"
                 data-bs-toggle="modal"
@@ -21,11 +21,11 @@
             <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
         </button>
     </div>
-
+ 
     <div class="Tarjeta p-3 p-md-4">
-
+ 
         <div class="row g-2 mb-3">
-
+ 
             <div class="col-md-7">
                 <div class="input-group">
                     <span class="input-group-text bg-white">
@@ -37,26 +37,28 @@
                            placeholder="Buscar por encargado, estudiante, teléfono o correo">
                 </div>
             </div>
-
+ 
             <div class="col-md-5">
-                <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
+              <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
+                    @* Ids de TB_ESTADO_CLIENTE: 1 = Nuevo, 4 = Activo *@
+                    <option value="1,4" selected>Nuevos y activos</option>
                     <option value="">Todos los estados</option>
                     @if (ViewBag.EstadosCliente != null)
                     {
                         foreach (var estadoCliente in ViewBag.EstadosCliente)
                         {
-                            <option value="@estadoCliente.Nombre">@estadoCliente.Nombre</option>
+                            <option value="@estadoCliente.IdEstadoCliente">@estadoCliente.Nombre</option>
                         }
                     }
                 </select>
             </div>
-
+ 
         </div>
-
+ 
         <div class="table-responsive">
-
+ 
             <table class="table align-middle mb-0" id="TablaClientes">
-
+ 
                 <thead>
                     <tr>
                         <th>Encargado</th>
@@ -68,33 +70,22 @@
                         <th>Acciones</th>
                     </tr>
                 </thead>
-
+ 
                 <tbody>
-
+ 
                     @if (Model != null && Model.Any())
                     {
                         foreach (var cliente in Model)
                         {
                             var estado = cliente.Estado?.Trim();
-
-                            var claseEstado = estado switch
-                            {
-                                "Nuevo" => "badge-estado-nuevo",
-                                "Contactado" => "badge-estado-contactado",
-                                "Cita agendada" => "badge-estado-cita-agendada",
-                                "Cliente activo" => "badge-estado-activo",
-                                "Inactivo" => "badge-estado-inactivo",
-                                "En seguimiento" => "badge-estado-seguimiento",
-                                _ => ""
-                            };
-
-                            <tr data-fila data-estado="@estado">
-
+ 
+                            <tr data-fila data-id-estado="@cliente.IdEstadoCliente">
+ 
                                 <td data-campo="encargado">@cliente.Encargado</td>
                                 <td data-campo="telefono">@cliente.Telefono</td>
                                 <td data-campo="correo">@cliente.Correo</td>
                                 <td data-campo="servicio">@cliente.Servicio</td>
-
+ 
                                 <td data-campo="estudiante">
                                     @cliente.Estudiante
                                     @if (cliente.CantidadEstudiantes > 1)
@@ -105,13 +96,15 @@
                                         </span>
                                     }
                                 </td>
-
+ 
                                 <td>
-                                    <span class="badge @claseEstado">@estado</span>
+                                    <span class="ChipEstado @EstiloEstadoCliente.Clase(cliente.IdEstadoCliente)">
+                                        <i class="bi @EstiloEstadoCliente.Icono(cliente.IdEstadoCliente)" aria-hidden="true"></i>@estado
+                                    </span>
                                 </td>
-
+ 
                                 <td class="TablaAcciones text-nowrap">
-
+ 
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary border-0"
                                             data-accion="ver"
@@ -120,7 +113,7 @@
                                             data-id="@cliente.Id">
                                         <i class="bi bi-eye"></i>
                                     </button>
-
+ 
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary border-0"
                                             data-accion="editar"
@@ -129,7 +122,7 @@
                                             data-id="@cliente.Id">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-
+ 
                                     <button type="button"
                                             class="btn btn-sm btn-outline-danger border-0"
                                             data-accion="eliminar"
@@ -138,66 +131,83 @@
                                             data-id="@cliente.Id">
                                         <i class="bi bi-trash"></i>
                                     </button>
-
+ 
                                 </td>
-
+ 
                             </tr>
                         }
                     }
-
+ 
                 </tbody>
-
+ 
             </table>
-
+ 
         </div>
-
+ 
         <div id="EstadoVacio"
              class="text-center py-4"
              style="display:@(Model == null || !Model.Any() ? "block" : "none");">
-            <p class="TextoSuave mt-2 mb-0">No hay clientes registrados.</p>
+            <p class="TextoSuave mt-2 mb-0">No hay encargados registrados.</p>
         </div>
-
+ 
         <div id="SinResultados" class="text-center py-4" style="display:none;">
-            <p class="TextoSuave mb-0">No hay clientes que coincidan con la búsqueda.</p>
+            <p class="TextoSuave mb-0">No hay encargados que coincidan con la búsqueda.</p>
         </div>
-
+ 
+        <!-- Paginacion: la arma clientes.js sobre las filas que pasan el filtro -->
+        <div class="PaginacionTabla d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 d-none"
+             id="PaginacionClientes">
+            <div class="d-flex align-items-center gap-2 small TextoSuave">
+                <label for="TamanoPaginaClientes" class="mb-0">Mostrar</label>
+                <select class="form-select form-select-sm w-auto" id="TamanoPaginaClientes">
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                </select>
+                <span id="ResumenPaginacionClientes" aria-live="polite"></span>
+            </div>
+            <nav aria-label="Paginación de clientes">
+                <ul class="pagination pagination-sm mb-0" id="ListaPaginasClientes"></ul>
+            </nav>
+        </div>
+ 
     </div>
-
+ 
 </main>
-
-
+ 
+ 
 <partial name="_ModalNuevoCliente" />
-
-
+ 
+ 
 <!-- ========================================================= -->
 <!-- MODAL DETALLE CLIENTE -->
 <!-- ========================================================= -->
-
+ 
 <div class="modal fade" id="ModalDetalleCliente" tabindex="-1" aria-hidden="true">
-
+ 
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
-
+ 
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title mb-0">
                         <span id="DetalleEncargado">-</span>
-                        <span class="badge align-middle ms-2" id="DetalleEstado">-</span>
+                        <span class="ms-2 align-middle" id="DetalleEstado"></span>
                     </h5>
                     <small class="TextoSuave">Cliente desde <span id="DetalleFechaRegistro">-</span></small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-
+ 
             <div class="modal-body">
-
+ 
                 <div class="alert d-none" id="DetalleClienteMensaje" role="alert"></div>
-
+ 
                 <!-- Datos del encargado -->
                 <h6 class="text-uppercase small fw-semibold TextoSuave mb-3">
                     <i class="bi bi-person me-1"></i>Datos del encargado
                 </h6>
-
+ 
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="TextoSuave small">Teléfono</div>
@@ -216,9 +226,9 @@
                         <div id="DetalleObservaciones" style="white-space:pre-line;">-</div>
                     </div>
                 </div>
-
+ 
                 <hr class="my-4">
-
+ 
                 <!-- Estudiantes a cargo -->
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <h6 class="text-uppercase small fw-semibold TextoSuave mb-0">
@@ -229,12 +239,12 @@
                         <i class="bi bi-plus-lg me-1"></i>Agregar estudiante
                     </button>
                 </div>
-
+ 
                 <p class="small text-warning-emphasis mb-2 d-none" id="AvisoClienteInactivo">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     El cliente está inactivo. Reactívelo para agregar o activar estudiantes.
                 </p>
-
+ 
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0" id="TablaEstudiantesCliente">
                         <thead>
@@ -250,38 +260,38 @@
                         <tbody></tbody>
                     </table>
                 </div>
-
+ 
                 <p class="TextoSuave text-center py-3 mb-0 d-none" id="SinEstudiantesCliente">
                     Este cliente no tiene estudiantes registrados.
                 </p>
-
+ 
                 <!-- Formulario en linea para agregar / editar un estudiante -->
                 <div class="border rounded-3 p-3 mt-3 d-none" id="PanelEstudianteCliente">
-
+ 
                     <form id="FormularioEstudianteCliente"
                           asp-controller="Admin"
                           asp-action="AgregarEstudianteCliente"
                           method="post"
                           novalidate>
-
+ 
                         <h6 class="fw-semibold mb-3" id="TituloPanelEstudiante">Agregar estudiante</h6>
-
+ 
                         <div class="alert d-none" id="EstudianteClienteError" role="alert"></div>
-
+ 
                         <div class="row g-2">
-
+ 
                             <div class="col-md-6">
                                 <label for="EstudianteNombre" class="form-label small CampoObligatorio">Nombre</label>
                                 <input type="text" class="form-control form-control-sm" id="EstudianteNombre" name="Nombre" maxlength="100" required>
                                 <div class="invalid-feedback">Obligatorio.</div>
                             </div>
-
+ 
                             <div class="col-md-6">
                                 <label for="EstudianteApellido" class="form-label small CampoObligatorio">Apellido</label>
                                 <input type="text" class="form-control form-control-sm" id="EstudianteApellido" name="Apellido" maxlength="100" required>
                                 <div class="invalid-feedback">Obligatorio.</div>
                             </div>
-
+ 
                             <div class="col-md-4">
                                 <label for="EstudianteParentesco" class="form-label small CampoObligatorio">Parentesco</label>
                                 <select class="form-select form-select-sm" id="EstudianteParentesco" name="IdParentesco" required>
@@ -296,13 +306,13 @@
                                 </select>
                                 <div class="invalid-feedback">Seleccione el parentesco.</div>
                             </div>
-
+ 
                             <div class="col-md-4">
                                 <label for="EstudianteFechaNacimiento" class="form-label small">Fecha de nacimiento</label>
                                 <input type="date" class="form-control form-control-sm" id="EstudianteFechaNacimiento" name="FechaNacimiento">
                                 <div class="invalid-feedback">No puede ser una fecha futura.</div>
                             </div>
-
+ 
                             <div class="col-md-4">
                                 <label for="EstudianteNivel" class="form-label small">Nivel educativo</label>
                                 <select class="form-select form-select-sm" id="EstudianteNivel" name="IdNivelEducativo">
@@ -316,85 +326,85 @@
                                     }
                                 </select>
                             </div>
-
+ 
                         </div>
-
+ 
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="BotonCancelarEstudiante">Cancelar</button>
                             <button type="submit" class="btn btn-sm btn-primary">Guardar estudiante</button>
                         </div>
-
+ 
                     </form>
-
+ 
                 </div>
-
+ 
             </div>
-
+ 
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" class="btn btn-primary" id="BotonEditarDesdeDetalle">
                     <i class="bi bi-pencil me-1"></i>Editar cliente
                 </button>
             </div>
-
+ 
         </div>
     </div>
-
+ 
 </div>
-
-
+ 
+ 
 <!-- ========================================================= -->
 <!-- MODAL EDITAR CLIENTE -->
 <!-- ========================================================= -->
-
+ 
 <div class="modal fade" id="ModalEditarCliente" tabindex="-1" aria-hidden="true">
-
+ 
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-
+ 
             <form id="FormularioEditarCliente"
                   asp-controller="Admin"
                   asp-action="EditarCliente"
                   method="post"
                   novalidate>
-
+ 
                 <input type="hidden" id="EditarId" name="Id">
-
+ 
                 <div class="modal-header">
                     <h5 class="modal-title">Editar cliente</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-
+ 
                 <div class="modal-body">
-
+ 
                     <div class="alert d-none" id="EditarClienteError" role="alert"></div>
-
+ 
                     <div class="row g-3">
-
+ 
                         <div class="col-md-6">
                             <label for="EditarNombreEncargado" class="form-label CampoObligatorio">Nombre del encargado</label>
                             <input type="text" class="form-control" id="EditarNombreEncargado" name="NombreEncargado" maxlength="100" required>
                             <div class="invalid-feedback">El nombre del encargado es obligatorio.</div>
                         </div>
-
+ 
                         <div class="col-md-6">
                             <label for="EditarApellidoEncargado" class="form-label CampoObligatorio">Apellido del encargado</label>
                             <input type="text" class="form-control" id="EditarApellidoEncargado" name="ApellidoEncargado" maxlength="100" required>
                             <div class="invalid-feedback">El apellido del encargado es obligatorio.</div>
                         </div>
-
+ 
                         <div class="col-md-6">
                             <label for="EditarTelefono" class="form-label CampoObligatorio">Teléfono</label>
                             <input type="tel" class="form-control" id="EditarTelefono" name="Telefono" placeholder="8888-8888" required>
                             <div class="invalid-feedback">El teléfono debe tener 8 dígitos.</div>
                         </div>
-
+ 
                         <div class="col-md-6">
                             <label for="EditarCorreo" class="form-label">Correo electrónico</label>
                             <input type="email" class="form-control" id="EditarCorreo" name="Correo" maxlength="150">
                             <div class="invalid-feedback">El correo no es válido.</div>
                         </div>
-
+ 
                         <div class="col-md-6">
                             <label for="EditarServicio" class="form-label CampoObligatorio">Servicio de interés</label>
                             <select class="form-select" id="EditarServicio" name="IdServicioInteres" required>
@@ -409,7 +419,7 @@
                             </select>
                             <div class="invalid-feedback">Debe seleccionar un servicio de interés.</div>
                         </div>
-
+ 
                         <div class="col-md-6">
                             <label for="EditarEstado" class="form-label CampoObligatorio">Estado</label>
                             <select class="form-select" id="EditarEstado" name="IdEstadoCliente" required>
@@ -424,68 +434,68 @@
                             </select>
                             <div class="invalid-feedback">Debe seleccionar un estado.</div>
                         </div>
-
+ 
                         <div class="col-12">
                             <label for="EditarObservaciones" class="form-label">Observaciones</label>
                             <textarea class="form-control" id="EditarObservaciones" name="Observaciones" rows="3" maxlength="1000"></textarea>
                         </div>
-
+ 
                     </div>
-
+ 
                     <div class="alert alert-light border mt-3 mb-0 small">
                         <i class="bi bi-info-circle text-primary me-1"></i>
                         Si el estado se cambia a <strong>Inactivo</strong>, el cliente y sus estudiantes quedan desactivados.
                         Los estudiantes se editan desde el detalle del cliente.
                     </div>
-
+ 
                 </div>
-
+ 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar cambios</button>
                 </div>
-
+ 
             </form>
-
+ 
         </div>
     </div>
-
+ 
 </div>
-
-
+ 
+ 
 <!-- ========================================================= -->
 <!-- MODAL ELIMINAR (DESACTIVAR) CLIENTE -->
 <!-- ========================================================= -->
-
+ 
 <div class="modal fade" id="ModalEliminarCliente" tabindex="-1" aria-hidden="true">
-
+ 
     <div class="modal-dialog">
         <div class="modal-content">
-
+ 
             <div class="modal-header">
-                <h5 class="modal-title">Eliminar cliente</h5>
+                <h5 class="modal-title">Desactivar cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-
+ 
             <div class="modal-body">
                 <p class="mb-0">
                     ¿Está seguro de que desea desactivar a
                     <strong id="NombreClienteEliminar"></strong>?
                 </p>
             </div>
-
+ 
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente">Desactivar</button>
             </div>
-
+ 
         </div>
     </div>
-
+ 
 </div>
-
-
+ 
+ 
 @section Scripts {
-   <script src="~/js/nuevoCliente.js"></script>
-    <script src="~/js/clientes.js"></script>
+   <script src="~/js/nuevoCliente.js" asp-append-version="true"></script>
+    <script src="~/js/clientes.js" asp-append-version="true"></script>
 }
