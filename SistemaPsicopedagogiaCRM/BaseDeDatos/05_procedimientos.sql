@@ -258,6 +258,13 @@ BEGIN
   WHERE IdUsuario = p_IdUsuario
   LIMIT 1;
 
+  -- Siempre debe quedar al menos un administrador activo
+  IF v_RolAnterior = 1 AND p_IdRol <> 1
+     AND FN_Usuario_OtrosAdministradoresActivos(p_IdUsuario) = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Debe quedar al menos un administrador activo. Asigne el rol de Administrador a otra persona antes de cambiar este.';
+  END IF;
+
   START TRANSACTION;
 
   UPDATE TB_USUARIO
@@ -332,6 +339,23 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Cuantos administradores activos hay sin contar a p_IdUsuario. Si da 0,
+-- quitarle el rol o desactivar a ese usuario dejaria el sistema sin administrador.
+DROP FUNCTION IF EXISTS FN_Usuario_OtrosAdministradoresActivos;
+DELIMITER $$
+CREATE FUNCTION FN_Usuario_OtrosAdministradoresActivos(p_IdUsuario INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+  RETURN (
+    SELECT COUNT(*)
+    FROM TB_USUARIO u
+    JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+    WHERE ur.IdRol = 1                -- Administrador
+      AND u.IdEstadoUsuario = 1       -- Activo
+      AND u.IdUsuario <> p_IdUsuario);
+END$$
+DELIMITER ;
 
 -- Activar, inactivar o bloquear. El borrado de usuarios no existe.
 DROP PROCEDURE IF EXISTS SP_Usuario_CambiarEstado;
@@ -360,6 +384,14 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM TB_ESTADO_USUARIO WHERE IdEstadoUsuario = p_IdEstadoUsuario) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estado indicado no existe.';
+  END IF;
+
+   -- Desactivar o bloquear al unico administrador activo dejaria el sistema sin acceso
+  IF v_EstadoAnterior = 1 AND p_IdEstadoUsuario <> 1
+     AND EXISTS (SELECT 1 FROM TB_USUARIO_ROL WHERE IdUsuario = p_IdUsuario AND IdRol = 1)
+     AND FN_Usuario_OtrosAdministradoresActivos(p_IdUsuario) = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'No se puede desactivar al único administrador activo del sistema.';
   END IF;
 
   START TRANSACTION;
@@ -411,6 +443,14 @@ BEGIN
   FROM TB_USUARIO_ROL
   WHERE IdUsuario = p_IdUsuario
   LIMIT 1;
+
+  -- Siempre debe quedar al menos un administrador activo
+  IF v_RolAnterior = 1 AND p_IdRol <> 1
+     AND FN_Usuario_OtrosAdministradoresActivos(p_IdUsuario) = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Debe quedar al menos un administrador activo. Asigne el rol de Administrador a otra persona antes de cambiar este.';
+  END IF;
+
 
   START TRANSACTION;
 
