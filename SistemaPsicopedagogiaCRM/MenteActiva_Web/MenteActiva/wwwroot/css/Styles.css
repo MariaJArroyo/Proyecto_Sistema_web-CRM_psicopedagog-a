@@ -1405,3 +1405,127 @@ button.TopbarAdmin-Usuario {
     border-radius: 3px;
     background-image: repeating-linear-gradient( 135deg, rgba(107, 122, 140, 0.35) 0 3px, transparent 3px 6px);
 }
+
+/* ---------- Chips de estado de cliente ---------- */
+.ChipEstado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+    .ChipEstado i {
+        font-size: 0.9em;
+    }
+
+.chip-estado-nuevo { /* azul: recien llegado */
+    background-color: #E4EBFA;
+    color: #35528F;
+    border-color: #C9D6F3;
+}
+
+.chip-estado-contactado { /* turquesa: ya hubo contacto */
+    background-color: #DFF3F8;
+    color: #16687B;
+    border-color: #BDE5EF;
+}
+
+.chip-estado-cita { /* morado: tiene cita */
+    background-color: #ECE3FA;
+    color: #6B3FA0;
+    border-color: #D8C8F2;
+}
+
+.chip-estado-activo { /* verde: en atencion */
+    background-color: #E1F5EA;
+    color: #256B47;
+    border-color: #BFE6D0;
+}
+
+.chip-estado-inactivo { /* gris: en pausa */
+    background-color: #EAEDF1;
+    color: #556274;
+    border-color: #D5DBE3;
+}
+
+.chip-estado-otro {
+    background-color: #F3F4F6;
+    color: #4B5563;
+    border-color: #E5E7EB;
+}
+
+/* ---------- Paginacion de tablas ---------- */
+.PaginacionTabla .pagination {
+    --bs-pagination-color: var(--color-primario);
+    --bs-pagination-hover-color: var(--color-primario-oscuro);
+    --bs-pagination-focus-color: var(--color-primario-oscuro);
+    --bs-pagination-active-bg: var(--color-primario);
+    --bs-pagination-active-border-color: var(--color-primario);
+    --bs-pagination-border-color: var(--color-borde);
+}
+
+/* ---------- Modal nuevo cliente: panel de estudiantes ---------- */
+.PanelEstudiantesNuevo {
+    height: 100%;
+    padding: 1rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-tarjeta);
+}
+
+/* El scroll vive aqui adentro: el modal no crece con muchos estudiantes */
+.PanelEstudiantesNuevo-Lista {
+    max-height: min(55vh, 520px);
+    overflow-y: auto;
+    padding: 0.15rem 0.35rem 0.15rem 0.15rem;
+    scrollbar-gutter: stable;
+}
+
+    .PanelEstudiantesNuevo-Lista:focus-visible {
+        outline: 2px solid var(--color-primario);
+        outline-offset: 2px;
+        border-radius: 8px;
+    }
+
+.TarjetaEstudianteNuevo {
+    flex-shrink: 0;
+    padding: 0.85rem 1rem;
+    background-color: var(--color-superficie);
+    border: 1px solid var(--color-borde);
+    border-left: 4px solid var(--color-secundario);
+    border-radius: 10px;
+    box-shadow: var(--sombra-suave);
+    transition: border-color 0.15s ease;
+}
+
+    /* Si a la tarjeta le falta algo, la franja se pone roja */
+    .TarjetaEstudianteNuevo:has(.is-invalid) {
+        border-left-color: var(--color-peligro);
+    }
+
+.TarjetaEstudianteNuevo-Numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background-color: var(--color-primario);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* En pantallas chicas las columnas se apilan: el scroll interno ya no hace falta */
+@media (max-width: 991.98px) {
+    .PanelEstudiantesNuevo-Lista {
+        max-height: none;
+        overflow-y: visible;
+    }
+}

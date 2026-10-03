@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const alertaOrigen = document.getElementById("NuevoClienteOrigen");
     const campoIdSolicitud = document.getElementById("NuevoClienteIdSolicitud");
     const titulo = document.getElementById("TituloNuevoCliente");
+     const contador = document.getElementById("ContadorEstudiantesNuevo");
 
     const PatronCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -46,11 +47,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ---------- lista de estudiantes ----------
 
-    // name="Estudiantes[i].Campo" consecutivos para que ASP.NET arme la lista
+   
+
+    document.getElementById("BotonAgregarEstudianteNuevo")
+        .addEventListener("click", () => agregarEstudiante(true));
+
+    lista.addEventListener("click", function (evento) {
+        const boton = evento.target.closest("[data-quitar-estudiante]");
+        if (!boton) return;
+        boton.closest("[data-estudiante-nuevo]").remove();
+        renumerar();
+    });
+
+        // name="Estudiantes[i].Campo" consecutivos para que ASP.NET arme la lista
     function renumerar() {
         const tarjetas = lista.querySelectorAll("[data-estudiante-nuevo]");
 
         tarjetas.forEach(function (tarjeta, i) {
+            tarjeta.querySelector("[data-numero]").textContent = i + 1;
             tarjeta.querySelector("[data-titulo]").textContent = "Estudiante " + (i + 1);
 
             tarjeta.querySelectorAll("[data-campo]").forEach(function (campo) {
@@ -64,6 +78,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             tarjeta.querySelector("[data-quitar-estudiante]").disabled = tarjetas.length === 1;
         });
+
+        contador.textContent = tarjetas.length;
     }
 
     function agregarEstudiante(enfocar) {
@@ -73,21 +89,12 @@ document.addEventListener("DOMContentLoaded", function () {
         renumerar();
 
         if (enfocar) {
-            const tarjetas = lista.querySelectorAll("[data-estudiante-nuevo]");
-            tarjetas[tarjetas.length - 1].querySelector('[data-campo="Nombre"]').focus();
+            // La tarjeta nueva queda al final de la lista con scroll: se lleva a la vista
+            const nueva = lista.lastElementChild;
+            nueva.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            nueva.querySelector('[data-campo="Nombre"]').focus({ preventScroll: true });
         }
     }
-
-    document.getElementById("BotonAgregarEstudianteNuevo")
-        .addEventListener("click", () => agregarEstudiante(true));
-
-    lista.addEventListener("click", function (evento) {
-        const boton = evento.target.closest("[data-quitar-estudiante]");
-        if (!boton) return;
-        boton.closest("[data-estudiante-nuevo]").remove();
-        renumerar();
-    });
-
 
     // ---------- abrir ----------
 
@@ -157,6 +164,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!valido) {
             mostrarError("Revise los campos marcados en rojo.");
+            // Si el error esta en una tarjeta escondida por el scroll, se lleva a la vista
+            form.querySelector(".is-invalid")?.scrollIntoView({ block: "center", behavior: "smooth" });
             return;
         }
 

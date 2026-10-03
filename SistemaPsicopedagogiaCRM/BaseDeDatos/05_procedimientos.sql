@@ -929,7 +929,13 @@ BEGIN
         WHERE ee.IdEncargado = e.IdEncargado
         ORDER BY ee.EsPrincipal DESC, ee.IdEstudiante
         LIMIT 1)
-    ORDER BY e.Activo DESC, e.FechaRegistro DESC;
+    -- Orden del flujo de atencion (TB_ESTADO_CLIENTE.Orden): Nuevo, Contactado,
+    -- Cita agendada, Activo. Los encargados desactivados van siempre al final,
+    -- conserven el estado que conserven. Dentro de cada estado, los mas recientes primero.
+    ORDER BY
+      e.Activo DESC,
+      ec.Orden,
+      e.FechaRegistro DESC;
 END$$
 DELIMITER ;
 
