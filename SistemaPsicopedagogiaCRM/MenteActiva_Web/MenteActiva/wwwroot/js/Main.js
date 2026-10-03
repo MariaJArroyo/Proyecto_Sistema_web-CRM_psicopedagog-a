@@ -122,6 +122,10 @@ function InicializarModalesDetalle() {
   });
 }
 
+// Tablas con buscador: data-tabla-buscador="IdTabla" en el contenedor de filtros.
+// Opcional: data-tabla-paginar="10" pagina las filas que pasan el filtro.
+// El filtro se aplica tambien al cargar la pagina, para respetar la opcion
+// marcada como "selected" en el filtro de estado (por ejemplo, Activo).
 function InicializarTablasBuscables() {
   var contenedores = document.querySelectorAll("[data-tabla-buscador]");
 
@@ -136,34 +140,149 @@ function InicializarTablasBuscables() {
     var campoEstado = contenedor.querySelector("[data-buscar-estado]");
     var estadoVacio = document.querySelector('[data-tabla-vacio="' + tablaId + '"]');
 
+    var tamanoInicial = parseInt(contenedor.getAttribute("data-tabla-paginar"), 10) || 0;
+    var paginador = tamanoInicial > 0 ? CrearPaginador(tabla, tablaId, tamanoInicial) : null;
+    var paginaActual = 1;
+
     function Filtrar() {
       var texto = campoTexto ? campoTexto.value.trim().toLowerCase() : "";
       var estado = campoEstado ? campoEstado.value : "";
-      var filas = tabla.querySelectorAll("tbody tr");
-      var visibles = 0;
+      var filas = Array.prototype.slice.call(tabla.querySelectorAll("tbody tr"));
 
-      filas.forEach(function (fila) {
+      var coincidentes = filas.filter(function (fila) {
         var coincideTexto = !texto || fila.textContent.toLowerCase().indexOf(texto) !== -1;
         var coincideEstado = !estado || fila.getAttribute("data-estado") === estado;
-        var mostrar = coincideTexto && coincideEstado;
-        fila.classList.toggle("d-none", !mostrar);
-        if (mostrar) {
-          visibles++;
-        }
+        return coincideTexto && coincideEstado;
       });
 
+      // Sin paginador se muestran todas las que coinciden
+      var tamano = paginador ? parseInt(paginador.tamano.value, 10) : Math.max(coincidentes.length, 1);
+      var totalPaginas = Math.max(1, Math.ceil(coincidentes.length / tamano));
+      paginaActual = Math.min(Math.max(paginaActual, 1), totalPaginas);
+
+      var inicio = (paginaActual - 1) * tamano;
+      var visibles = coincidentes.slice(inicio, inicio + tamano);
+
+      filas.forEach(function (fila) {
+        fila.classList.toggle("d-none", visibles.indexOf(fila) === -1);
+      });
+
+      // El aviso es de "sin resultados": una tabla vacia de origen no lo muestra
       if (estadoVacio) {
-        estadoVacio.classList.toggle("d-none", visibles !== 0);
+        estadoVacio.classList.toggle("d-none", filas.length === 0 || coincidentes.length !== 0);
+      }
+
+      if (paginador) {
+        DibujarPaginador(paginador, coincidentes.length, inicio, tamano, paginaActual, totalPaginas);
       }
     }
 
+    // Cualquier cambio de filtro vuelve a la primera pagina
+    function Reiniciar() {
+      paginaActual = 1;
+      Filtrar();
+    }
+
     if (campoTexto) {
-      campoTexto.addEventListener("input", Filtrar);
+      campoTexto.addEventListener("input", Reiniciar);
     }
     if (campoEstado) {
-      campoEstado.addEventListener("change", Filtrar);
+      campoEstado.addEventListener("change", Reiniciar);
     }
+    if (paginador) {
+      paginador.tamano.addEventListener("change", Reiniciar);
+      paginador.lista.addEventListener("click", function (evento) {
+        var boton = evento.target.closest("button[data-pagina]");
+        if (!boton || boton.disabled) {
+          return;
+        }
+        paginaActual = parseInt(boton.getAttribute("data-pagina"), 10);
+        Filtrar();
+      });
+    }
+
+    Filtrar();
   });
+}
+
+// Inserta debajo de la tabla: selector de filas por pagina, resumen y botones
+function CrearPaginador(tabla, tablaId, tamanoInicial) {
+  var envoltura = tabla.closest(".table-responsive") || tabla;
+  var idTamano = "TamanoPagina" + tablaId;
+
+  var opciones = [10, 25, 50];
+  if (opciones.indexOf(tamanoInicial) === -1) {
+    opciones.push(tamanoInicial);
+    opciones.sort(function (a, b) { return a - b; });
+  }
+
+  var bloque = document.createElement("div");
+  bloque.className = "PaginacionTabla d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3";
+  bloque.innerHTML =
+    '<div class="d-flex align-items-center gap-2 small TextoSuave">' +
+      '<label for="' + idTamano + '" class="mb-0">Mostrar</label>' +
+      '<select class="form-select form-select-sm w-auto" id="' + idTamano + '">' +
+        opciones.map(function (n) {
+          return '<option value="' + n + '"' + (n === tamanoInicial ? " selected" : "") + ">" + n + "</option>";
+        }).join("") +
+      "</select>" +
+      '<span aria-live="polite" data-resumen></span>' +
+    "</div>" +
+    '<nav aria-label="Paginación"><ul class="pagination pagination-sm mb-0"></ul></nav>';
+
+  envoltura.insertAdjacentElement("afterend", bloque);
+
+  return {
+    bloque: bloque,
+    tamano: bloque.querySelector("select"),
+    resumen: bloque.querySelector("[data-resumen]"),
+    nav: bloque.querySelector("nav"),
+    lista: bloque.querySelector("ul")
+  };
+}
+
+function DibujarPaginador(paginador, total, inicio, tamano, actual, totalPaginas) {
+  paginador.bloque.classList.toggle("d-none", total === 0);
+  paginador.resumen.textContent = (inicio + 1) + "–" + Math.min(inicio + tamano, total) + " de " + total;
+
+  // Con una sola pagina no hace falta la botonera
+  paginador.nav.classList.toggle("d-none", totalPaginas === 1);
+
+  var html = BotonPagina('<i class="bi bi-chevron-left" aria-hidden="true"></i>', actual - 1,
+    false, actual === 1, "Página anterior");
+
+  NumerosDePagina(totalPaginas, actual).forEach(function (numero) {
+    html += numero === "…"
+      ? '<li class="page-item disabled"><span class="page-link">…</span></li>'
+      : BotonPagina(numero, numero, numero === actual, false, "Página " + numero);
+  });
+
+  html += BotonPagina('<i class="bi bi-chevron-right" aria-hidden="true"></i>', actual + 1,
+    false, actual === totalPaginas, "Página siguiente");
+
+  paginador.lista.innerHTML = html;
+}
+
+// Numeros a mostrar: 1 … 4 5 6 … 12
+function NumerosDePagina(total, actual) {
+  var numeros = [1, actual - 1, actual, actual + 1, total]
+    .filter(function (n, i, lista) { return n >= 1 && n <= total && lista.indexOf(n) === i; })
+    .sort(function (a, b) { return a - b; });
+
+  var resultado = [];
+  numeros.forEach(function (numero, i) {
+    if (i > 0 && numero - numeros[i - 1] > 1) {
+      resultado.push("…");
+    }
+    resultado.push(numero);
+  });
+  return resultado;
+}
+
+function BotonPagina(contenido, pagina, activo, deshabilitado, etiqueta) {
+  return '<li class="page-item' + (activo ? " active" : "") + (deshabilitado ? " disabled" : "") + '">' +
+    '<button type="button" class="page-link" data-pagina="' + pagina + '" aria-label="' + etiqueta + '"' +
+    (activo ? ' aria-current="page"' : "") + (deshabilitado ? " disabled" : "") + ">" + contenido + "</button></li>";
 }
 
 

@@ -1,7 +1,7 @@
 @model IEnumerable<MenteActiva.Models.UsuarioViewModel>
 @{
     ViewData["Title"] = "Usuarios internos";
-
+ 
     // Los roles son fijos y no se configuran en caliente; Encargado no va aqui
     // porque esas cuentas se crean desde "Usuarios externos"
     var roles = new Dictionary<int, string>
@@ -10,12 +10,19 @@
         [2] = "Psicopedagoga",
         [3] = "Asistente"
     };
-
+ 
     // Para no ofrecerle al administrador que se desactive a si mismo: el API
     // tambien lo rechaza, pero es mejor no mostrar el boton
     var idUsuarioActual = int.Parse(
         User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "0");
-
+ 
+    // Siempre debe quedar al menos un administrador activo: si hay uno solo,
+    // su rol se muestra fijo (los SPs tambien lo validan)
+    var administradoresActivos = Model.Count(u => u.Rol == "Administrador" && u.Estado == "Activo");
+ 
+    bool RolBloqueado(UsuarioViewModel u)
+        => u.Rol == "Administrador" && u.Estado == "Activo" && administradoresActivos == 1;
+ 
     string ClaseInsignia(string estado) => estado switch
     {
         "Activo" => "badge-estado-activo",
@@ -24,7 +31,7 @@
         _ => "badge-estado-inactivo"
     };
 }
-
+ 
       <main class="PrincipalAdmin">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
           <div>
@@ -38,7 +45,7 @@
             <i class="bi bi-plus-lg me-1"></i>Nuevo usuario
           </button>
         </div>
-
+ 
         @if (TempData["Mensaje"] is string aviso)
         {
           <div class="alert alert-success" role="alert">@aviso</div>
@@ -47,10 +54,10 @@
         {
           <div class="alert alert-danger" role="alert">@problema</div>
         }
-
+ 
         <div class="Tarjeta p-3 p-md-4">
-
-          <div class="row g-2 mb-3" data-tabla-buscador="TablaUsuarios">
+ 
+          <div class="row g-2 mb-3" data-tabla-buscador="TablaUsuarios" data-tabla-paginar="10">
             <div class="col-md-7">
               <div class="input-group">
                 <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -62,14 +69,14 @@
                 @* Los mismos textos que devuelve la base: el filtro compara
                    contra data-estado, asi que si no coinciden no filtra nada *@
                 <option value="">Todos los estados</option>
-                <option value="Activo">Activo</option>
+                <option value="Activo" selected>Activo</option>
                 <option value="Pendiente de activación">Pendiente de activación</option>
                 <option value="Bloqueado">Bloqueado</option>
                 <option value="Inactivo">Inactivo</option>
               </select>
             </div>
           </div>
-
+ 
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="TablaUsuarios">
               <thead>
@@ -87,28 +94,48 @@
                 <tr data-fila data-estado="@usuario.Estado" data-valor-nombre="@usuario.NombreCompleto"
                   data-valor-correo="@usuario.Correo" data-valor-rol="@usuario.Rol"
                   data-id-usuario="@usuario.IdUsuario"
+                  data-rol-bloqueado="@(RolBloqueado(usuario) ? "true" : "false")"
                   data-id-rol="@(roles.FirstOrDefault(r => r.Value == usuario.Rol).Key)">
-                  <td data-campo="nombre">@usuario.NombreCompleto</td>
+                 <td>
+                    <span data-campo="nombre">@usuario.NombreCompleto</span>
+                    @if (usuario.IdUsuario == idUsuarioActual)
+                    {
+                      <span class="ChipEstado chip-cuenta-propia ms-2">
+                        <i class="bi bi-person-check" aria-hidden="true"></i>Su cuenta
+                      </span>
+                    }
+                  </td>
+ 
                   <td data-campo="correo">@usuario.Correo</td>
                   <td data-campo="rol">
-                    <form asp-controller="Admin" asp-action="AsignarRol" method="post"
-                      class="d-flex align-items-center gap-1">
-                      <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
-                      <select name="idRol" class="form-select form-select-sm" aria-label="Rol de @usuario.NombreCompleto">
-                        @foreach (var rol in roles)
-                        {
-                          <option value="@rol.Key" selected="@(usuario.Rol == rol.Value)">@rol.Value</option>
-                        }
-                      </select>
-                      <button type="submit" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip"
-                        title="Guardar rol"><i class="bi bi-check-lg"></i></button>
-                    </form>
+                    @if (RolBloqueado(usuario))
+                    {
+                      @* Unico administrador activo: su rol no se puede cambiar *@
+                      <span class="d-inline-flex align-items-center gap-1" title="Es el único administrador activo">
+                        <i class="bi bi-lock TextoSuave" aria-hidden="true"></i>@usuario.Rol
+                      </span>
+                    }
+                    else
+                    {
+                      <form asp-controller="Admin" asp-action="AsignarRol" method="post"
+                        class="d-flex align-items-center gap-1">
+                        <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                        <select name="idRol" class="form-select form-select-sm" aria-label="Rol de @usuario.NombreCompleto">
+                          @foreach (var rol in roles)
+                          {
+                            <option value="@rol.Key" selected="@(usuario.Rol == rol.Value)">@rol.Value</option>
+                          }
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip"
+                          title="Guardar rol"><i class="bi bi-check-lg"></i></button>
+                      </form>
+                    }
                   </td>
                   <td><span class="badge @ClaseInsignia(usuario.Estado)" data-campo-badge="estado">@usuario.Estado</span></td>
                   <td class="TablaAcciones">
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
                       data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-
+ 
                     @if (usuario.Estado != "Inactivo")
                     {
                       <form asp-controller="Admin" asp-action="ReenviarInvitacion" method="post" class="d-inline">
@@ -120,32 +147,33 @@
                         </button>
                       </form>
                     }
-
-                    @if (usuario.IdUsuario == idUsuarioActual)
+ 
+                                       @* Su propia cuenta no se puede activar ni desactivar: no se muestran esos botones *@
+                    @if (usuario.IdUsuario != idUsuarioActual)
                     {
-                      <span class="TextoSuave small ms-1">Su cuenta</span>
+                      if (usuario.Estado == "Inactivo")
+                      {
+                        <form asp-controller="Admin" asp-action="CambiarEstadoUsuario" method="post" class="d-inline">
+                          <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                          <input type="hidden" name="idEstadoUsuario" value="1">
+                          <button type="submit" class="btn btn-sm btn-outline-primary border-0" data-bs-toggle="tooltip"
+                            title="Activar"><i class="bi bi-person-check"></i></button>
+                        </form>
+                      }
+                      else
+                      {
+                        <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
+                          data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
+                      }
                     }
-                    else if (usuario.Estado == "Inactivo")
-                    {
-                      <form asp-controller="Admin" asp-action="CambiarEstadoUsuario" method="post" class="d-inline">
-                        <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
-                        <input type="hidden" name="idEstadoUsuario" value="1">
-                        <button type="submit" class="btn btn-sm btn-outline-primary border-0" data-bs-toggle="tooltip"
-                          title="Activar"><i class="bi bi-person-check"></i></button>
-                      </form>
-                    }
-                    else
-                    {
-                      <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
-                        data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-person-x"></i></button>
-                    }
+ 
                   </td>
                 </tr>
                 }
               </tbody>
             </table>
           </div>
-
+ 
           <!-- Estado vacío: sin resultados de búsqueda -->
           <div class="EstadoVacio d-none" data-tabla-vacio="TablaUsuarios">
             <i class="bi bi-people"></i>
@@ -154,7 +182,7 @@
         </div>
       </main>
       <!-- Razor: /fin de contenido de la vista -->
-
+ 
       <div class="modal fade" id="ModalNuevoUsuario" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
@@ -197,7 +225,7 @@
           </div>
         </div>
       </div>
-
+ 
       <div class="modal fade" id="ModalEditarUsuario" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
@@ -227,6 +255,11 @@
                       <option value="@rol.Key">@rol.Value</option>
                     }
                   </select>
+                  @* Un select deshabilitado no se envia: cuando el rol esta bloqueado viaja por este campo *@
+                  <input type="hidden" name="IdRol" id="EditarRolFijo" disabled>
+                  <div class="form-text d-none" id="AvisoRolBloqueado">
+                    <i class="bi bi-lock me-1"></i>Es el único administrador activo: su rol no se puede cambiar.
+                  </div>
                 </div>
                 <div class="form-text mt-2">
                   Si cambia el correo, los enlaces de invitación o de restablecimiento que estén
@@ -241,7 +274,7 @@
           </div>
         </div>
       </div>
-
+ 
       <div class="modal fade" id="ModalDesactivarUsuario" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
@@ -268,7 +301,7 @@
           </div>
         </div>
       </div>
-
+ 
 @section Scripts {
   <script src="~/js/Validaciones.js"></script>
   <script>
@@ -293,7 +326,16 @@
           document.getElementById("EditarIdUsuario").value = fila.getAttribute("data-id-usuario");
           document.getElementById("EditarNombreUsuario").value = fila.getAttribute("data-valor-nombre");
           document.getElementById("EditarCorreoUsuario").value = fila.getAttribute("data-valor-correo");
-          document.getElementById("EditarRolUsuario").value = fila.getAttribute("data-id-rol");
+          var idRol = fila.getAttribute("data-id-rol");
+          var rolBloqueado = fila.getAttribute("data-rol-bloqueado") === "true";
+          var selectRol = document.getElementById("EditarRolUsuario");
+          var rolFijo = document.getElementById("EditarRolFijo");
+ 
+          selectRol.value = idRol;
+          selectRol.disabled = rolBloqueado;
+          rolFijo.value = idRol;
+          rolFijo.disabled = !rolBloqueado;
+          document.getElementById("AvisoRolBloqueado").classList.toggle("d-none", !rolBloqueado);
           instanciaEditar.show();
         } else if (accion === "desactivar") {
           document.getElementById("DesactivarIdUsuario").value = fila.getAttribute("data-id-usuario");
@@ -324,3 +366,4 @@
     });
   </script>
 }
+ 

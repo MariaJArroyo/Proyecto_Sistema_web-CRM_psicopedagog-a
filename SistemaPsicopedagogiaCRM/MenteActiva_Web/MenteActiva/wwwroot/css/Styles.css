@@ -1518,3 +1518,12 @@ button.TopbarAdmin-Usuario {
         overflow-y: visible;
     }
 }
+
+/* Chip "Su cuenta" junto al nombre en Usuarios internos */
+.chip-cuenta-propia {
+    background-color: #EEF2FA;
+    color: var(--color-primario-oscuro);
+    border-color: #C9D6F3;
+    font-size: 0.72rem;
+    vertical-align: middle;
+}
