@@ -564,17 +564,6 @@ a:hover {
   font-weight: 500;
 }
 
-/* Pie del sidebar: Configuración siempre visible al fondo */
-.SidebarAdmin-Pie {
-    flex-shrink: 0;
-    padding: 0.5rem 0.5rem 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-    .SidebarAdmin-Pie .SidebarAdmin-Enlace {
-        margin-bottom: 0;
-    }
-
 .ContenidoAdmin {
   margin-left: var(--ancho-sidebar);
   flex: 1;

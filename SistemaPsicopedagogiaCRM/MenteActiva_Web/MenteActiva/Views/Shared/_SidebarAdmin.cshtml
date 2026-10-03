@@ -66,17 +66,14 @@
         <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace@(seccion == "UsuariosExternos" ? " activo" : "")">
           <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
         </a>
-      </nav>
 
-      @if (User.IsInRole("Administrador"))
-      {
-        <!-- Configuración del sitio: solo Administrador, fija al fondo del sidebar -->
-        <div class="SidebarAdmin-Pie">
-          <a href="/Admin/Configuracion" class="SidebarAdmin-Enlace@(seccion == "Configuracion" ? " activo" : "")"
-             title="Configuración">
+         @if (User.IsInRole("Administrador"))
+        {
+          <!-- Configuración del sitio: solo Administrador -->
+          <a href="/Admin/Configuracion" class="SidebarAdmin-Enlace@(seccion == "Configuracion" ? " activo" : "")">
             <i class="bi bi-gear"></i><span>Configuración</span>
           </a>
-        </div>
-      }
+        }
+      </nav>
       
     </aside>
