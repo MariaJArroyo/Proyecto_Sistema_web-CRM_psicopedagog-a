@@ -602,7 +602,114 @@ public class AdminController : Controller
     public IActionResult Pagos() => View();
     public IActionResult Planes() => View();
     public IActionResult Reportes() => View();
-    public IActionResult Sesiones() => View();
+
+    #region Sesiones
+
+    // La clase permite 3 roles; esta region exige ademas quitar al Asistente,
+    // porque la sesion lleva la nota clinica del menor. Dos [Authorize] se
+    // combinan: hay que cumplir los dos, asi que el Asistente no entra.
+
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> Sesiones(CancellationToken cancelacion)
+    {
+        var catalogos = new CatalogosSesionViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            catalogos = await client.GetFromJsonAsync<CatalogosSesionViewModel>(
+                UrlApi("sesiones/catalogos"), cancelacion) ?? catalogos;
+        }
+        catch (HttpRequestException)
+        {
+            // Sin catalogos el historial igual se ve; solo "Registrar sesion" queda deshabilitado
+            ViewBag.ErrorCarga = "No se pudieron cargar los catálogos de sesiones.";
+        }
+
+        return View(catalogos);
+    }
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> ConsultarSesiones(
+            int? idEstudiante, DateOnly? desde, DateOnly? hasta, CancellationToken cancelacion)
+    {
+        var ruta = "sesiones?";
+
+        if (idEstudiante is > 0) ruta += $"idEstudiante={idEstudiante}&";
+        if (desde is not null) ruta += $"desde={FormatoFecha(desde.Value)}&";
+        if (hasta is not null) ruta += $"hasta={FormatoFecha(hasta.Value)}";
+
+        return ReenviarGetAsync(ruta, cancelacion);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> DetalleSesion(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"sesiones/{id}", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> BuscarEstudiantesSesion(string? texto, CancellationToken cancelacion)
+        => ReenviarGetAsync($"sesiones/estudiantes?texto={Uri.EscapeDataString(texto ?? string.Empty)}", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> CitasDisponiblesSesion(int idEstudiante, CancellationToken cancelacion)
+        => ReenviarGetAsync($"sesiones/citas-disponibles?idEstudiante={idEstudiante}", cancelacion);
+
+    // ---------- escrituras ----------
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> RegistrarSesion(
+        RegistrarSesionViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("sesiones"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo registrar la sesión.");
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarSesion(
+        int id, EditarSesionViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(UrlApi($"sesiones/{id}"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo actualizar la sesión.");
+    }
+
+    // Baja logica: la sesion no se borra nunca
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> InactivarSesion(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsync(UrlApi($"sesiones/{id}/inactivar"), null, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo inactivar la sesión.");
+    }
+
+    #endregion
 
     #region Configuracion
 

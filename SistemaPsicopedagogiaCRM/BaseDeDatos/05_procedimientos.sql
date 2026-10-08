@@ -11,10 +11,16 @@
 -- escribirlo ahi. Si el que ya existe no calza con lo que
 -- necesita tu modulo, editalo. No crear uno paralelo.
 --
--- Convencion de nombres: SP_Entidad_Accion.
--- Los seis que terminan en _CRM vienen del primer avance del
--- proyecto y se dejan con su nombre original porque el API ya
--- los invoca asi. Son la unica excepcion.
+-- Convencion de nombres: SP_Entidad_Accion, sin sufijo.
+--
+-- Hay 45 procedimientos que terminan en _CRM. Empezaron siendo seis, heredados
+-- del primer avance, que se dejaron con su nombre porque el API ya los invocaba
+-- asi. Hoy son 45 de 109: la excepcion se volvio costumbre y se sigue copiando
+-- del vecino. Los que estan no se renombran de a uno, porque romperian
+-- endpoints ajenos; se renombran todos juntos cuando el equipo lo acuerde (ver
+-- decision pendiente 1 de PROCEDIMIENTOS.md).
+--
+-- Lo que si aplica desde ya: un procedimiento NUEVO no lleva _CRM.
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -2345,7 +2351,8 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se puede marcar cuando la hora de la cita ya pasó.';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM TB_SESION WHERE IdCita = p_IdCita) THEN
+    -- M5 agrego borrado logico (2026-10-07): una sesion inactivada ya no bloquea
+    IF EXISTS (SELECT 1 FROM TB_SESION WHERE IdCita = p_IdCita AND Activo = 1) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita tiene una sesión registrada: el estudiante sí asistió.';
     END IF;
 
@@ -2795,184 +2802,467 @@ DELIMITER ;
 -- 5. Sesiones
 -- ============================================================
 
+-- Ids que se usan en esta seccion:
+--   TB_ESTADO_CITA     1 Programada  2 Confirmada  3 Completada  4 Cancelada  5 No asistio
+--   TB_TIPO_ATENCION   1 Individual  2 Grupal  3 Familiar
+--
+-- Una sesion es atencion YA realizada, por eso no se acepta fecha futura. La
+-- hora de referencia la manda la aplicacion en p_Ahora: es la hora del
+-- consultorio, no la del servidor de base de datos.
+--
+-- La sesion guarda DuracionMinutos y no hora de fin, al reves que TB_CITA.
+--
+-- Dos reglas que viven aqui y no en un indice, porque con borrado logico un
+-- indice unico bloquearia registros legitimos:
+--   1. Un estudiante no puede tener dos sesiones ACTIVAS que se traslapen.
+--      Se mide con la duracion, no solo por hora de inicio igual. El traslape
+--      se compara SOLO contra el mismo estudiante: en una sesion grupal varios
+--      estudiantes comparten hora a proposito.
+--   2. Una cita no puede tener dos sesiones ACTIVAS.
+--
+-- Las validaciones de rango y de texto vacio estan duplicadas a proposito: la
+-- tabla las tiene como CHECK, pero un CHECK violado sale como error tecnico y el
+-- API lo traduce a 500. Con SIGNAL '45000' el usuario recibe 400 y un mensaje
+-- que se entiende.
+
 -- Registrar la atencion ya realizada. Si nace de una cita, esa cita queda
 -- marcada como Completada en la misma transaccion.
 DROP PROCEDURE IF EXISTS SP_Sesion_Registrar;
 DELIMITER $$
 CREATE PROCEDURE SP_Sesion_Registrar(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEstudiante INT,
-  IN p_IdCita INT,
-  IN p_IdTipoAtencion INT,
-  IN p_Fecha DATE,
-  IN p_TemaTrabajado VARCHAR(500),
-  IN p_Avances VARCHAR(1000),
-  IN p_Recomendaciones VARCHAR(1000),
-  IN p_Observaciones VARCHAR(1000)
+    IN p_IdUsuarioAccion         INT,
+    IN p_IdEstudiante            INT,
+    IN p_IdCita                  INT,
+    IN p_IdTipoSesion            INT,
+    IN p_IdTipoAtencion          INT,
+    IN p_FechaHoraInicio         DATETIME,
+    IN p_DuracionMinutos         SMALLINT,
+    IN p_Objetivo                VARCHAR(500),
+    IN p_TemaTrabajado           VARCHAR(500),
+    IN p_ActividadesRealizadas   VARCHAR(1000),
+    IN p_Acuerdos                VARCHAR(1000),
+    IN p_ObjetivosAlcanzados     VARCHAR(1000),
+    IN p_HabilidadesDesarrolladas VARCHAR(1000),
+    IN p_Avances                 VARCHAR(1000),
+    IN p_Recomendaciones         VARCHAR(1000),
+    IN p_Observaciones           VARCHAR(1000),
+    IN p_Ahora                   DATETIME
 )
 BEGIN
-  DECLARE v_IdSesion INT;
-  DECLARE v_EstudianteCita INT DEFAULT NULL;
+    DECLARE v_IdSesion        INT;
+    DECLARE v_EstudianteCita  INT DEFAULT NULL;
+    DECLARE v_EstadoCita      INT DEFAULT NULL;
 
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
 
-  IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe o esta inactivo.';
-  END IF;
-
-  IF p_IdCita IS NOT NULL THEN
-    SELECT IdEstudiante INTO v_EstudianteCita FROM TB_CITA WHERE IdCita = p_IdCita;
-
-    IF v_EstudianteCita IS NULL THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita indicada no existe.';
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe o está inactivo.';
     END IF;
 
-    IF v_EstudianteCita <> p_IdEstudiante THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita es de otro estudiante.';
+    IF NOT EXISTS (SELECT 1 FROM TB_TIPO_SESION WHERE IdTipoSesion = p_IdTipoSesion) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de sesión indicado no existe.';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM TB_SESION WHERE IdCita = p_IdCita) THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Esa cita ya tiene una sesion registrada.';
+    IF NOT EXISTS (SELECT 1 FROM TB_TIPO_ATENCION WHERE IdTipoAtencion = p_IdTipoAtencion) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de atención indicado no existe.';
     END IF;
-  END IF;
 
-  START TRANSACTION;
+    IF p_FechaHoraInicio IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique la fecha y la hora de la sesión.';
+    END IF;
 
-  INSERT INTO TB_SESION (IdEstudiante, IdCita, IdTipoAtencion, IdUsuarioRegistro, Fecha,
-                         TemaTrabajado, Avances, Recomendaciones, Observaciones)
-  VALUES (p_IdEstudiante, p_IdCita, p_IdTipoAtencion, p_IdUsuarioAccion, p_Fecha,
-          p_TemaTrabajado, p_Avances, p_Recomendaciones, p_Observaciones);
+    IF p_DuracionMinutos IS NULL OR p_DuracionMinutos NOT BETWEEN 15 AND 240 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duración debe estar entre 15 y 240 minutos.';
+    END IF;
 
-  SET v_IdSesion = LAST_INSERT_ID();
+    IF p_Objetivo IS NULL OR TRIM(p_Objetivo) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el objetivo de la sesión.';
+    END IF;
 
-  IF p_IdCita IS NOT NULL THEN
-    UPDATE TB_CITA
-    SET IdEstadoCita = 3,
-        FechaModificacion = NOW()
-    WHERE IdCita = p_IdCita AND IdEstadoCita NOT IN (3, 4);
-  END IF;
+    IF p_TemaTrabajado IS NULL OR TRIM(p_TemaTrabajado) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el tema trabajado.';
+    END IF;
 
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_SESION', v_IdSesion, 'Crear',
-          JSON_OBJECT('IdEstudiante', p_IdEstudiante, 'IdCita', p_IdCita, 'Fecha', p_Fecha));
+    IF p_FechaHoraInicio > p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede registrar una sesión con fecha futura.';
+    END IF;
 
-  COMMIT;
+    IF EXISTS (
+        SELECT 1
+        FROM TB_SESION s
+        WHERE s.IdEstudiante = p_IdEstudiante
+          AND s.Activo = 1
+          AND p_FechaHoraInicio < s.FechaHoraInicio + INTERVAL s.DuracionMinutos MINUTE
+          AND s.FechaHoraInicio < p_FechaHoraInicio + INTERVAL p_DuracionMinutos MINUTE) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante ya tiene una sesión registrada que se traslapa con ese horario.';
+    END IF;
 
-  SELECT v_IdSesion AS IdSesion;
+    IF p_IdCita IS NOT NULL THEN
+        SELECT IdEstudiante, IdEstadoCita
+          INTO v_EstudianteCita, v_EstadoCita
+        FROM TB_CITA
+        WHERE IdCita = p_IdCita;
+
+        IF v_EstudianteCita IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita indicada no existe.';
+        END IF;
+
+        IF v_EstudianteCita <> p_IdEstudiante THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita es de otro estudiante.';
+        END IF;
+
+        IF v_EstadoCita = 4 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede registrar una sesión de una cita cancelada.';
+        END IF;
+
+        IF v_EstadoCita = 5 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Esa cita está marcada como no asistió. Corrija el estado de la cita antes de registrar la sesión.';
+        END IF;
+
+        IF EXISTS (SELECT 1 FROM TB_SESION
+                   WHERE IdCita = p_IdCita AND Activo = 1) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Esa cita ya tiene una sesión registrada.';
+        END IF;
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_SESION (IdEstudiante, IdCita, IdTipoSesion, IdTipoAtencion, IdUsuarioRegistro,
+                           FechaHoraInicio, DuracionMinutos, Objetivo, TemaTrabajado,
+                           ActividadesRealizadas, Acuerdos, ObjetivosAlcanzados,
+                           HabilidadesDesarrolladas, Avances, Recomendaciones, Observaciones)
+    VALUES (p_IdEstudiante, p_IdCita, p_IdTipoSesion, p_IdTipoAtencion, p_IdUsuarioAccion,
+            p_FechaHoraInicio, p_DuracionMinutos, TRIM(p_Objetivo), TRIM(p_TemaTrabajado),
+            p_ActividadesRealizadas, p_Acuerdos, p_ObjetivosAlcanzados,
+            p_HabilidadesDesarrolladas, p_Avances, p_Recomendaciones, p_Observaciones);
+
+    SET v_IdSesion = LAST_INSERT_ID();
+
+    IF p_IdCita IS NOT NULL THEN
+        UPDATE TB_CITA
+        SET IdEstadoCita = 3,
+            FechaModificacion = p_Ahora
+        WHERE IdCita = p_IdCita AND IdEstadoCita NOT IN (3, 4);
+    END IF;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_SESION', v_IdSesion, 'Crear',
+            JSON_OBJECT('IdEstudiante', p_IdEstudiante,
+                        'IdCita', p_IdCita,
+                        'FechaHoraInicio', p_FechaHoraInicio,
+                        'DuracionMinutos', p_DuracionMinutos,
+                        'TemaTrabajado', TRIM(p_TemaTrabajado)));
+
+    COMMIT;
+
+    SELECT v_IdSesion AS IdSesion;
 END$$
 DELIMITER ;
 
-
+-- Edicion de una sesion ya registrada. No cambia el estudiante ni la cita de
+-- origen: eso seria otra sesion. El traslape se revisa sin contar a la propia
+-- sesion, o editar sin mover la hora fallaria contra si misma.
 DROP PROCEDURE IF EXISTS SP_Sesion_Editar;
 DELIMITER $$
 CREATE PROCEDURE SP_Sesion_Editar(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdSesion INT,
-  IN p_IdTipoAtencion INT,
-  IN p_Fecha DATE,
-  IN p_TemaTrabajado VARCHAR(500),
-  IN p_Avances VARCHAR(1000),
-  IN p_Recomendaciones VARCHAR(1000),
-  IN p_Observaciones VARCHAR(1000)
+    IN p_IdUsuarioAccion         INT,
+    IN p_IdSesion                INT,
+    IN p_IdTipoSesion            INT,
+    IN p_IdTipoAtencion          INT,
+    IN p_FechaHoraInicio         DATETIME,
+    IN p_DuracionMinutos         SMALLINT,
+    IN p_Objetivo                VARCHAR(500),
+    IN p_TemaTrabajado           VARCHAR(500),
+    IN p_ActividadesRealizadas   VARCHAR(1000),
+    IN p_Acuerdos                VARCHAR(1000),
+    IN p_ObjetivosAlcanzados     VARCHAR(1000),
+    IN p_HabilidadesDesarrolladas VARCHAR(1000),
+    IN p_Avances                 VARCHAR(1000),
+    IN p_Recomendaciones         VARCHAR(1000),
+    IN p_Observaciones           VARCHAR(1000),
+    IN p_Ahora                   DATETIME
 )
 BEGIN
-  DECLARE v_Anterior JSON DEFAULT NULL;
+    DECLARE v_IdEstudiante INT DEFAULT NULL;
+    DECLARE v_Activo       TINYINT DEFAULT NULL;
+    DECLARE v_Anterior     JSON DEFAULT NULL;
 
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
 
-  SELECT JSON_OBJECT('Fecha', Fecha, 'TemaTrabajado', TemaTrabajado)
-    INTO v_Anterior
-  FROM TB_SESION
-  WHERE IdSesion = p_IdSesion;
+    SELECT IdEstudiante, Activo,
+           JSON_OBJECT('IdTipoSesion', IdTipoSesion,
+                       'IdTipoAtencion', IdTipoAtencion,
+                       'FechaHoraInicio', FechaHoraInicio,
+                       'DuracionMinutos', DuracionMinutos,
+                       'Objetivo', Objetivo,
+                       'TemaTrabajado', TemaTrabajado)
+      INTO v_IdEstudiante, v_Activo, v_Anterior
+    FROM TB_SESION
+    WHERE IdSesion = p_IdSesion;
 
-  IF v_Anterior IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La sesion indicada no existe.';
-  END IF;
+    IF v_IdEstudiante IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La sesión indicada no existe.';
+    END IF;
 
-  START TRANSACTION;
+    IF v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La sesión está inactiva y no se puede editar.';
+    END IF;
 
-  UPDATE TB_SESION
-  SET IdTipoAtencion = p_IdTipoAtencion,
-      Fecha = p_Fecha,
-      TemaTrabajado = p_TemaTrabajado,
-      Avances = p_Avances,
-      Recomendaciones = p_Recomendaciones,
-      Observaciones = p_Observaciones
-  WHERE IdSesion = p_IdSesion;
+    IF NOT EXISTS (SELECT 1 FROM TB_TIPO_SESION WHERE IdTipoSesion = p_IdTipoSesion) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de sesión indicado no existe.';
+    END IF;
 
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_SESION', p_IdSesion, 'Editar', v_Anterior,
-          JSON_OBJECT('Fecha', p_Fecha, 'TemaTrabajado', p_TemaTrabajado));
+    IF NOT EXISTS (SELECT 1 FROM TB_TIPO_ATENCION WHERE IdTipoAtencion = p_IdTipoAtencion) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de atención indicado no existe.';
+    END IF;
 
-  COMMIT;
+    IF p_FechaHoraInicio IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique la fecha y la hora de la sesión.';
+    END IF;
+
+    IF p_DuracionMinutos IS NULL OR p_DuracionMinutos NOT BETWEEN 15 AND 240 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duración debe estar entre 15 y 240 minutos.';
+    END IF;
+
+    IF p_Objetivo IS NULL OR TRIM(p_Objetivo) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el objetivo de la sesión.';
+    END IF;
+
+    IF p_TemaTrabajado IS NULL OR TRIM(p_TemaTrabajado) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el tema trabajado.';
+    END IF;
+
+    IF p_FechaHoraInicio > p_Ahora THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede registrar una sesión con fecha futura.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM TB_SESION s
+        WHERE s.IdEstudiante = v_IdEstudiante
+          AND s.IdSesion <> p_IdSesion
+          AND s.Activo = 1
+          AND p_FechaHoraInicio < s.FechaHoraInicio + INTERVAL s.DuracionMinutos MINUTE
+          AND s.FechaHoraInicio < p_FechaHoraInicio + INTERVAL p_DuracionMinutos MINUTE) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante ya tiene una sesión registrada que se traslapa con ese horario.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_SESION
+    SET IdTipoSesion             = p_IdTipoSesion,
+        IdTipoAtencion           = p_IdTipoAtencion,
+        FechaHoraInicio          = p_FechaHoraInicio,
+        DuracionMinutos          = p_DuracionMinutos,
+        Objetivo                 = TRIM(p_Objetivo),
+        TemaTrabajado            = TRIM(p_TemaTrabajado),
+        ActividadesRealizadas    = p_ActividadesRealizadas,
+        Acuerdos                 = p_Acuerdos,
+        ObjetivosAlcanzados      = p_ObjetivosAlcanzados,
+        HabilidadesDesarrolladas = p_HabilidadesDesarrolladas,
+        Avances                  = p_Avances,
+        Recomendaciones          = p_Recomendaciones,
+        Observaciones            = p_Observaciones
+    WHERE IdSesion = p_IdSesion;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_SESION', p_IdSesion, 'Editar', v_Anterior,
+            JSON_OBJECT('IdTipoSesion', p_IdTipoSesion,
+                        'IdTipoAtencion', p_IdTipoAtencion,
+                        'FechaHoraInicio', p_FechaHoraInicio,
+                        'DuracionMinutos', p_DuracionMinutos,
+                        'Objetivo', TRIM(p_Objetivo),
+                        'TemaTrabajado', TRIM(p_TemaTrabajado)));
+
+    COMMIT;
 END$$
 DELIMITER ;
 
 
+-- Baja logica. El historial de la sesion se conserva: nunca se borra la fila.
+-- No se devuelve la cita de origen a su estado anterior a proposito: la cita si
+-- ocurrio, lo que se anula es el registro de la atencion.
+DROP PROCEDURE IF EXISTS SP_Sesion_Inactivar;
+DELIMITER $$
+CREATE PROCEDURE SP_Sesion_Inactivar(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdSesion        INT,
+    IN p_Ahora           DATETIME
+)
+BEGIN
+    DECLARE v_Activo TINYINT DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT Activo INTO v_Activo FROM TB_SESION WHERE IdSesion = p_IdSesion;
+
+    IF v_Activo IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La sesión indicada no existe.';
+    END IF;
+
+    IF v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La sesión ya está inactiva.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_SESION
+    SET Activo = 0,
+        FechaModificacion = p_Ahora
+    WHERE IdSesion = p_IdSesion;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_SESION', p_IdSesion, 'Eliminar',
+            JSON_OBJECT('Activo', 1), JSON_OBJECT('Activo', 0));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+-- Historial de sesiones. Solo activas: una sesion inactivada no sale aqui.
+-- Devuelve tambien los campos de avance, para que la vista de historial de
+-- avances se arme con esta misma consulta y no se duplique.
+-- p_IdEstudiante en NULL trae todas; p_Desde y p_Hasta son opcionales.
 DROP PROCEDURE IF EXISTS SP_Sesion_Listar;
 DELIMITER $$
 CREATE PROCEDURE SP_Sesion_Listar(
-  IN p_IdEstudiante INT,
-  IN p_Desde DATE,
-  IN p_Hasta DATE
+    IN p_IdEstudiante INT,
+    IN p_Desde        DATE,
+    IN p_Hasta        DATE
 )
 BEGIN
-  SELECT s.IdSesion,
-         s.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         s.Fecha,
-         ta.Nombre AS TipoAtencion,
-         s.TemaTrabajado,
-         s.Avances,
-         s.IdCita,
-         u.NombreCompleto AS RegistradaPor
-  FROM TB_SESION s
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = s.IdEstudiante
-  JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
-  JOIN TB_USUARIO u ON u.IdUsuario = s.IdUsuarioRegistro
-  WHERE (p_IdEstudiante IS NULL OR s.IdEstudiante = p_IdEstudiante)
-    AND (p_Desde IS NULL OR s.Fecha >= p_Desde)
-    AND (p_Hasta IS NULL OR s.Fecha <= p_Hasta)
-  ORDER BY s.Fecha DESC, s.IdSesion DESC;
+    SELECT s.IdSesion,
+           s.IdEstudiante,
+           TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido, es.SegundoApellido)) AS Estudiante,
+           s.FechaHoraInicio,
+           s.DuracionMinutos,
+           s.IdTipoSesion,
+           ts.Nombre AS TipoSesion,
+           s.IdTipoAtencion,
+           ta.Nombre AS TipoAtencion,
+           s.Objetivo,
+           s.TemaTrabajado,
+           s.ObjetivosAlcanzados,
+           s.HabilidadesDesarrolladas,
+           s.Avances,
+           s.Recomendaciones,
+           s.Observaciones,
+           s.IdCita,
+           u.NombreCompleto AS RegistradaPor
+    FROM TB_SESION s
+    JOIN TB_ESTUDIANTE es    ON es.IdEstudiante = s.IdEstudiante
+    JOIN TB_TIPO_SESION ts   ON ts.IdTipoSesion = s.IdTipoSesion
+    JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
+    JOIN TB_USUARIO u        ON u.IdUsuario = s.IdUsuarioRegistro
+    WHERE s.Activo = 1
+      AND (p_IdEstudiante IS NULL OR s.IdEstudiante = p_IdEstudiante)
+      AND (p_Desde IS NULL OR s.FechaHoraInicio >= p_Desde)
+      AND (p_Hasta IS NULL OR s.FechaHoraInicio < p_Hasta + INTERVAL 1 DAY)
+    ORDER BY s.FechaHoraInicio DESC, s.IdSesion DESC;
 END$$
 DELIMITER ;
 
 
+-- Detalle completo de una sesion. Trae las inactivas tambien: el historial se
+-- conserva y tiene que poder consultarse.
 DROP PROCEDURE IF EXISTS SP_Sesion_ObtenerDetalle;
 DELIMITER $$
 CREATE PROCEDURE SP_Sesion_ObtenerDetalle(
-  IN p_IdSesion INT
+    IN p_IdSesion INT
 )
 BEGIN
-  SELECT s.IdSesion,
-         s.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         s.Fecha,
-         s.IdTipoAtencion, ta.Nombre AS TipoAtencion,
-         s.TemaTrabajado, s.Avances, s.Recomendaciones, s.Observaciones,
-         s.IdCita, c.FechaHoraInicio AS FechaHoraCita,
-         u.NombreCompleto AS RegistradaPor,
-         s.FechaCreacion, s.FechaModificacion
-  FROM TB_SESION s
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = s.IdEstudiante
-  JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
-  JOIN TB_USUARIO u ON u.IdUsuario = s.IdUsuarioRegistro
-  LEFT JOIN TB_CITA c ON c.IdCita = s.IdCita
-  WHERE s.IdSesion = p_IdSesion;
+    SELECT s.IdSesion,
+           s.IdEstudiante,
+           TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido, es.SegundoApellido)) AS Estudiante,
+           s.FechaHoraInicio,
+           s.DuracionMinutos,
+           s.IdTipoSesion,
+           ts.Nombre AS TipoSesion,
+           s.IdTipoAtencion,
+           ta.Nombre AS TipoAtencion,
+           s.Objetivo,
+           s.TemaTrabajado,
+           s.ActividadesRealizadas,
+           s.Acuerdos,
+           s.ObjetivosAlcanzados,
+           s.HabilidadesDesarrolladas,
+           s.Avances,
+           s.Recomendaciones,
+           s.Observaciones,
+           s.Activo,
+           s.IdCita,
+           c.FechaHoraInicio AS FechaHoraCita,
+           u.NombreCompleto AS RegistradaPor,
+           s.FechaCreacion,
+           s.FechaModificacion
+    FROM TB_SESION s
+    JOIN TB_ESTUDIANTE es    ON es.IdEstudiante = s.IdEstudiante
+    JOIN TB_TIPO_SESION ts   ON ts.IdTipoSesion = s.IdTipoSesion
+    JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
+    JOIN TB_USUARIO u        ON u.IdUsuario = s.IdUsuarioRegistro
+    LEFT JOIN TB_CITA c      ON c.IdCita = s.IdCita
+    WHERE s.IdSesion = p_IdSesion;
 END$$
 DELIMITER ;
 
 
--- SP_Sesion_Eliminar: no se escribe. TB_SESION no tiene columna Activo y la
--- regla del equipo prohibe el borrado fisico. Falta decidir con el DBA.
+-- Citas del estudiante a las que todavia se les puede registrar la sesion: ya
+-- empezaron, no estan canceladas y no tienen una sesion activa. Alimenta el
+-- campo opcional de cita de origen del formulario.
+DROP PROCEDURE IF EXISTS SP_Sesion_ListarCitasDisponibles;
+DELIMITER $$
+CREATE PROCEDURE SP_Sesion_ListarCitasDisponibles(
+    IN p_IdEstudiante INT,
+    IN p_Ahora        DATETIME
+)
+BEGIN
+    SELECT c.IdCita,
+           c.FechaHoraInicio,
+           c.FechaHoraFin,
+           c.IdTipoSesion,
+           ts.Nombre AS TipoSesion,
+           TIMESTAMPDIFF(MINUTE, c.FechaHoraInicio, c.FechaHoraFin) AS DuracionMinutos,
+           ec.Nombre AS EstadoCita
+    FROM TB_CITA c
+    JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
+    JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
+    WHERE c.IdEstudiante = p_IdEstudiante
+      AND c.FechaHoraInicio <= p_Ahora
+      -- Fuera las canceladas y las de "no asistio": en esas no hubo atencion,
+      -- asi que una sesion las contradice. SP_Cita_MarcarNoAsistio_CRM aplica la
+      -- regla al reves, y niega el "no asistio" si la cita ya tiene sesion.
+      AND c.IdEstadoCita NOT IN (4, 5)
+      AND NOT EXISTS (SELECT 1 FROM TB_SESION s
+                      WHERE s.IdCita = c.IdCita AND s.Activo = 1)
+    ORDER BY c.FechaHoraInicio DESC;
+END$$
+DELIMITER ;
+
+
+-- Catalogo para el select del formulario. El de tipos de sesion ya existe en la
+-- seccion de agenda: SP_ListarTiposSesion_CRM.
+DROP PROCEDURE IF EXISTS SP_TipoAtencion_Listar;
+DELIMITER $$
+CREATE PROCEDURE SP_TipoAtencion_Listar()
+BEGIN
+    SELECT IdTipoAtencion, Nombre
+    FROM TB_TIPO_ATENCION
+    ORDER BY Nombre;
+END$$
+DELIMITER ;
 
 -- ============================================================
 -- 6. Planes de intervencion
@@ -3996,7 +4286,10 @@ BEGIN
       WHERE IdEstadoCita IN (1, 2)
         AND FechaHoraInicio >= CURDATE()
         AND FechaHoraInicio < CURDATE() + INTERVAL 7 DAY) AS CitasProximaSemana,
-    (SELECT COUNT(*) FROM TB_SESION WHERE Fecha >= CURDATE() - INTERVAL 30 DAY) AS SesionesUltimoMes,
+    -- M5 renombro Fecha a FechaHoraInicio y agrego borrado logico (2026-10-07)
+    (SELECT COUNT(*) FROM TB_SESION
+      WHERE Activo = 1
+        AND FechaHoraInicio >= CURDATE() - INTERVAL 30 DAY) AS SesionesUltimoMes,
     (SELECT COUNT(*) FROM TB_PLAN_INTERVENCION WHERE IdEstadoPlan = 2) AS PlanesActivos,
     (SELECT IFNULL(SUM(p.Monto), 0) - IFNULL(SUM(
        (SELECT IFNULL(SUM(a.Monto), 0) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1)
@@ -4143,12 +4436,15 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese estudiante no esta a su cargo.';
   END IF;
 
-  SELECT s.IdSesion, s.Fecha, ta.Nombre AS TipoAtencion,
+  -- M5 renombro Fecha a FechaHoraInicio y agrego borrado logico (2026-10-07).
+  -- El alias Fecha se conserva para no cambiarle la columna a quien ya lo consume.
+  SELECT s.IdSesion, DATE(s.FechaHoraInicio) AS Fecha, ta.Nombre AS TipoAtencion,
          s.TemaTrabajado, s.Avances, s.Recomendaciones
   FROM TB_SESION s
   JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
   WHERE s.IdEstudiante = p_IdEstudiante
-  ORDER BY s.Fecha DESC;
+    AND s.Activo = 1
+  ORDER BY s.FechaHoraInicio DESC;
 
   SELECT r.IdReporte, r.Titulo, r.PeriodoInicio, r.PeriodoFin, r.FechaGeneracion
   FROM TB_REPORTE r

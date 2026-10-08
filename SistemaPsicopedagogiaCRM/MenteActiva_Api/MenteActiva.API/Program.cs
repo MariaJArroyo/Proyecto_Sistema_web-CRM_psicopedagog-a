@@ -49,6 +49,10 @@ builder.Services.AddHostedService<ServicioCompletarCitasVencidas>();
 builder.Services.AddScoped<IRepositorioConfiguracion, RepositorioConfiguracion>();
 builder.Services.AddScoped<IServicioConfiguracion, ServicioConfiguracion>();
 
+// ---------- Sesiones ----------
+builder.Services.AddScoped<IRepositorioSesion, RepositorioSesion>();
+builder.Services.AddScoped<IServicioSesiones, ServicioSesiones>();
+
 // ---------- Errores ----------
 builder.Services.AddExceptionHandler<ManejadorExcepciones>();
 builder.Services.AddProblemDetails();
