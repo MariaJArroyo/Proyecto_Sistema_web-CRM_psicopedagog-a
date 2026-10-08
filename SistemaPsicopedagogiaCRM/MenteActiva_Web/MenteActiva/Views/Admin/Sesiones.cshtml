@@ -1,405 +1,424 @@
+@model MenteActiva.Models.CatalogosSesionViewModel
+
 @{
     ViewData["Title"] = "Sesiones";
+    var hayCatalogos = Model.TiposSesion.Any() && Model.TiposAtencion.Any();
 }
 
-      <main class="PrincipalAdmin">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-          <div>
-            <h2 class="mb-1">Seguimiento de sesiones</h2>
-            <p class="TextoSuave mb-0">Historial de sesiones registradas, de la más reciente a la más antigua.</p>
-          </div>
-          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevaSesion">
-            <i class="bi bi-plus-lg me-1"></i>Registrar sesión
-          </button>
+<main class="PrincipalAdmin">
+
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <div>
+      <h2 class="mb-1">Seguimiento de sesiones</h2>
+      <p class="TextoSuave mb-0" id="ResumenSesiones" aria-live="polite">&nbsp;</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="BotonNuevaSesion"
+            data-bs-toggle="modal" data-bs-target="#ModalNuevaSesion"
+            @(hayCatalogos ? "" : "disabled")>
+      <i class="bi bi-plus-lg me-1"></i>Registrar sesión
+    </button>
+  </div>
+
+  @if (ViewBag.ErrorCarga is string errorCarga)
+  {
+    <div class="alert alert-warning">@errorCarga</div>
+  }
+
+  <div class="Tarjeta p-3 p-md-4">
+
+    <!-- El estudiante se elige con el buscador, no con una lista fija de nombres -->
+    <div class="row g-2 mb-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label">Estudiante</label>
+        <div id="BuscadorEstudianteFiltro"></div>
+      </div>
+      <div class="col-md-3">
+        <label for="FiltroDesde" class="form-label">Desde</label>
+        <input type="date" class="form-control" id="FiltroDesde">
+      </div>
+      <div class="col-md-3">
+        <label for="FiltroHasta" class="form-label">Hasta</label>
+        <input type="date" class="form-control" id="FiltroHasta">
+      </div>
+      <div class="col-md-1">
+        <button type="button" class="btn btn-outline-secondary w-100" id="BotonLimpiarFiltros"
+                title="Limpiar filtros" aria-label="Limpiar filtros">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="TabHistorial" data-bs-toggle="tab"
+                data-bs-target="#PanelHistorial" type="button" role="tab"
+                aria-controls="PanelHistorial" aria-selected="true">
+          Historial de sesiones
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="TabAvances" data-bs-toggle="tab"
+                data-bs-target="#PanelAvances" type="button" role="tab"
+                aria-controls="PanelAvances" aria-selected="false">
+          Historial de avances
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+
+      <div class="tab-pane fade show active" id="PanelHistorial" role="tabpanel"
+           aria-labelledby="TabHistorial">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" id="TablaSesiones">
+            <thead>
+              <tr>
+                <th>Fecha y hora</th>
+                <th>Estudiante</th>
+                <th>Tipo de sesión</th>
+                <th>Atención</th>
+                <th>Tema trabajado</th>
+                <th class="TablaAcciones">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="CuerpoTablaSesiones"></tbody>
+          </table>
         </div>
+      </div>
 
-        <div class="Tarjeta p-3 p-md-4">
+      <div class="tab-pane fade" id="PanelAvances" role="tabpanel" aria-labelledby="TabAvances">
+        <p class="TextoSuave">
+          Avances registrados en cada sesión, de la más reciente a la más antigua.
+        </p>
+        <div id="ListaAvances"></div>
+      </div>
 
-          <!-- Buscador + filtro por estudiante -->
-          <div class="row g-2 mb-3" data-tabla-buscador="TablaSesiones">
-            <div class="col-md-7">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="search" class="form-control" data-buscar-texto
-                  placeholder="Buscar por estudiante o tema trabajado">
-              </div>
+    </div>
+
+    <div class="EstadoVacio d-none" id="VacioSesiones">
+      <i class="bi bi-journal-text"></i>
+      <p class="mb-0" id="TextoVacioSesiones">No hay sesiones registradas.</p>
+    </div>
+
+    <div class="alert d-none mt-3" id="AlertaSesiones" role="alert"></div>
+
+  </div>
+</main>
+
+<div class="modal fade" id="ModalNuevaSesion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="FormularioNuevaSesion" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">Registrar sesión</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+
+          <div class="alert d-none" id="AlertaNuevaSesion" role="alert"></div>
+
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label CampoObligatorio">Estudiante</label>
+              <div id="BuscadorEstudianteSesion"></div>
             </div>
-            <div class="col-md-5">
-              <select class="form-select" data-buscar-estado aria-label="Filtrar por estudiante">
-                <option value="">Todos los estudiantes</option>
-                <option value="María Rodríguez">María Rodríguez</option>
-                <option value="Diego Vargas">Diego Vargas</option>
-                <option value="Ana Castro">Ana Castro</option>
-                <option value="Valeria Mora">Valeria Mora</option>
-                <option value="Kevin Fernández">Kevin Fernández</option>
+
+            <div class="col-md-6">
+              <label for="CitaOrigenSesion" class="form-label">Cita de origen</label>
+              <select class="form-select" id="CitaOrigenSesion" name="IdCita" disabled>
+                <option value="">Sin cita (sesión suelta)</option>
               </select>
+              <div class="form-text">
+                Si la sesión nace de una cita, al elegirla se llenan la fecha, la hora,
+                la duración y el tipo de sesión.
+              </div>
             </div>
-          </div>
 
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="TablaSesiones">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Estudiante</th>
-                  <th>Tipo de atención</th>
-                  <th>Tema trabajado</th>
-                  <th class="TablaAcciones">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr data-fila data-estado="María Rodríguez" data-modificacion="—"
-                  data-observaciones="Se trabajó con material concreto para fracciones equivalentes."
-                  data-avances="Logró resolver problemas básicos de fracciones."
-                  data-recomendaciones="Practicar con ejercicios visuales en casa.">
-                  <td data-campo="fecha">10 jul 2026</td>
-                  <td data-campo="estudiante">María Rodríguez</td>
-                  <td data-campo="tipo"><span class="badge badge-estado-activo">Tutoría académica</span></td>
-                  <td data-campo="tema">Fracciones</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Diego Vargas" data-modificacion="—"
-                  data-observaciones="Sesión enfocada en ejercicios de atención sostenida con apoyo visual."
-                  data-avances="Mejoró el tiempo de concentración a 15 minutos."
-                  data-recomendaciones="Continuar con pausas activas cada 20 minutos.">
-                  <td data-campo="fecha">8 jul 2026</td>
-                  <td data-campo="estudiante">Diego Vargas</td>
-                  <td data-campo="tipo"><span class="badge badge-estado-cita-agendada">Sesión psicopedagógica</span>
-                  </td>
-                  <td data-campo="tema">Atención sostenida</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Ana Castro" data-modificacion="—"
-                  data-observaciones="Primera sesión de evaluación de lectoescritura con material lúdico."
-                  data-avances="Reconoce la mayoría de las vocales."
-                  data-recomendaciones="Reforzar combinaciones silábicas simples.">
-                  <td data-campo="fecha">5 jul 2026</td>
-                  <td data-campo="estudiante">Ana Castro</td>
-                  <td data-campo="tipo"><span class="badge badge-estado-nuevo">Evaluación</span></td>
-                  <td data-campo="tema">Lectoescritura inicial</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Valeria Mora" data-modificacion="—"
-                  data-observaciones="Práctica de tablas de multiplicar con juegos de mesa."
-                  data-avances="Domina las tablas del 2 al 5." data-recomendaciones="Avanzar a las tablas del 6 al 9.">
-                  <td data-campo="fecha">1 jul 2026</td>
-                  <td data-campo="estudiante">Valeria Mora</td>
-                  <td data-campo="tipo"><span class="badge badge-estado-activo">Tutoría académica</span></td>
-                  <td data-campo="tema">Multiplicación</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Kevin Fernández" data-modificacion="—"
-                  data-observaciones="Reunión con la familia para definir rutina de estudio en casa."
-                  data-avances="La familia definió una rutina de estudio semanal."
-                  data-recomendaciones="Dar seguimiento en dos semanas.">
-                  <td data-campo="fecha">28 jun 2026</td>
-                  <td data-campo="estudiante">Kevin Fernández</td>
-                  <td data-campo="tipo"><span class="badge badge-estado-contactado">Orientación a padres</span></td>
-                  <td data-campo="tema">Organización de horarios</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
-                      data-bs-toggle="tooltip" title="Ver detalle"><i class="bi bi-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
-                      data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="eliminar"
-                      data-bs-toggle="tooltip" title="Eliminar"><i class="bi bi-trash"></i></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- /Razor -->
+            <div class="col-md-4">
+              <label for="FechaHoraNuevaSesion" class="form-label CampoObligatorio">Fecha y hora</label>
+              <input type="datetime-local" class="form-control" id="FechaHoraNuevaSesion"
+                     name="FechaHoraInicio">
+              <div class="invalid-feedback">Indique la fecha y la hora de la sesión.</div>
+            </div>
 
-          <div class="EstadoVacio d-none" data-tabla-vacio="TablaSesiones">
-            <i class="bi bi-journal-text"></i>
-            <p class="mb-3">No se encontraron sesiones con ese criterio de búsqueda.</p>
+            <div class="col-md-2">
+              <label for="DuracionNuevaSesion" class="form-label CampoObligatorio">Duración</label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="DuracionNuevaSesion"
+                       name="DuracionMinutos" min="15" max="240" step="5" value="60">
+                <span class="input-group-text">min</span>
+              </div>
+              <div class="invalid-feedback">Entre 15 y 240 minutos.</div>
+            </div>
+
+            <div class="col-md-3">
+              <label for="TipoSesionNuevaSesion" class="form-label CampoObligatorio">Tipo de sesión</label>
+              <select class="form-select" id="TipoSesionNuevaSesion" name="IdTipoSesion">
+                <option value="">Seleccione</option>
+                @foreach (var tipo in Model.TiposSesion)
+                {
+                  <option value="@tipo.IdTipoSesion" data-duracion="@tipo.DuracionMinutos">@tipo.Nombre</option>
+                }
+              </select>
+              <div class="invalid-feedback">Seleccione el tipo de sesión.</div>
+            </div>
+
+            <div class="col-md-3">
+              <label for="TipoAtencionNuevaSesion" class="form-label CampoObligatorio">Atención</label>
+              <select class="form-select" id="TipoAtencionNuevaSesion" name="IdTipoAtencion">
+                <option value="">Seleccione</option>
+                @foreach (var tipo in Model.TiposAtencion)
+                {
+                  <option value="@tipo.IdTipoAtencion">@tipo.Nombre</option>
+                }
+              </select>
+              <div class="invalid-feedback">Seleccione el tipo de atención.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="ObjetivoNuevaSesion" class="form-label CampoObligatorio">Objetivo de la sesión</label>
+              <input type="text" class="form-control" id="ObjetivoNuevaSesion" name="Objetivo"
+                     maxlength="500" placeholder="Ej. Reforzar la comprensión lectora inferencial">
+              <div class="invalid-feedback">Indique el objetivo de la sesión.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="TemaNuevaSesion" class="form-label CampoObligatorio">Tema trabajado</label>
+              <input type="text" class="form-control" id="TemaNuevaSesion" name="TemaTrabajado"
+                     maxlength="500" placeholder="Ej. Inferencias en textos cortos">
+              <div class="invalid-feedback">Indique el tema trabajado.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="ActividadesNuevaSesion" class="form-label">Actividades realizadas</label>
+              <textarea class="form-control" id="ActividadesNuevaSesion" name="ActividadesRealizadas"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="AcuerdosNuevaSesion" class="form-label">Acuerdos</label>
+              <textarea class="form-control" id="AcuerdosNuevaSesion" name="Acuerdos"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+
+            <div class="col-md-6">
+              <label for="ObjetivosAlcanzadosNuevaSesion" class="form-label">Objetivos alcanzados</label>
+              <textarea class="form-control" id="ObjetivosAlcanzadosNuevaSesion"
+                        name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="HabilidadesNuevaSesion" class="form-label">Habilidades desarrolladas</label>
+              <textarea class="form-control" id="HabilidadesNuevaSesion"
+                        name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="AvancesNuevaSesion" class="form-label">Avances</label>
+              <textarea class="form-control" id="AvancesNuevaSesion" name="Avances"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="RecomendacionesNuevaSesion" class="form-label">Recomendaciones</label>
+              <textarea class="form-control" id="RecomendacionesNuevaSesion" name="Recomendaciones"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-12">
+              <label for="ObservacionesNuevaSesion" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="ObservacionesNuevaSesion" name="Observaciones"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
           </div>
         </div>
-      </main>
-      <!-- Razor: /fin de contenido de la vista -->
-
-      <div class="modal fade" id="ModalNuevaSesion" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <form id="FormularioNuevaSesion" novalidate>
-              <div class="modal-header">
-                <h5 class="modal-title">Registrar sesión</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="EstudianteNuevaSesion" class="form-label CampoObligatorio">Estudiante</label>
-                    <select class="form-select" id="EstudianteNuevaSesion" name="EstudianteId">
-                      <option value="" selected>Seleccione un estudiante</option>
-                      <option value="MariaRodriguez">María Rodríguez</option>
-                      <option value="DiegoVargas">Diego Vargas</option>
-                      <option value="AnaCastro">Ana Castro</option>
-                      <option value="KevinFernandez">Kevin Fernández</option>
-                      <option value="FabianMendez">Fabián Méndez</option>
-                      <option value="ValeriaMora">Valeria Mora</option>
-                      <option value="EmilyAraya">Emily Araya</option>
-                      <option value="FabianSolis">Fabián Solís</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-3">
-                    <label for="FechaNuevaSesion" class="form-label CampoObligatorio">Fecha</label>
-                    <input type="date" class="form-control" id="FechaNuevaSesion" name="Fecha" value="2026-07-12">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-3">
-                    <label for="TipoAtencionNuevaSesion" class="form-label CampoObligatorio">Tipo de atención</label>
-                    <select class="form-select" id="TipoAtencionNuevaSesion" name="TipoAtencion">
-                      <option value="" selected>Seleccione</option>
-                      <option value="TutoriaAcademica">Tutoría académica</option>
-                      <option value="SesionPsicopedagogica">Sesión psicopedagógica</option>
-                      <option value="Evaluacion">Evaluación</option>
-                      <option value="OrientacionPadres">Orientación a padres</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-12">
-                    <label for="TemaTrabajado" class="form-label CampoObligatorio">Tema trabajado</label>
-                    <input type="text" class="form-control" id="TemaTrabajado" name="TemaTrabajado"
-                      placeholder="Ej. Comprensión lectora">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-12">
-                    <label for="ObservacionesSesion" class="form-label">Observaciones</label>
-                    <textarea class="form-control" id="ObservacionesSesion" name="Observaciones" rows="2"></textarea>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="AvancesSesion" class="form-label">Avances</label>
-                    <textarea class="form-control" id="AvancesSesion" name="Avances" rows="2"></textarea>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="RecomendacionesSesion" class="form-label">Recomendaciones</label>
-                    <textarea class="form-control" id="RecomendacionesSesion" name="Recomendaciones"
-                      rows="2"></textarea>
-                  </div>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar sesión</button>
-              </div>
-            </form>
-          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar sesión</button>
         </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="ModalDetalleSesion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de la sesión</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+      <div class="modal-body">
+        <div class="alert alert-secondary d-none" id="DetalleSesionInactiva">
+          Esta sesión está inactiva. Se conserva en el historial, pero no aparece en los listados.
+        </div>
+        <dl class="row mb-0" id="DetalleSesionCampos"></dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <div class="modal fade" id="ModalDetalleSesion" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Detalle de la sesión</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+<div class="modal fade" id="ModalEditarSesion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="FormularioEditarSesion" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">Editar sesión</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+
+          <div class="alert d-none" id="AlertaEditarSesion" role="alert"></div>
+
+          <p class="TextoSuave" id="EditarSesionEstudiante"></p>
+
+          <div class="row g-3">
+
+            <div class="col-md-4">
+              <label for="EditarFechaHoraSesion" class="form-label CampoObligatorio">Fecha y hora</label>
+              <input type="datetime-local" class="form-control" id="EditarFechaHoraSesion"
+                     name="FechaHoraInicio">
+              <div class="invalid-feedback">Indique la fecha y la hora de la sesión.</div>
             </div>
-            <div class="modal-body">
-              <dl class="row mb-0">
-                <dt class="col-5 TextoSuave fw-normal">Fecha</dt>
-                <dd class="col-7" id="DetalleSesionFecha"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Estudiante</dt>
-                <dd class="col-7" id="DetalleSesionEstudiante"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Tipo de atención</dt>
-                <dd class="col-7" id="DetalleSesionTipo"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Tema trabajado</dt>
-                <dd class="col-7" id="DetalleSesionTema"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Observaciones</dt>
-                <dd class="col-7" id="DetalleSesionObservaciones"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Avances</dt>
-                <dd class="col-7" id="DetalleSesionAvances"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Recomendaciones</dt>
-                <dd class="col-7" id="DetalleSesionRecomendaciones"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Última modificación</dt>
-                <dd class="col-7" id="DetalleSesionModificacion"></dd>
-              </dl>
+
+            <div class="col-md-2">
+              <label for="EditarDuracionSesion" class="form-label CampoObligatorio">Duración</label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="EditarDuracionSesion"
+                       name="DuracionMinutos" min="15" max="240" step="5">
+                <span class="input-group-text">min</span>
+              </div>
+              <div class="invalid-feedback">Entre 15 y 240 minutos.</div>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+
+            <div class="col-md-3">
+              <label for="EditarTipoSesionSesion" class="form-label CampoObligatorio">Tipo de sesión</label>
+              <select class="form-select" id="EditarTipoSesionSesion" name="IdTipoSesion">
+                <option value="">Seleccione</option>
+                @foreach (var tipo in Model.TiposSesion)
+                {
+                  <option value="@tipo.IdTipoSesion">@tipo.Nombre</option>
+                }
+              </select>
+              <div class="invalid-feedback">Seleccione el tipo de sesión.</div>
             </div>
+
+            <div class="col-md-3">
+              <label for="EditarTipoAtencionSesion" class="form-label CampoObligatorio">Atención</label>
+              <select class="form-select" id="EditarTipoAtencionSesion" name="IdTipoAtencion">
+                <option value="">Seleccione</option>
+                @foreach (var tipo in Model.TiposAtencion)
+                {
+                  <option value="@tipo.IdTipoAtencion">@tipo.Nombre</option>
+                }
+              </select>
+              <div class="invalid-feedback">Seleccione el tipo de atención.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="EditarObjetivoSesion" class="form-label CampoObligatorio">Objetivo de la sesión</label>
+              <input type="text" class="form-control" id="EditarObjetivoSesion" name="Objetivo"
+                     maxlength="500">
+              <div class="invalid-feedback">Indique el objetivo de la sesión.</div>
+            </div>
+
+            <div class="col-12">
+              <label for="EditarTemaSesion" class="form-label CampoObligatorio">Tema trabajado</label>
+              <input type="text" class="form-control" id="EditarTemaSesion" name="TemaTrabajado"
+                     maxlength="500">
+              <div class="invalid-feedback">Indique el tema trabajado.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="EditarActividadesSesion" class="form-label">Actividades realizadas</label>
+              <textarea class="form-control" id="EditarActividadesSesion" name="ActividadesRealizadas"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="EditarAcuerdosSesion" class="form-label">Acuerdos</label>
+              <textarea class="form-control" id="EditarAcuerdosSesion" name="Acuerdos"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+
+            <div class="col-md-6">
+              <label for="EditarObjetivosAlcanzadosSesion" class="form-label">Objetivos alcanzados</label>
+              <textarea class="form-control" id="EditarObjetivosAlcanzadosSesion"
+                        name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="EditarHabilidadesSesion" class="form-label">Habilidades desarrolladas</label>
+              <textarea class="form-control" id="EditarHabilidadesSesion"
+                        name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="EditarAvancesSesion" class="form-label">Avances</label>
+              <textarea class="form-control" id="EditarAvancesSesion" name="Avances"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label for="EditarRecomendacionesSesion" class="form-label">Recomendaciones</label>
+              <textarea class="form-control" id="EditarRecomendacionesSesion" name="Recomendaciones"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
+            <div class="col-12">
+              <label for="EditarObservacionesSesion" class="form-label">Observaciones</label>
+              <textarea class="form-control" id="EditarObservacionesSesion" name="Observaciones"
+                        rows="2" maxlength="1000"></textarea>
+            </div>
+
           </div>
         </div>
-      </div>
-
-      <div class="modal fade" id="ModalEditarSesion" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <!-- Razor: asp-controller="Sesiones" asp-action="Editar" method="post" -->
-            <form id="FormularioEditarSesion" novalidate>
-              <div class="modal-header">
-                <h5 class="modal-title">Editar sesión</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="EditarFechaSesion" class="form-label CampoObligatorio">Fecha</label>
-                    <input type="text" class="form-control" id="EditarFechaSesion">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarTemaSesion" class="form-label CampoObligatorio">Tema trabajado</label>
-                    <input type="text" class="form-control" id="EditarTemaSesion">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-12">
-                    <label for="EditarObservacionesSesion" class="form-label">Observaciones</label>
-                    <textarea class="form-control" id="EditarObservacionesSesion" rows="2"></textarea>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarAvancesSesion" class="form-label">Avances</label>
-                    <textarea class="form-control" id="EditarAvancesSesion" rows="2"></textarea>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="EditarRecomendacionesSesion" class="form-label">Recomendaciones</label>
-                    <textarea class="form-control" id="EditarRecomendacionesSesion" rows="2"></textarea>
-                  </div>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar cambios</button>
-              </div>
-            </form>
-          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
-      </div>
+      </form>
+    </div>
+  </div>
+</div>
 
-      <div class="modal fade" id="ModalEliminarSesion" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Eliminar sesión</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-              <p class="mb-0">
-                ¿Seguro que desea eliminar esta sesión de <strong id="NombreSesionEliminar"></strong>?
-                Esta acción no se puede deshacer.
-              </p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarSesion">
-                <i class="bi bi-trash me-1"></i>Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
+<!-- No dice "Eliminar": la sesion nunca se borra, se marca inactiva (HU-M5-3) -->
+<div class="modal fade" id="ModalInactivarSesion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Inactivar sesión</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+      <div class="modal-body">
+        <div class="alert d-none" id="AlertaInactivarSesion" role="alert"></div>
+        <p class="mb-2">
+          ¿Seguro que desea inactivar la sesión de
+          <strong id="NombreSesionInactivar"></strong>?
+        </p>
+        <p class="TextoSuave mb-0">
+          La sesión deja de aparecer en el historial y en el portal del encargado,
+          pero no se borra: su información se conserva.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion">Inactivar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 @section Scripts {
-  <script src="~/js/Validaciones.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var tabla = document.getElementById("TablaSesiones");
-      var instanciaDetalle = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalDetalleSesion"));
-      var instanciaEditar = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEditarSesion"));
-      var instanciaEliminar = bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalEliminarSesion"));
-      var filaSeleccionada = null;
-      function TextoCampo(fila, campo) {
-        return fila.querySelector('[data-campo="' + campo + '"]').textContent.trim();
-      }
-      tabla.addEventListener("click", function (evento) {
-        var boton = evento.target.closest("[data-accion]");
-        if (!boton) {
-          return;
-        }
-        filaSeleccionada = boton.closest("tr");
-        var accion = boton.getAttribute("data-accion");
-        if (accion === "ver") {
-          document.getElementById("DetalleSesionFecha").textContent = TextoCampo(filaSeleccionada, "fecha");
-          document.getElementById("DetalleSesionEstudiante").textContent = TextoCampo(filaSeleccionada, "estudiante");
-          document.getElementById("DetalleSesionTipo").textContent = TextoCampo(filaSeleccionada, "tipo");
-          document.getElementById("DetalleSesionTema").textContent = TextoCampo(filaSeleccionada, "tema");
-          document.getElementById("DetalleSesionObservaciones").textContent = filaSeleccionada.getAttribute("data-observaciones");
-          document.getElementById("DetalleSesionAvances").textContent = filaSeleccionada.getAttribute("data-avances");
-          document.getElementById("DetalleSesionRecomendaciones").textContent = filaSeleccionada.getAttribute("data-recomendaciones");
-          document.getElementById("DetalleSesionModificacion").textContent = filaSeleccionada.getAttribute("data-modificacion");
-          instanciaDetalle.show();
-        } else if (accion === "editar") {
-          document.getElementById("EditarFechaSesion").value = TextoCampo(filaSeleccionada, "fecha");
-          document.getElementById("EditarTemaSesion").value = TextoCampo(filaSeleccionada, "tema");
-          document.getElementById("EditarObservacionesSesion").value = filaSeleccionada.getAttribute("data-observaciones");
-          document.getElementById("EditarAvancesSesion").value = filaSeleccionada.getAttribute("data-avances");
-          document.getElementById("EditarRecomendacionesSesion").value = filaSeleccionada.getAttribute("data-recomendaciones");
-          instanciaEditar.show();
-        } else if (accion === "eliminar") {
-          document.getElementById("NombreSesionEliminar").textContent = TextoCampo(filaSeleccionada, "estudiante") + " (" + TextoCampo(filaSeleccionada, "fecha") + ")";
-          instanciaEliminar.show();
-        }
-      });
-      document.getElementById("FormularioNuevaSesion").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("EstudianteNuevaSesion"), "Seleccione un estudiante.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("FechaNuevaSesion"), "Seleccione una fecha.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("TipoAtencionNuevaSesion"), "Seleccione el tipo de atención.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("TemaTrabajado"), "Ingrese el tema trabajado.") && esValido;
-        if (!esValido) {
-          return;
-        }
-        evento.target.reset();
-        document.getElementById("FechaNuevaSesion").value = "2026-07-12";
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalNuevaSesion")).hide();
-        MostrarToast("Sesión registrada correctamente.");
-      });
-      document.getElementById("FormularioEditarSesion").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("EditarFechaSesion"), "Ingrese la fecha.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("EditarTemaSesion"), "Ingrese el tema trabajado.") && esValido;
-        if (!esValido || !filaSeleccionada) {
-          return;
-        }
-        filaSeleccionada.querySelector('[data-campo="fecha"]').textContent = document.getElementById("EditarFechaSesion").value;
-        filaSeleccionada.querySelector('[data-campo="tema"]').textContent = document.getElementById("EditarTemaSesion").value;
-        filaSeleccionada.setAttribute("data-observaciones", document.getElementById("EditarObservacionesSesion").value);
-        filaSeleccionada.setAttribute("data-avances", document.getElementById("EditarAvancesSesion").value);
-        filaSeleccionada.setAttribute("data-recomendaciones", document.getElementById("EditarRecomendacionesSesion").value);
-        filaSeleccionada.setAttribute("data-modificacion", "12 jul 2026");
-        instanciaEditar.hide();
-        MostrarToast("Sesión actualizada correctamente.");
-      });
-      document.getElementById("BotonConfirmarEliminarSesion").addEventListener("click", function () {
-        if (!filaSeleccionada) {
-          return;
-        }
-        filaSeleccionada.remove();
-        instanciaEliminar.hide();
-        MostrarToast("Sesión eliminada.", "error");
-      });
-    });
-  </script>
+  <script src="~/js/buscadorEstudiantes.js" asp-append-version="true"></script>
+  <script src="~/js/sesiones.js" asp-append-version="true"></script>
 }

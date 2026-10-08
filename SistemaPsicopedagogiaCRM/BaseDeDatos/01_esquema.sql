@@ -515,33 +515,53 @@ CREATE TABLE IF NOT EXISTS TB_CITA (
   CONSTRAINT CK_Cita_RangoFechas CHECK (FechaHoraFin > FechaHoraInicio)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Atencion ya realizada. Nace de una cita o se registra suelta, por eso IdCita
+-- es NULL. No hay unico sobre IdCita a proposito: la regla es "una cita no puede
+-- tener dos sesiones ACTIVAS", y con borrado logico un unico impediria registrar
+-- de nuevo despues de inactivar una por error. La valida SP_Sesion_Registrar.
 CREATE TABLE IF NOT EXISTS TB_SESION (
   IdSesion INT NOT NULL AUTO_INCREMENT,
   IdEstudiante INT NOT NULL,
   IdCita INT NULL,
+  IdTipoSesion INT NOT NULL,
   IdTipoAtencion INT NOT NULL,
   IdUsuarioRegistro INT NOT NULL,
-  Fecha DATE NOT NULL,
+  FechaHoraInicio DATETIME NOT NULL,
+  -- Se guarda duracion y no hora de fin, al reves que TB_CITA: la hora en que
+  -- termino una sesion ya realizada no bloquea nada en la agenda
+  DuracionMinutos SMALLINT NOT NULL,
+  Objetivo VARCHAR(500) NOT NULL,
   TemaTrabajado VARCHAR(500) NOT NULL,
+  ActividadesRealizadas VARCHAR(1000) NULL,
+  Acuerdos VARCHAR(1000) NULL,
+  ObjetivosAlcanzados VARCHAR(1000) NULL,
+  HabilidadesDesarrolladas VARCHAR(1000) NULL,
   Avances VARCHAR(1000) NULL,
   Recomendaciones VARCHAR(1000) NULL,
   Observaciones VARCHAR(1000) NULL,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (IdSesion),
-  UNIQUE KEY UX_Sesion_Cita (IdCita),
   KEY IX_Sesion_Estudiante (IdEstudiante),
+  KEY IX_Sesion_Cita (IdCita),
+  KEY IX_Sesion_TipoSesion (IdTipoSesion),
   KEY IX_Sesion_TipoAtencion (IdTipoAtencion),
   KEY IX_Sesion_UsuarioRegistro (IdUsuarioRegistro),
+  KEY IX_Sesion_FechaHoraInicio (FechaHoraInicio),
   CONSTRAINT FK_Sesion_Estudiante FOREIGN KEY (IdEstudiante)
     REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Sesion_Cita FOREIGN KEY (IdCita)
     REFERENCES TB_CITA (IdCita) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Sesion_TipoSesion FOREIGN KEY (IdTipoSesion)
+    REFERENCES TB_TIPO_SESION (IdTipoSesion) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Sesion_TipoAtencion FOREIGN KEY (IdTipoAtencion)
     REFERENCES TB_TIPO_ATENCION (IdTipoAtencion) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Sesion_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
     REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT CK_Sesion_TemaTrabajadoNoVacio CHECK (TRIM(TemaTrabajado) <> '')
+  CONSTRAINT CK_Sesion_ObjetivoNoVacio CHECK (TRIM(Objetivo) <> ''),
+  CONSTRAINT CK_Sesion_TemaTrabajadoNoVacio CHECK (TRIM(TemaTrabajado) <> ''),
+  CONSTRAINT CK_Sesion_Duracion CHECK (DuracionMinutos BETWEEN 15 AND 240)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_NOTIFICACION (
@@ -575,6 +595,10 @@ CREATE TABLE IF NOT EXISTS TB_NOTIFICACION (
 -- 4. Planes de intervencion
 -- ============================================================
 
+-- Observaciones y Activo los pide M6 (HU-M6-5 y HU-M6-6). Se agregaron aqui el
+-- 2026-10-07, en el mismo cambio de esquema de M5, para que el equipo recree la
+-- base una sola vez. Son aditivas: ningun procedimiento de planes se rompe.
+-- La logica de inactivar planes la escribe M6.
 CREATE TABLE IF NOT EXISTS TB_PLAN_INTERVENCION (
   IdPlan INT NOT NULL AUTO_INCREMENT,
   IdEstudiante INT NOT NULL,
@@ -584,6 +608,8 @@ CREATE TABLE IF NOT EXISTS TB_PLAN_INTERVENCION (
   ObjetivoGeneral VARCHAR(1000) NOT NULL,
   FechaInicio DATE NOT NULL,
   FechaFin DATE NULL,
+  Observaciones VARCHAR(1000) NULL,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (IdPlan),

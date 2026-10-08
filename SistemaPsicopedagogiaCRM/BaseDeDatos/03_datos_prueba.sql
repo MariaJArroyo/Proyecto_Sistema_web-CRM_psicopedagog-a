@@ -32,6 +32,7 @@ ON DUPLICATE KEY UPDATE IdEncargado = IdEncargado;
 -- Panel administrativo:
 --   admin.prueba@example.com          Admin123*    Administrador
 --   psicopedagoga.prueba@example.com  Psico123*    Psicopedagoga
+--   asistente.prueba@example.com      Asis123*     Asistente
 --
 -- Portal de encargados (lado del cliente):
 --   andrea.prueba@example.com         Andrea123*   un estudiante (Lucia)
@@ -48,7 +49,7 @@ ON DUPLICATE KEY UPDATE IdEncargado = IdEncargado;
 -- Claves de desarrollo, no se usan en despliegue.
 --
 -- A diferencia del resto del script, aqui si se pisa lo que haya: al
--- reejecutar, las cinco cuentas vuelven a su contrasena y su estado de
+-- reejecutar, las seis cuentas vuelven a su contrasena y su estado de
 -- origen, y se limpian los intentos fallidos. Sirve para destrabar una
 -- cuenta que quedo bloqueada probando.
 -- ------------------------------------------------------------
@@ -57,7 +58,8 @@ INSERT INTO TB_USUARIO (IdUsuario, IdEncargado, IdEstadoUsuario, NombreCompleto,
   (2, 1, 1, 'Andrea Solís Mora', 'andrea.prueba@example.com', 'AQAAAAIAAYagAAAAEBK2xFtBZVB7DKXjkoZtexwFA5OYmr17Jvnxs3qvCiOat32XoHHhkA79OLoBn/VtTw=='),
   (3, NULL, 1, 'Administrador de prueba', 'admin.prueba@example.com', 'AQAAAAIAAYagAAAAEGu2RmE/YINq5W2e3sQJwgBf8Cum1alAcSV3Zmfz2GAsLSgLvvLy/hOZDtu/h2wRRA=='),
   (4, 2, 1, 'Marco Vindas Rojas', 'marco.prueba@example.com', 'AQAAAAIAAYagAAAAEE0Ogn3JgaeZ+AV+YVRcTeYrFAs6ni4y/ppcmuhP+5BR+/IqLqdXFIj2/nz6SHgZgg=='),
-  (5, 3, 4, 'Paula Jiménez Arce', 'paula.prueba@example.com', 'PENDIENTE_ACTIVACION') AS nuevo
+  (5, 3, 4, 'Paula Jiménez Arce', 'paula.prueba@example.com', 'PENDIENTE_ACTIVACION'),
+  (6, NULL, 1, 'Asistente de prueba', 'asistente.prueba@example.com', 'AQAAAAIAAYagAAAAEE21l+Tm9PffEQtZS9oO6kju1GU3p1d/6cCDfO6y/Mv8LR3Iam7ktQXvYyYGxN9frA==') AS nuevo
 ON DUPLICATE KEY UPDATE
   ContrasenaHash = nuevo.ContrasenaHash,
   IdEstadoUsuario = nuevo.IdEstadoUsuario,
@@ -69,7 +71,8 @@ INSERT INTO TB_USUARIO_ROL (IdUsuarioRol, IdUsuario, IdRol) VALUES
   (2, 2, 4),
   (3, 3, 1),
   (4, 4, 4),
-  (5, 5, 4)
+  (5, 5, 4),
+  (6, 6, 3)
 ON DUPLICATE KEY UPDATE IdUsuarioRol = IdUsuarioRol;
 
 -- Andrea con dos telefonos, uno principal
@@ -116,10 +119,34 @@ INSERT INTO TB_CITA (IdCita, IdEstudiante, IdTipoSesion, IdModalidad, IdEstadoCi
   (5, 1, 1, 1, 5, 1, '2026-09-10 14:00:00', '2026-09-10 15:00:00', NULL, NULL)
 ON DUPLICATE KEY UPDATE IdCita = IdCita;
 
--- Sesion 1 nace de la cita 3; la 2 se registro sin cita
-INSERT INTO TB_SESION (IdSesion, IdEstudiante, IdCita, IdTipoAtencion, IdUsuarioRegistro, Fecha, TemaTrabajado, Avances, Recomendaciones) VALUES
-  (1, 1, 3, 1, 1, '2026-09-07', 'Lectura de textos cortos', 'Mejor fluidez.', 'Leer 15 minutos diarios.'),
-  (2, 2, NULL, 1, 1, '2026-09-09', 'Resta con reagrupación', 'Resuelve con material concreto.', 'Practicar con monedas.')
+-- Sesion 1 nace de la cita 3, asi que hereda su fecha, hora y tipo de sesion.
+-- La 2 se registro suelta. La 3 esta inactiva a proposito: sirve para comprobar
+-- que no sale en el historial, que el portal del encargado no la muestra y que
+-- el dashboard no la cuenta.
+INSERT INTO TB_SESION (IdSesion, IdEstudiante, IdCita, IdTipoSesion, IdTipoAtencion, IdUsuarioRegistro, FechaHoraInicio, DuracionMinutos, Objetivo, TemaTrabajado, ActividadesRealizadas, Acuerdos, ObjetivosAlcanzados, HabilidadesDesarrolladas, Avances, Recomendaciones, Observaciones, Activo) VALUES
+  (1, 1, 3, 2, 1, 1, '2026-09-07 15:00:00', 60,
+   'Mejorar la fluidez en lectura de textos cortos.',
+   'Lectura de textos cortos',
+   'Lectura en voz alta de tres parrafos y preguntas de comprension.',
+   'La familia practica 15 minutos diarios de lectura.',
+   'Leyo los tres parrafos sin detenerse a silabear.',
+   'Fluidez lectora y comprension literal.',
+   'Mejor fluidez.', 'Leer 15 minutos diarios.',
+   'Se mostro mas segura que en la sesion anterior.', 1),
+  (2, 2, NULL, 1, 1, 1, '2026-09-09 10:00:00', 60,
+   'Afianzar la resta con reagrupacion usando material concreto.',
+   'Resta con reagrupacion',
+   'Ejercicios con regletas y monedas.',
+   'Repasar en casa con monedas dos veces por semana.',
+   'Resolvio seis de ocho restas con apoyo de material.',
+   'Calculo con reagrupacion.',
+   'Resuelve con material concreto.', 'Practicar con monedas.',
+   NULL, 1),
+  (3, 1, NULL, 1, 1, 1, '2026-09-12 14:00:00', 45,
+   'Registro anulado por error de digitacion.',
+   'Registro anulado',
+   NULL, NULL, NULL, NULL, NULL, NULL,
+   'Sesion inactivada: existe solo para probar que los filtros la excluyen.', 0)
 ON DUPLICATE KEY UPDATE IdSesion = IdSesion;
 
 INSERT INTO TB_NOTIFICACION (IdNotificacion, IdCita, IdUsuarioDestinatario, IdCanalNotificacion, Asunto, Cuerpo, FechaProgramada) VALUES

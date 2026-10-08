@@ -1,0 +1,404 @@
+### Pruebas de los endpoints de sesiones (M5)
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos: varias pruebas dependen de los datos sembrados.
+###   2. Ejecutar "0. Login" y copiar el token a la variable @token de abajo.
+###   3. Ejecutar de arriba hacia abajo. Las pruebas de escritura dejan datos,
+###      asi que para repetir la tanda hay que volver a correr los scripts.
+###
+### Datos sembrados que se usan aqui:
+###   sesion 1  estudiante 1 (Lucia), nace de la cita 3, 2026-09-07 15:00, 60 min
+###   sesion 2  estudiante 2 (Tomas), suelta,            2026-09-09 10:00, 60 min
+###   sesion 3  estudiante 1 (Lucia), INACTIVA,          2026-09-12 14:00, 45 min
+###   cita 1    estudiante 1, Programada, 2026-10-05 09:00, sin sesion
+###   cita 3    estudiante 1, Completada, ya tiene la sesion 1
+###   cita 4    estudiante 2, Cancelada
+###   cita 5    estudiante 1, No asistio
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+
+### 0. Login del administrador. Devuelve 200 con el token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del asistente. Sirve para las pruebas de permisos del final.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+
+### =====================================================
+### CONSULTAS
+### =====================================================
+
+### 1. Historial completo. 200 con las sesiones ACTIVAS; la 3 no sale.
+GET {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+
+### 2. Historial de un estudiante. 200 con la sesion 1 unicamente.
+GET {{host}}/api/sesiones?idEstudiante=1
+Authorization: Bearer {{token}}
+
+### 3. Historial filtrado por rango. 200 solo con la sesion 2.
+GET {{host}}/api/sesiones?desde=2026-09-09&hasta=2026-09-09
+Authorization: Bearer {{token}}
+
+### 4. Estudiante sin sesiones. 200 con lista vacia, no 404: la pantalla
+###    muestra el mensaje de "no hay sesiones registradas".
+GET {{host}}/api/sesiones?idEstudiante=3
+Authorization: Bearer {{token}}
+
+### 5. Rango invertido. 400.
+GET {{host}}/api/sesiones?desde=2026-10-01&hasta=2026-09-01
+Authorization: Bearer {{token}}
+
+### 6. Rango de mas de un anio. 400.
+GET {{host}}/api/sesiones?desde=2024-01-01&hasta=2026-12-31
+Authorization: Bearer {{token}}
+
+### 7. Detalle de una sesion activa. 200 con todos los campos.
+GET {{host}}/api/sesiones/1
+Authorization: Bearer {{token}}
+
+### 8. Detalle de la sesion INACTIVA. 200: el historial se conserva y se
+###    tiene que poder consultar. Trae activo = false.
+GET {{host}}/api/sesiones/3
+Authorization: Bearer {{token}}
+
+### 9. Detalle inexistente. 400 con mensaje.
+GET {{host}}/api/sesiones/999
+Authorization: Bearer {{token}}
+
+### 10. Catalogos: tipos de sesion y tipos de atencion. 200.
+GET {{host}}/api/sesiones/catalogos
+Authorization: Bearer {{token}}
+
+### 11. Buscador de estudiantes. 200 con Lucia.
+GET {{host}}/api/sesiones/estudiantes?texto=lu
+Authorization: Bearer {{token}}
+
+### 12. Buscador con una sola letra. 200 con lista vacia: no se consulta la
+###     base porque traeria casi todo.
+GET {{host}}/api/sesiones/estudiantes?texto=l
+Authorization: Bearer {{token}}
+
+### 13. Citas a las que todavia se les puede registrar sesion. 200 con la
+###     cita 1 nada mas: la 3 ya tiene sesion, la 4 esta cancelada y la 5
+###     esta en "no asistio".
+GET {{host}}/api/sesiones/citas-disponibles?idEstudiante=1
+Authorization: Bearer {{token}}
+
+
+### =====================================================
+### REGISTRAR
+### =====================================================
+
+### 14. Caso correcto, sesion suelta. 200 con el idSesion creado.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1,
+  "idCita": null,
+  "idTipoSesion": 1,
+  "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-01T09:00:00",
+  "duracionMinutos": 60,
+  "objetivo": "Reforzar la comprension lectora inferencial.",
+  "temaTrabajado": "Inferencias en textos cortos",
+  "actividadesRealizadas": "Lectura guiada y preguntas.",
+  "acuerdos": "Leer un cuento por semana.",
+  "objetivosAlcanzados": "Hizo dos inferencias correctas.",
+  "habilidadesDesarrolladas": "Comprension inferencial.",
+  "avances": "Avanza bien.",
+  "recomendaciones": "Seguir con cuentos cortos.",
+  "observaciones": "Muy participativa."
+}
+
+### 15. El mismo horario otra vez. 400 por traslape (HU-M5-1 escenario 3).
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-01T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 16. Traslape PARCIAL: empieza 30 minutos despues de la 14. 400.
+###     Una igualdad simple de fecha y hora dejaria pasar esto.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-01T09:30:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 17. Pegada al final de la 14, sin traslaparse. 200.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-01T10:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 18. OTRO estudiante a la misma hora que la 14. 200.
+###     Es la sesion grupal: el traslape se mide por estudiante, nunca global.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 2, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 2,
+  "fechaHoraInicio": "2026-10-01T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 19. A la hora de la sesion INACTIVA del estudiante 1. 200: una sesion
+###     inactiva no bloquea.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-09-12T14:00:00", "duracionMinutos": 45,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 20. Fecha futura. 400: una sesion es atencion ya realizada.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2027-12-01T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 21. Sin objetivo. 400 por la validacion del modelo (HU-M5-1 escenario 2).
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-03T09:00:00", "duracionMinutos": 60,
+  "objetivo": "", "temaTrabajado": "Y"
+}
+
+### 22. Duracion fuera de rango. 400.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-03T09:00:00", "duracionMinutos": 5,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 23. Estudiante inexistente. 400.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 999, "idCita": null, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-03T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### Cada prueba de cita usa SU PROPIA fecha y hora: asi ninguna depende de que
+### la anterior haya fallado, y el archivo se puede correr suelto o salteado.
+
+### Cada prueba de cita usa SU PROPIA fecha y hora: ninguna depende de que la
+### anterior haya fallado, asi el archivo se puede correr suelto o salteado.
+
+### 24. Cita de otro estudiante: la cita 3 es de Lucia, no de Tomas. 400.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 2, "idCita": 3, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-03T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 25. Cita que ya tiene sesion activa. 400.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": 3, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-04T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 26. Cita cancelada. 400.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 2, "idCita": 4, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-06T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 27. Cita en "no asistio". 400: si no asistio, no hubo atencion.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": 5, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-07T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 28. Desde una cita valida. 200, y la cita 1 queda Completada.
+POST {{host}}/api/sesiones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstudiante": 1, "idCita": 1, "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-05T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+
+### =====================================================
+### EDITAR  (usar el id que devolvio la prueba 14)
+### =====================================================
+
+### 29. Caso correcto, sin mover la hora: no choca consigo misma. 200.
+PUT {{host}}/api/sesiones/4
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idTipoSesion": 2, "idTipoAtencion": 2,
+  "fechaHoraInicio": "2026-10-01T09:00:00", "duracionMinutos": 60,
+  "objetivo": "Objetivo editado", "temaTrabajado": "Tema editado",
+  "recomendaciones": "Recomendacion editada"
+}
+
+### 30. Mover a una hora que choca con la sesion 1. 400.
+PUT {{host}}/api/sesiones/4
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-09-07T15:30:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 31. Editar una sesion inactiva. 400.
+PUT {{host}}/api/sesiones/3
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-09-12T14:00:00", "duracionMinutos": 45,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+### 32. Editar una sesion inexistente. 400.
+PUT {{host}}/api/sesiones/999
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idTipoSesion": 1, "idTipoAtencion": 1,
+  "fechaHoraInicio": "2026-10-01T09:00:00", "duracionMinutos": 60,
+  "objetivo": "X", "temaTrabajado": "Y"
+}
+
+
+### =====================================================
+### INACTIVAR
+### =====================================================
+
+### 33. Inactivar. 200. Deja de salir en el historial pero la fila sigue ahi.
+PUT {{host}}/api/sesiones/4/inactivar
+Authorization: Bearer {{token}}
+
+### 34. Inactivar la misma otra vez. 400.
+PUT {{host}}/api/sesiones/4/inactivar
+Authorization: Bearer {{token}}
+
+### 35. Inactivar una inexistente. 400.
+PUT {{host}}/api/sesiones/999/inactivar
+Authorization: Bearer {{token}}
+
+### 36. El historial ya no la trae; el detalle si. 200 con activo = false.
+GET {{host}}/api/sesiones/4
+Authorization: Bearer {{token}}
+
+
+### =====================================================
+### PERMISOS
+### =====================================================
+
+### 37. Sin cabecera de autorizacion. 401.
+GET {{host}}/api/sesiones
+
+### 38. Token con un caracter cambiado. 401.
+GET {{host}}/api/sesiones
+Authorization: Bearer {{token}}X
+
+### 39 a 44. Con token de ASISTENTE: los seis dan 403.
+### El Asistente es apoyo administrativo y no entra a la nota clinica.
+GET {{host}}/api/sesiones
+Authorization: Bearer {{tokenAsistente}}
+
+###
+GET {{host}}/api/sesiones/1
+Authorization: Bearer {{tokenAsistente}}
+
+###
+GET {{host}}/api/sesiones/catalogos
+Authorization: Bearer {{tokenAsistente}}
+
+###
+GET {{host}}/api/sesiones/estudiantes?texto=lu
+Authorization: Bearer {{tokenAsistente}}
+
+###
+GET {{host}}/api/sesiones/citas-disponibles?idEstudiante=1
+Authorization: Bearer {{tokenAsistente}}
+
+###
+PUT {{host}}/api/sesiones/1/inactivar
+Authorization: Bearer {{tokenAsistente}}

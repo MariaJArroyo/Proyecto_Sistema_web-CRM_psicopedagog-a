@@ -293,6 +293,18 @@ a:hover {
   border-top: 1px solid var(--color-borde);
 }
 
+/* Cuando el formulario envuelve header, body y footer queda como unico hijo de
+   .modal-content y corta la cadena de flex: el .modal-body nunca se entera del
+   limite de altura, no scrollea, y el footer con el boton de guardar se va
+   fuera de la pantalla. Esto devuelve la cadena. Solo aplica a los modales
+   marcados con scroll, asi que no toca a los que ya existen. */
+.modal-dialog-scrollable .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  overflow: hidden;
+}
+
 
 .ContenedorToasts {
   position: fixed;
