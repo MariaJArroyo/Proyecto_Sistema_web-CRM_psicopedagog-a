@@ -2,7 +2,7 @@
 ### Correr el API y ejecutar las peticiones de arriba hacia abajo.
 ### Las cuentas de prueba salen de 03_datos_prueba.sql.
 
-@host = http://localhost:5301
+@host = http://localhost:5201
 @correoAdmin = admin.prueba@example.com
 @claveAdmin = Admin123*
 

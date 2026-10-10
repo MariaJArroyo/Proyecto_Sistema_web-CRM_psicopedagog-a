@@ -363,7 +363,7 @@ public class AdminController : Controller
     #endregion
 
     #region desactivar cliente
-    
+
     [HttpPost]
     [IgnoreAntiforgeryToken]
     public IActionResult DesactivarCliente(int id)
@@ -442,7 +442,7 @@ public class AdminController : Controller
         return BadRequest(new { mensaje = string.Join(" ", errores) });
     }
 
-    
+
     private static async Task<IActionResult> ResponderSegunApi(HttpResponseMessage respuesta, string mensajePorDefecto)
     {
         if (respuesta.IsSuccessStatusCode)
@@ -462,7 +462,7 @@ public class AdminController : Controller
         }
         catch
         {
-           
+
         }
 
         return new ObjectResult(new { mensaje }) { StatusCode = (int)respuesta.StatusCode };
@@ -600,7 +600,413 @@ public class AdminController : Controller
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
     public IActionResult Pagos() => View();
-    public IActionResult Planes() => View();
+
+    public async Task<IActionResult> Planes()
+    {
+        using var client = _http.CreateClient();
+
+        var planes = await client.GetFromJsonAsync<List<PlanViewModel>>(
+            UrlApi("planes"));
+
+        var estudiantes = await client.GetFromJsonAsync<List<EstudianteViewModel>>(
+            UrlApi("estudiantes"));
+
+        ViewBag.Estudiantes = estudiantes ?? new List<EstudianteViewModel>();
+
+        return View(planes ?? new List<PlanViewModel>());
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> CrearPlan(
+        [FromBody] PlanCrearViewModel modelo,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Revise los datos del plan."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi("planes"),
+            modelo,
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo crear el plan.",
+                cancelacion);
+        }
+
+        return Ok(new
+        {
+            mensaje = "Plan de intervención creado correctamente."
+        });
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> EditarPlan(
+        int id,
+        [FromBody] PlanEditarViewModel modelo,
+        CancellationToken cancelacion)
+    {
+
+        if (!ModelState.IsValid)
+        {
+            var errores = ModelState
+                .Where(campo => campo.Value?.Errors.Count > 0)
+                .SelectMany(campo => campo.Value!.Errors.Select(error => new
+                {
+                    campo = campo.Key,
+                    mensaje = string.IsNullOrWhiteSpace(error.ErrorMessage)
+                        ? error.Exception?.Message
+                        : error.ErrorMessage
+                }))
+                .ToList();
+
+            return BadRequest(new
+            {
+                mensaje = "Revise los datos del plan.",
+                errores
+            });
+        }
+
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"planes/{id}"),
+            modelo,
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo editar el plan.",
+                cancelacion);
+        }
+
+        return Ok(new
+        {
+            mensaje = "Plan de intervención actualizado correctamente."
+        });
+    }
+
+
+
+
+    [HttpPost]
+    public async Task<IActionResult> InactivarPlan(
+        int id,
+        int idEstadoPlan,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El plan indicado no es válido."
+            });
+        }
+
+        if (idEstadoPlan != 2 && idEstadoPlan != 5)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estado solicitado no es válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"planes/{id}/estado"),
+            new { IdEstadoPlan = idEstadoPlan },
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo cambiar el estado del plan.",
+                cancelacion);
+        }
+
+        return Ok(new
+        {
+            mensaje = idEstadoPlan == 2
+                ? "Plan reactivado correctamente."
+                : "Plan inactivado correctamente."
+        });
+    }
+
+
+
+    [HttpPost]
+    public async Task<IActionResult> EliminarPlan(
+        int id,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El identificador del plan no es válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.DeleteAsync(
+            UrlApi($"planes/{id}"),
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo eliminar el plan.",
+                cancelacion);
+        }
+
+        return Ok(new
+        {
+            mensaje = "Plan de intervención eliminado correctamente."
+        });
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> HistorialPlan(
+        int id,
+        CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.GetAsync(
+            UrlApi($"planes/{id}/historial"),
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return BadRequest(new
+            {
+                mensaje = "No se pudo consultar el historial del plan."
+            });
+        }
+
+        var historial = await respuesta.Content.ReadFromJsonAsync<
+            List<PlanHistorialViewModel>
+        >(cancellationToken: cancelacion);
+
+        return Ok(historial ?? new List<PlanHistorialViewModel>());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CrearEstrategia(
+        [FromBody] EstrategiaCrearViewModel modelo,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Revise los datos de la estrategia."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi("estrategias"),
+            modelo,
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo agregar la estrategia.",
+                cancelacion);
+        }
+
+        var resultado = await respuesta.Content.ReadFromJsonAsync<
+            EstrategiaCrearRespuestaViewModel
+        >(cancellationToken: cancelacion);
+
+        return Ok(resultado ?? new EstrategiaCrearRespuestaViewModel
+        {
+            Mensaje = "Estrategia agregada correctamente."
+        });
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> ListarEstrategias(
+        int idPlan,
+        CancellationToken cancelacion)
+    {
+        if (idPlan <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe indicar un plan válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.GetAsync(
+            UrlApi($"estrategias/plan/{idPlan}"),
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudieron consultar las estrategias.",
+                cancelacion);
+        }
+
+        var resultado = await respuesta.Content.ReadFromJsonAsync<
+            List<EstrategiaViewModel>
+        >(cancellationToken: cancelacion);
+
+        return Ok(resultado ?? new List<EstrategiaViewModel>());
+    }
+
+
+    [HttpDelete]
+    public async Task<IActionResult> EliminarEstrategia(
+        int idEstrategia,
+        CancellationToken cancelacion)
+    {
+        if (idEstrategia <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe indicar una estrategia válida."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.DeleteAsync(
+            UrlApi($"estrategias/{idEstrategia}"),
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudo eliminar la estrategia.",
+                cancelacion);
+        }
+
+        return Ok(new
+        {
+            mensaje = "Estrategia eliminada correctamente."
+        });
+    }
+
+
+    [HttpPost]
+    public async Task<IActionResult> CrearActividad(
+        [FromBody] ActividadCrearViewModel modelo,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Revise los datos de la actividad."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi("actividades"),
+            modelo,
+            cancelacion);
+        System.Diagnostics.Debug.WriteLine(">>> SE EJECUTÓ CrearActividad EN EL PROYECTO WEB <<<");
+
+        var detalle = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        Console.WriteLine($"ESTADO API: {(int)respuesta.StatusCode}");
+        Console.WriteLine($"RESPUESTA API: {detalle}");
+
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode, new
+            {
+                mensaje = "La API rechazó la creación de la actividad.",
+                status = (int)respuesta.StatusCode,
+                detalle = detalle
+            });
+        }
+
+
+        var resultado = await respuesta.Content.ReadFromJsonAsync<
+            ActividadCrearRespuestaViewModel
+        >(cancellationToken: cancelacion);
+
+        return Ok(resultado ?? new ActividadCrearRespuestaViewModel
+        {
+            Mensaje = "Actividad agregada correctamente."
+        });
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> ListarActividades(
+        int idEstrategia,
+        CancellationToken cancelacion)
+    {
+        if (idEstrategia <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe indicar una estrategia válida."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.GetAsync(
+            UrlApi($"actividades/estrategia/{idEstrategia}"),
+            cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ReenviarRespuestaAsync(
+                respuesta,
+                "No se pudieron consultar las actividades.",
+                cancelacion);
+        }
+
+        var resultado = await respuesta.Content.ReadFromJsonAsync<
+            List<ActividadViewModel>
+        >(cancellationToken: cancelacion);
+
+        return Ok(resultado ?? new List<ActividadViewModel>());
+    }
+
+
+
+
+
+
     public IActionResult Reportes() => View();
     public IActionResult Sesiones() => View();
 
@@ -980,5 +1386,5 @@ public class AdminController : Controller
     }
 
     #endregion
-    
+
 }
