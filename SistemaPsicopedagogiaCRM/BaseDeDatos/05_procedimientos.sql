@@ -3301,11 +3301,28 @@ BEGIN
     RESIGNAL;
   END;
 
-  IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe o esta inactivo.';
-  END IF;
+IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE
+    WHERE IdEstudiante = p_IdEstudiante
+      AND Activo = 1
+) THEN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante indicado no existe o esta inactivo.';
+END IF;
 
-  START TRANSACTION;
+IF EXISTS (
+    SELECT 1
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdEstudiante = p_IdEstudiante
+      AND LOWER(TRIM(Titulo)) = LOWER(TRIM(p_Titulo))
+) THEN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+        'Ya existe un plan con ese nombre para el estudiante seleccionado.';
+END IF;
+
+START TRANSACTION;
 
   INSERT INTO TB_PLAN_INTERVENCION (IdEstudiante, IdEstadoPlan, IdUsuarioRegistro, Titulo,
                                     ObjetivoGeneral, FechaInicio, FechaFin)
@@ -3452,6 +3469,7 @@ BEGIN
          p.IdEstudiante,
          TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
          p.Titulo,
+         p.ObjetivoGeneral,
          p.FechaInicio,
          p.FechaFin,
          ep.Nombre AS Estado,
@@ -5168,4 +5186,806 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- =========================================================
+-- CONSULTA DEL HISTORIAL DE UN PLAN
+-- Recupera las acciones registradas para el plan indicado,
+-- incluyendo el usuario que realizó cada acción y los valores
+-- anteriores y nuevos. Los resultados se muestran del más
+-- reciente al más antiguo.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Plan_Historial;
 
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Historial(
+    IN p_IdPlan INT
+)
+BEGIN
+
+    SELECT
+        b.IdBitacora,
+        b.IdUsuario,
+        u.NombreCompleto AS Usuario,
+        b.FechaHora,
+        b.Accion,
+        b.ValorAnterior,
+        b.ValorNuevo
+    FROM TB_BITACORA b
+    JOIN TB_USUARIO u
+        ON u.IdUsuario = b.IdUsuario
+    WHERE b.Entidad = 'TB_PLAN_INTERVENCION'
+      AND b.IdRegistro = p_IdPlan
+    ORDER BY b.FechaHora DESC, b.IdBitacora DESC;
+
+END$$
+
+DELIMITER ;
+
+-- =========================================================
+-- LISTADO DE ESTRATEGIAS DE UN PLAN
+-- Devuelve las estrategias asociadas al plan recibido y las
+-- ordena por el campo Orden. Las que no tienen orden aparecen
+-- al final.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Estrategia_Listar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estrategia_Listar(
+    IN p_IdPlan INT
+)
+BEGIN
+    SELECT
+        e.IdEstrategia,
+        e.IdPlan,
+        e.Descripcion,
+        e.Orden,
+        e.FechaCreacion
+    FROM TB_ESTRATEGIA e
+    WHERE e.IdPlan = p_IdPlan
+    ORDER BY
+        IFNULL(e.Orden, 9999),
+        e.IdEstrategia;
+END$$
+
+DELIMITER ;
+
+
+
+
+-- =========================================================
+-- ELIMINACIÓN DE UNA ESTRATEGIA
+-- Comprueba que la estrategia exista, registra la eliminación
+-- en la bitácora y luego elimina la estrategia. Por la relación
+-- ON DELETE CASCADE, sus actividades asociadas también se borran.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Estrategia_Eliminar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estrategia_Eliminar(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEstrategia INT
+)
+BEGIN
+    DECLARE v_IdPlan INT DEFAULT NULL;
+    DECLARE v_Descripcion VARCHAR(500) DEFAULT NULL;
+
+    -- Ante cualquier error SQL, revierte la transacción y devuelve el error.
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT IdPlan, Descripcion
+    INTO v_IdPlan, v_Descripcion
+    FROM TB_ESTRATEGIA
+    WHERE IdEstrategia = p_IdEstrategia;
+
+    IF v_IdPlan IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La estrategia indicada no existe.';
+    END IF;
+
+    -- Inicia una transacción para agrupar los cambios como una sola operación.
+    START TRANSACTION;
+
+    -- Guarda en la bitácora la acción realizada para mantener trazabilidad.
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_ESTRATEGIA',
+        p_IdEstrategia,
+        'Eliminar',
+        JSON_OBJECT(
+            'IdPlan', v_IdPlan,
+            'Descripcion', v_Descripcion
+        )
+    );
+
+    DELETE FROM TB_ESTRATEGIA
+    WHERE IdEstrategia = p_IdEstrategia;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+
+-- =========================================================
+-- LISTADO DE ACTIVIDADES DE UNA ESTRATEGIA
+-- Devuelve las actividades de la estrategia indicada y las
+-- ordena por fecha de creación y por identificador.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Actividad_Listar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Actividad_Listar(
+    IN p_IdEstrategia INT
+)
+BEGIN
+    SELECT
+        a.IdActividad,
+        a.IdEstrategia,
+        a.Nombre,
+        a.Descripcion,
+        a.Completada,
+        a.FechaCreacion
+    FROM TB_ACTIVIDAD a
+    WHERE a.IdEstrategia = p_IdEstrategia
+    ORDER BY a.FechaCreacion, a.IdActividad;
+END$$
+
+DELIMITER ;
+
+
+-- =========================================================
+-- AGREGAR OBSERVACIONES AL PLAN
+-- Añade el campo Observaciones a TB_PLAN_INTERVENCION.
+-- Se permite NULL porque este dato es opcional.
+-- =========================================================
+USE mente_activa;
+
+ALTER TABLE TB_PLAN_INTERVENCION
+ADD COLUMN Observaciones VARCHAR(1000) NULL
+AFTER ObjetivoGeneral;
+
+
+
+USE mente_activa;
+
+-- =========================================================
+-- LISTADO Y FILTRO DE PLANES DE INTERVENCIÓN
+-- Permite filtrar por estudiante y/o estado. También calcula
+-- la cantidad de estrategias, actividades y actividades
+-- completadas asociadas a cada plan.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Plan_Listar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Listar(
+    IN p_IdEstudiante INT,
+    IN p_IdEstadoPlan INT
+)
+BEGIN
+    SELECT
+        p.IdPlan,
+        p.IdEstudiante,
+        TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
+        p.Titulo,
+        p.ObjetivoGeneral,
+        p.Observaciones,
+        p.FechaInicio,
+        p.FechaFin,
+        ep.Nombre AS Estado,
+        (
+            SELECT COUNT(*)
+            FROM TB_ESTRATEGIA
+            WHERE IdPlan = p.IdPlan
+        ) AS Estrategias,
+        (
+            SELECT COUNT(*)
+            FROM TB_ACTIVIDAD a
+            JOIN TB_ESTRATEGIA es
+                ON es.IdEstrategia = a.IdEstrategia
+            WHERE es.IdPlan = p.IdPlan
+        ) AS Actividades,
+        (
+            SELECT COUNT(*)
+            FROM TB_ACTIVIDAD a
+            JOIN TB_ESTRATEGIA es
+                ON es.IdEstrategia = a.IdEstrategia
+            WHERE es.IdPlan = p.IdPlan
+              AND a.Completada = 1
+        ) AS ActividadesCompletadas
+    FROM TB_PLAN_INTERVENCION p
+    JOIN TB_ESTUDIANTE e
+        ON e.IdEstudiante = p.IdEstudiante
+    JOIN TB_ESTADO_PLAN ep
+        ON ep.IdEstadoPlan = p.IdEstadoPlan
+    WHERE
+        (p_IdEstudiante IS NULL
+            OR p.IdEstudiante = p_IdEstudiante)
+        AND
+        (p_IdEstadoPlan IS NULL
+            OR p.IdEstadoPlan = p_IdEstadoPlan)
+    ORDER BY p.FechaInicio DESC;
+END$$
+
+DELIMITER ;
+
+
+
+
+USE mente_activa;
+
+-- =========================================================
+-- CREACIÓN DE UN PLAN DE INTERVENCIÓN
+-- Valida el estudiante y evita duplicar el título para ese
+-- estudiante. Crea el plan, sus estrategias y actividades a
+-- partir del JSON recibido, registra la acción en la bitácora
+-- y confirma la operación en una transacción.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Plan_Crear;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Crear(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEstudiante INT,
+    IN p_Titulo VARCHAR(150),
+    IN p_ObjetivoGeneral VARCHAR(1000),
+    IN p_Observaciones VARCHAR(1000),
+    IN p_FechaInicio DATE,
+    IN p_FechaFin DATE,
+    IN p_IdEstadoPlan INT,
+    IN p_EstrategiasJson JSON
+)
+BEGIN
+    DECLARE v_IdPlan INT;
+    DECLARE v_IdEstrategia INT;
+    DECLARE v_i INT DEFAULT 0;
+    DECLARE v_n INT DEFAULT 0;
+    DECLARE v_j INT DEFAULT 0;
+    DECLARE v_m INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El estudiante indicado no existe o esta inactivo.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM TB_PLAN_INTERVENCION
+        WHERE IdEstudiante = p_IdEstudiante
+          AND LOWER(TRIM(Titulo)) = LOWER(TRIM(p_Titulo))
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+            'Ya existe un plan con ese nombre para el estudiante seleccionado.';
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_PLAN_INTERVENCION (
+        IdEstudiante,
+        IdEstadoPlan,
+        IdUsuarioRegistro,
+        Titulo,
+        ObjetivoGeneral,
+        Observaciones,
+        FechaInicio,
+        FechaFin
+    )
+    VALUES (
+        p_IdEstudiante,
+        IFNULL(p_IdEstadoPlan, 1),
+        p_IdUsuarioAccion,
+        p_Titulo,
+        p_ObjetivoGeneral,
+        p_Observaciones,
+        p_FechaInicio,
+        p_FechaFin
+    );
+
+    SET v_IdPlan = LAST_INSERT_ID();
+    SET v_n = IFNULL(JSON_LENGTH(p_EstrategiasJson), 0);
+
+    WHILE v_i < v_n DO
+        INSERT INTO TB_ESTRATEGIA (IdPlan, Descripcion, Orden)
+        VALUES (
+            v_IdPlan,
+            JSON_UNQUOTE(JSON_EXTRACT(
+                p_EstrategiasJson,
+                CONCAT('$[', v_i, '].Descripcion')
+            )),
+            CAST(JSON_EXTRACT(
+                p_EstrategiasJson,
+                CONCAT('$[', v_i, '].Orden')
+            ) AS UNSIGNED)
+        );
+
+        SET v_IdEstrategia = LAST_INSERT_ID();
+
+        SET v_m = IFNULL(JSON_LENGTH(JSON_EXTRACT(
+            p_EstrategiasJson,
+            CONCAT('$[', v_i, '].Actividades')
+        )), 0);
+
+        SET v_j = 0;
+
+        WHILE v_j < v_m DO
+            INSERT INTO TB_ACTIVIDAD (IdEstrategia, Nombre, Descripcion)
+            VALUES (
+                v_IdEstrategia,
+                JSON_UNQUOTE(JSON_EXTRACT(
+                    p_EstrategiasJson,
+                    CONCAT('$[', v_i, '].Actividades[', v_j, '].Nombre')
+                )),
+                JSON_UNQUOTE(JSON_EXTRACT(
+                    p_EstrategiasJson,
+                    CONCAT('$[', v_i, '].Actividades[', v_j, '].Descripcion')
+                ))
+            );
+
+            SET v_j = v_j + 1;
+        END WHILE;
+
+        SET v_i = v_i + 1;
+    END WHILE;
+
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_PLAN_INTERVENCION',
+        v_IdPlan,
+        'Crear',
+        JSON_OBJECT(
+            'IdEstudiante', p_IdEstudiante,
+            'Titulo', p_Titulo,
+            'Observaciones', p_Observaciones,
+            'Estrategias', v_n
+        )
+    );
+
+    COMMIT;
+
+    SELECT v_IdPlan AS IdPlan;
+END$$
+
+DELIMITER ;
+
+
+
+
+
+USE mente_activa;
+
+-- =========================================================
+-- EDICIÓN DE UN PLAN DE INTERVENCIÓN
+-- Guarda los valores anteriores, actualiza los datos del plan
+-- y registra en la bitácora los valores previos y los nuevos.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Plan_Editar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Editar(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdPlan INT,
+    IN p_Titulo VARCHAR(150),
+    IN p_ObjetivoGeneral VARCHAR(1000),
+    IN p_Observaciones VARCHAR(1000),
+    IN p_FechaInicio DATE,
+    IN p_FechaFin DATE
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT JSON_OBJECT(
+        'Titulo', Titulo,
+        'ObjetivoGeneral', ObjetivoGeneral,
+        'Observaciones', Observaciones,
+        'FechaInicio', FechaInicio,
+        'FechaFin', FechaFin
+    )
+    INTO v_Anterior
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan indicado no existe.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_PLAN_INTERVENCION
+    SET Titulo = p_Titulo,
+        ObjetivoGeneral = p_ObjetivoGeneral,
+        Observaciones = p_Observaciones,
+        FechaInicio = p_FechaInicio,
+        FechaFin = p_FechaFin
+    WHERE IdPlan = p_IdPlan;
+
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_PLAN_INTERVENCION',
+        p_IdPlan,
+        'Editar',
+        v_Anterior,
+        JSON_OBJECT(
+            'Titulo', p_Titulo,
+            'ObjetivoGeneral', p_ObjetivoGeneral,
+            'Observaciones', p_Observaciones,
+            'FechaInicio', p_FechaInicio,
+            'FechaFin', p_FechaFin
+        )
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+  
+  USE mente_activa;
+
+-- =========================================================
+-- REGISTRO DEL ESTADO INACTIVO
+-- Agrega el estado Inactivo solamente si todavía no existe,
+-- evitando insertar duplicados.
+-- =========================================================
+INSERT INTO TB_ESTADO_PLAN (Nombre)
+SELECT 'Inactivo'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTADO_PLAN
+    WHERE Nombre = 'Inactivo'
+);
+
+
+
+
+
+USE mente_activa;
+
+-- =========================================================
+-- CAMBIO DE ESTADO DE UN PLAN
+-- Valida el plan y el estado solicitado. Si la operación es
+-- válida, actualiza el estado y registra el cambio en la
+-- bitácora dentro de una transacción.
+-- =========================================================
+DROP PROCEDURE IF EXISTS SP_Plan_CambiarEstado;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_CambiarEstado(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdPlan INT,
+    IN p_IdEstadoPlan INT
+)
+BEGIN
+    DECLARE v_Estado INT DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT IdEstadoPlan
+    INTO v_Estado
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    IF v_Estado IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan indicado no existe.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTADO_PLAN
+        WHERE IdEstadoPlan = p_IdEstadoPlan
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El estado indicado no existe.';
+    END IF;
+
+    IF v_Estado = 3 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Un plan finalizado no se reabre.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_PLAN_INTERVENCION
+    SET IdEstadoPlan = p_IdEstadoPlan
+    WHERE IdPlan = p_IdPlan;
+
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_PLAN_INTERVENCION',
+        p_IdPlan,
+        'CambiarEstado',
+        JSON_OBJECT('IdEstadoPlan', v_Estado),
+        JSON_OBJECT('IdEstadoPlan', p_IdEstadoPlan)
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+
+USE mente_activa;
+
+DROP PROCEDURE IF EXISTS SP_Plan_CambiarEstado;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_CambiarEstado(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdPlan INT,
+    IN p_IdEstadoPlan INT
+)
+BEGIN
+    DECLARE v_Estado INT DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT IdEstadoPlan
+    INTO v_Estado
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    IF v_Estado IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan indicado no existe.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTADO_PLAN
+        WHERE IdEstadoPlan = p_IdEstadoPlan
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El estado indicado no existe.';
+    END IF;
+
+    IF v_Estado = 3 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Un plan finalizado no puede cambiar de estado.';
+    END IF;
+
+    IF p_IdEstadoPlan NOT IN (2, 5) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Solo se permite activar o inactivar planes.';
+    END IF;
+
+    IF v_Estado = p_IdEstadoPlan THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan ya tiene ese estado.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_PLAN_INTERVENCION
+    SET IdEstadoPlan = p_IdEstadoPlan
+    WHERE IdPlan = p_IdPlan;
+
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_PLAN_INTERVENCION',
+        p_IdPlan,
+        'CambiarEstado',
+        JSON_OBJECT('IdEstadoPlan', v_Estado),
+        JSON_OBJECT('IdEstadoPlan', p_IdEstadoPlan)
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+-- =========================================================
+-- ELIMINACIÓN CONTROLADA DE UN PLAN (VERSIÓN ANTERIOR)
+-- Esta versión bloquea la eliminación si existen estrategias
+-- o historial asociado. Se conserva aquí porque forma parte
+-- del script original; la versión posterior reemplaza este SP.
+-- =========================================================
+USE mente_activa;
+
+DROP PROCEDURE IF EXISTS SP_Plan_Eliminar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Eliminar(
+    IN p_IdPlan INT
+)
+BEGIN
+    DECLARE v_Existe INT DEFAULT 0;
+    DECLARE v_TotalEstrategias INT DEFAULT 0;
+    DECLARE v_TotalHistorial INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_IdPlan IS NULL OR p_IdPlan <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El identificador del plan no es válido.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT COUNT(*)
+    INTO v_Existe
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan
+    FOR UPDATE;
+
+    IF v_Existe = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan indicado no existe.';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_TotalEstrategias
+    FROM TB_ESTRATEGIA
+    WHERE IdPlan = p_IdPlan;
+
+    IF v_TotalEstrategias > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'No se puede eliminar el plan porque tiene estrategias o actividades asociadas.';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_TotalHistorial
+    FROM TB_BITACORA
+    WHERE Entidad = 'TB_PLAN_INTERVENCION'
+      AND IdRegistro = p_IdPlan;
+
+    IF v_TotalHistorial > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'No se puede eliminar el plan porque tiene historial registrado.';
+    END IF;
+
+    DELETE FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+
+
+
+-- =========================================================
+-- ELIMINACIÓN DEFINITIVA DE UN PLAN
+-- Valida el identificador y comprueba que el plan exista.
+-- Elimina la bitácora asociada directamente al plan y luego
+-- elimina el plan. Las estrategias y actividades se eliminan
+-- automáticamente por las claves foráneas ON DELETE CASCADE.
+-- Si ocurre un error, la transacción se revierte.
+-- =========================================================
+USE mente_activa;
+
+DROP PROCEDURE IF EXISTS SP_Plan_Eliminar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Plan_Eliminar(IN p_IdPlan INT)
+BEGIN
+    DECLARE v_Existe INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_IdPlan IS NULL OR p_IdPlan <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El identificador del plan no es válido.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT COUNT(*)
+    INTO v_Existe
+    FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    IF v_Existe = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El plan indicado no existe.';
+    END IF;
+
+    -- Eliminar el historial asociado directamente al plan.
+    DELETE FROM TB_BITACORA
+    WHERE Entidad = 'TB_PLAN_INTERVENCION'
+      AND IdRegistro = p_IdPlan;
+
+    -- Eliminar el plan.
+    -- MySQL eliminará automáticamente sus estrategias
+    -- y las actividades asociadas mediante ON DELETE CASCADE.
+    DELETE FROM TB_PLAN_INTERVENCION
+    WHERE IdPlan = p_IdPlan;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+ 
