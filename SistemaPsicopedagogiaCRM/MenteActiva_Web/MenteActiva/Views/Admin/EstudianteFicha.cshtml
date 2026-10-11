@@ -3,6 +3,9 @@
 @{
     ViewData["Title"] = "Ficha de estudiante";
 
+    var niveles = ViewBag.NivelesEducativos as List<MenteActiva.Models.NivelEducativoViewModel>
+                  ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+
     var nombreCompleto = $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
 
     var edad = Model.FechaNacimiento.HasValue
@@ -17,6 +20,8 @@
 }
 
 <main class="PrincipalAdmin">
+
+    <div id="ContenedorMensaje"></div>
 
     <a href="@Url.Action("Estudiantes", "Admin")"
        class="d-inline-flex align-items-center gap-1 small mb-3">
@@ -184,20 +189,41 @@
                 <div class="list-group list-group-flush"
                      id="ListaAreasDificultad">
 
-                    @if (!string.IsNullOrWhiteSpace(Model.AreasDificultad))
+                    @if (Model.Areas != null && Model.Areas.Any())
                     {
-                        var areas = Model.AreasDificultad.Split(
-                            ",",
-                            StringSplitOptions.RemoveEmptyEntries
-                        );
-
-                        foreach (var area in areas)
+                        foreach (var area in Model.Areas)
                         {
                             <div class="list-group-item px-0">
 
-                                <span class="badge badge-etiqueta-morado mb-1">
-                                    @area.Trim()
-                                </span>
+                                <div class="d-flex align-items-start justify-content-between gap-2">
+
+                                    <div>
+
+                                        <span class="badge badge-etiqueta-morado mb-1">
+                                            @area.Nombre
+                                        </span>
+
+                                        @if (!string.IsNullOrWhiteSpace(area.Observacion))
+                                        {
+                                            <p class="TextoSuave small mb-0 mt-1">
+                                                @area.Observacion
+                                            </p>
+                                        }
+
+                                    </div>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary BotonEditarArea"
+                                            title="Editar área"
+                                            data-id-area="@area.IdAreaDificultad"
+                                            data-nombre="@area.Nombre"
+                                            data-observacion="@area.Observacion">
+
+                                        <i class="bi bi-pencil"></i>
+
+                                    </button>
+
+                                </div>
 
                             </div>
                         }
@@ -205,19 +231,15 @@
                     else
                     {
                         <div class="list-group-item px-0">
-
                             <p class="mb-0 TextoSuave">
                                 No hay áreas de dificultad registradas.
                             </p>
-
                         </div>
                     }
 
                 </div>
 
-            </div>
-
-
+            </div> <!-- cierra la Tarjeta de áreas -->
             <!-- Necesidades de apoyo -->
             <div class="Tarjeta p-3 p-md-4">
 
@@ -328,7 +350,10 @@
         <div class="modal-content">
 
             <form id="FormularioAgregarArea"
-                  novalidate>
+                  data-id-estudiante="@Model.IdEstudiante"
+                  data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
 
                 <div class="modal-header">
 
@@ -359,6 +384,8 @@
                                class="form-control"
                                id="NombreArea"
                                name="NombreArea"
+                               maxlength="100"
+                               required
                                placeholder="Ej. Razonamiento lógico-matemático">
 
                     </div>
@@ -375,6 +402,7 @@
                         <textarea class="form-control"
                                   id="ObservacionArea"
                                   name="ObservacionArea"
+                                  maxlength="500"
                                   rows="3"></textarea>
 
                     </div>
@@ -409,6 +437,103 @@
 </div>
 
 
+<!-- Modal editar área -->
+<div class="modal fade"
+     id="ModalEditarArea"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <form id="FormularioEditarArea"
+                  data-id-estudiante="@Model.IdEstudiante"
+                  data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" id="EditarIdArea" />
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        Editar área de dificultad
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar">
+                    </button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label for="EditarNombreArea"
+                               class="form-label">
+
+                            Área
+
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               id="EditarNombreArea"
+                               maxlength="100"
+                               required>
+
+                    </div>
+
+                    <div class="mb-1">
+
+                        <label for="EditarObservacionArea"
+                               class="form-label">
+
+                            Observación
+
+                        </label>
+
+                        <textarea class="form-control"
+                                  id="EditarObservacionArea"
+                                  maxlength="500"
+                                  rows="3"></textarea>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+
+                        Cancelar
+
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+
+                        Guardar cambios
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+
 <!-- Modal editar ficha -->
 <div class="modal fade"
      id="ModalEditarFicha"
@@ -420,7 +545,10 @@
         <div class="modal-content">
 
             <form id="FormularioEditarFicha"
-                  novalidate>
+                  data-id-estudiante="@Model.IdEstudiante"
+                  data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
 
                 <div class="modal-header">
 
@@ -440,41 +568,84 @@
 
                     <div class="row g-3">
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
 
                             <label for="EditarNombreFicha"
                                    class="form-label">
 
-                                Nombre completo
+                                Nombre
 
                             </label>
 
                             <input type="text"
                                    class="form-control"
                                    id="EditarNombreFicha"
-                                   value="@nombreCompleto">
+                                   maxlength="100"
+                                   required
+                                   value="@Model.Nombre">
 
                         </div>
 
 
-                        <div class="col-md-3">
+                        <div class="col-md-4">
 
-                            <label for="EditarEdadFicha"
+                            <label for="EditarPrimerApellidoFicha"
                                    class="form-label">
 
-                                Edad
+                                Primer apellido
 
                             </label>
 
                             <input type="text"
                                    class="form-control"
-                                   id="EditarEdadFicha"
-                                   value="@(edad > 0 ? $"{edad} años" : "")">
+                                   id="EditarPrimerApellidoFicha"
+                                   maxlength="100"
+                                   required
+                                   value="@Model.PrimerApellido">
 
                         </div>
 
 
-                        <div class="col-md-3">
+                        <div class="col-md-4">
+
+                            <label for="EditarSegundoApellidoFicha"
+                                   class="form-label">
+
+                                Segundo apellido
+
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="EditarSegundoApellidoFicha"
+                                   maxlength="100"
+                                   value="@Model.SegundoApellido">
+
+                        </div>
+
+
+                        <div class="col-md-4">
+
+                            <label for="EditarFechaNacimientoFicha"
+                                   class="form-label">
+
+                                Fecha de nacimiento
+
+                            </label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   id="EditarFechaNacimientoFicha"
+                                   inputmode="numeric"
+                                   maxlength="10"
+                                   autocomplete="off"
+                                   placeholder="dd/mm/aaaa"
+                                   value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
+
+                        </div>
+
+
+                        <div class="col-md-4">
 
                             <label for="EditarNivelFicha"
                                    class="form-label">
@@ -483,15 +654,27 @@
 
                             </label>
 
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarNivelFicha"
-                                   value="@Model.NivelEducativo">
+                            <select class="form-select"
+                                    id="EditarNivelFicha">
+
+                                <option value="">Sin especificar</option>
+
+                                @foreach (var nivel in niveles)
+                                {
+                                    <option value="@nivel.IdNivelEducativo"
+                                            selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
+
+                                        @nivel.Nombre
+
+                                    </option>
+                                }
+
+                            </select>
 
                         </div>
 
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
 
                             <label for="EditarInstitucionFicha"
                                    class="form-label">
@@ -503,24 +686,8 @@
                             <input type="text"
                                    class="form-control"
                                    id="EditarInstitucionFicha"
+                                   maxlength="100"
                                    value="@Model.Institucion">
-
-                        </div>
-
-
-                        <div class="col-md-6">
-
-                            <label for="EditarMateriaFicha"
-                                   class="form-label">
-
-                                Área(s) de dificultad
-
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarMateriaFicha"
-                                   value="@Model.AreasDificultad">
 
                         </div>
 
@@ -536,7 +703,25 @@
 
                             <textarea class="form-control"
                                       id="EditarResumenFicha"
+                                      maxlength="1000"
                                       rows="3">@Model.Observaciones</textarea>
+
+                        </div>
+
+
+                        <div class="col-12">
+
+                            <label for="EditarNecesidadesFicha"
+                                   class="form-label">
+
+                                Necesidades de apoyo
+
+                            </label>
+
+                            <textarea class="form-control"
+                                      id="EditarNecesidadesFicha"
+                                      maxlength="1000"
+                                      rows="3">@Model.NecesidadesApoyo</textarea>
 
                         </div>
 
@@ -557,7 +742,7 @@
                     <button type="submit"
                             class="btn btn-primary">
 
-                        Guardar cambios
+                        Actualizar
 
                     </button>
 

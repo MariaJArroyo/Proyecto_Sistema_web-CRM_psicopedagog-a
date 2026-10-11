@@ -12,4 +12,6 @@ public class FichaEstudianteResponse
     public string? AreasDificultad { get; set; }
     public string? Observaciones { get; set; }
     public string? NecesidadesApoyo { get; set; }
+    public int? IdNivelEducativo { get; set; }
+    public List<AreaEstudianteResponse> Areas { get; set; } = new();
 }

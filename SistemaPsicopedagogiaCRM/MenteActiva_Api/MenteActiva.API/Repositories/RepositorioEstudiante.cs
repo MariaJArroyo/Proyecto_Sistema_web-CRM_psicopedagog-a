@@ -1,0 +1,79 @@
+﻿using Dapper;
+using MenteActiva.Api.Infraestructura;
+using MenteActiva.Api.Models;
+
+namespace MenteActiva.Api.Repositories;
+
+public class RepositorioEstudiante : RepositorioBase
+{
+    public RepositorioEstudiante(IConfiguration config)
+        : base(config)
+    {
+    }
+
+    public async Task AgregarAreaAsync(
+        int idEstudiante,
+        string nombreArea,
+        string? observacion,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdEstudiante", idEstudiante);
+        parametros.Add("p_NombreArea", nombreArea.Trim());
+        parametros.Add("p_Observacion", observacion?.Trim());
+
+        await EjecutarAsync(
+            "SP_Estudiante_AgregarArea_CRM",
+            parametros,
+            cancelacion);
+    }
+
+    public async Task EditarAreaAsync(
+    int idEstudiante,
+    int idAreaDificultad,
+    string nombreArea,
+    string? observacion,
+    CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdEstudiante", idEstudiante);
+        parametros.Add("p_IdAreaDificultad", idAreaDificultad);
+        parametros.Add("p_NombreArea", nombreArea.Trim());
+        parametros.Add("p_Observacion", observacion?.Trim());
+
+        await EjecutarAsync(
+            "SP_Estudiante_EditarArea_CRM",
+            parametros,
+            cancelacion);
+    }
+
+    public async Task EditarFichaAsync(
+    int idUsuarioAccion,
+    int idEstudiante,
+    EditarEstudianteRequest datos,
+    CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_IdEstudiante", idEstudiante);
+        parametros.Add("p_Nombre", datos.Nombre.Trim());
+        parametros.Add("p_PrimerApellido", datos.PrimerApellido.Trim());
+        parametros.Add("p_SegundoApellido", datos.SegundoApellido?.Trim());
+        parametros.Add("p_FechaNacimiento", datos.FechaNacimiento?.Date);
+        parametros.Add("p_IdNivelEducativo", datos.IdNivelEducativo);
+        parametros.Add("p_NombreInstitucion", datos.Institucion?.Trim());
+        parametros.Add("p_Observaciones", datos.Observaciones?.Trim());
+        parametros.Add("p_NecesidadesApoyo", datos.NecesidadesApoyo?.Trim());
+
+        await EjecutarAsync(
+            "SP_Estudiante_EditarFicha",
+            parametros,
+            cancelacion);
+    }
+
+
+
+}

@@ -21,4 +21,7 @@ public class FichaEstudianteViewModel
     public string? Observaciones { get; set; }
 
     public string? NecesidadesApoyo { get; set; }
+    public int? IdNivelEducativo { get; set; }
+    public List<AreaEstudianteViewModel> Areas { get; set; } = new();
+
 }

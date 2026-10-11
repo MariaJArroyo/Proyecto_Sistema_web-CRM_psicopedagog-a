@@ -1,8 +1,10 @@
 using Dapper;
+using MenteActiva.Api.Models;
+using MenteActiva.Api.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using MenteActiva.Api.Models;
 using System.Data;
+using System.Security.Claims;
 
 namespace MenteActiva.Api.Controllers;
 
@@ -11,10 +13,14 @@ namespace MenteActiva.Api.Controllers;
 public class EstudiantesController : ControllerBase
 {
     private readonly IConfiguration _config;
+    private readonly RepositorioEstudiante _repositorioEstudiante;
 
-    public EstudiantesController(IConfiguration config)
+    public EstudiantesController(
+        IConfiguration config,
+        RepositorioEstudiante repositorioEstudiante)
     {
         _config = config;
+        _repositorioEstudiante = repositorioEstudiante;
     }
 
     #region VerEstudiante
@@ -46,7 +52,7 @@ public class EstudiantesController : ControllerBase
 
 
     #region ver ficha   
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public IActionResult ConsultarFichaEstudiante(int id)
     {
         using var conexion = new MySqlConnection(
@@ -55,32 +61,122 @@ public class EstudiantesController : ControllerBase
         var parametros = new DynamicParameters();
         parametros.Add("p_IdEstudiante", id);
 
-        try
-        {
-            var estudiante = conexion.QueryFirstOrDefault<FichaEstudianteResponse>(
-                "SP_ConsultarFichaEstudiante_CRM",
-                parametros,
-                commandType: CommandType.StoredProcedure);
+        using var resultados = conexion.QueryMultiple(
+            "SP_ConsultarFichaEstudiante_CRM",
+            parametros,
+            commandType: CommandType.StoredProcedure);
 
-            if (estudiante == null)
-            {
-                return NotFound(new
-                {
-                    mensaje = "No se encontró el estudiante."
-                });
-            }
+        var estudiante =
+            resultados.ReadFirstOrDefault<FichaEstudianteResponse>();
 
-            return Ok(estudiante);
-        }
-        catch (Exception ex)
+        if (estudiante == null)
         {
-            return StatusCode(500, new
+            return NotFound(new
             {
-                mensaje = "Error al consultar la ficha del estudiante.",
-                detalle = ex.Message
+                mensaje = "No se encontró el estudiante."
             });
         }
+
+        estudiante.Areas =
+            resultados.Read<AreaEstudianteResponse>().ToList();
+
+        return Ok(estudiante);
     }
+
+    #endregion
+
+    #region AgregarAreadeDificultad
+
+    [HttpPost("{id:int}/areas")]
+    public async Task<IActionResult> AgregarArea(
+        int id,
+        [FromBody] AgregarAreaEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        await _repositorioEstudiante.AgregarAreaAsync(
+            id,
+            request.NombreArea,
+            request.Observacion,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = "Área de dificultad registrada correctamente."
+        });
+    }
+
+    #endregion
+
+    #region EditarAreadeDificultad
+
+    [HttpPut("{id:int}/areas/{idArea:int}")]
+    public async Task<IActionResult> EditarArea(
+        int id,
+        int idArea,
+        [FromBody] AgregarAreaEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0 || idArea <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Los datos indicados no son válidos."
+            });
+        }
+
+        await _repositorioEstudiante.EditarAreaAsync(
+            id,
+            idArea,
+            request.NombreArea,
+            request.Observacion,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = "Área de dificultad actualizada correctamente."
+        });
+    }
+
+    #endregion
+
+    #region EditarEstudiante
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> EditarEstudiante(
+        int id,
+        [FromBody] EditarEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+        }
+
+        if (request.FechaNacimiento?.Date > DateTime.Today)
+        {
+            return BadRequest(new { mensaje = "La fecha de nacimiento no puede ser futura." });
+        }
+
+        await _repositorioEstudiante.EditarFichaAsync(
+            ObtenerIdUsuarioActual(),
+            id,
+            request,
+            cancelacion);
+
+        return Ok(new { mensaje = "Ficha del estudiante actualizada correctamente." });
+    }
+
+    private int ObtenerIdUsuarioActual()
+        => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     #endregion
 
 }
