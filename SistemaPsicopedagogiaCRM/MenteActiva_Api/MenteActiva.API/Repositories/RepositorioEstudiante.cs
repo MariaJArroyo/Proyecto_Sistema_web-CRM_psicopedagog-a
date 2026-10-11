@@ -30,11 +30,11 @@ public class RepositorioEstudiante : RepositorioBase
     }
 
     public async Task EditarAreaAsync(
-    int idEstudiante,
-    int idAreaDificultad,
-    string nombreArea,
-    string? observacion,
-    CancellationToken cancelacion)
+        int idEstudiante,
+        int idAreaDificultad,
+        string nombreArea,
+        string? observacion,
+        CancellationToken cancelacion)
     {
         var parametros = new DynamicParameters();
 
@@ -50,10 +50,10 @@ public class RepositorioEstudiante : RepositorioBase
     }
 
     public async Task EditarFichaAsync(
-    int idUsuarioAccion,
-    int idEstudiante,
-    EditarEstudianteRequest datos,
-    CancellationToken cancelacion)
+        int idUsuarioAccion,
+        int idEstudiante,
+        EditarEstudianteRequest datos,
+        CancellationToken cancelacion)
     {
         var parametros = new DynamicParameters();
 
@@ -68,12 +68,48 @@ public class RepositorioEstudiante : RepositorioBase
         parametros.Add("p_Observaciones", datos.Observaciones?.Trim());
         parametros.Add("p_NecesidadesApoyo", datos.NecesidadesApoyo?.Trim());
 
+        // El SP en la base se llama SP_Estudiante_EditarFicha (sin _CRM)
         await EjecutarAsync(
             "SP_Estudiante_EditarFicha",
             parametros,
             cancelacion);
     }
 
+    public async Task<IReadOnlyList<EncargadoBusquedaResponse>> BuscarEncargadosAsync(
+        string? texto,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
 
+        parametros.Add("p_Texto", texto?.Trim());
 
+        return await ConsultarAsync<EncargadoBusquedaResponse>(
+            "SP_BuscarEncargados",
+            parametros,
+            cancelacion);
+    }
+
+    public async Task<int> CrearConEncargadoAsync(
+        int idUsuarioAccion,
+        NuevoEstudianteRequest datos,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_Nombre", datos.Nombre.Trim());
+        parametros.Add("p_PrimerApellido", datos.PrimerApellido.Trim());
+        parametros.Add("p_SegundoApellido", datos.SegundoApellido?.Trim());
+        parametros.Add("p_FechaNacimiento", datos.FechaNacimiento?.Date);
+        parametros.Add("p_IdNivelEducativo", datos.IdNivelEducativo);
+        parametros.Add("p_NombreInstitucion", datos.Institucion?.Trim());
+        parametros.Add("p_Observaciones", datos.Observaciones?.Trim());
+        parametros.Add("p_IdEncargado", datos.IdEncargado);
+        parametros.Add("p_IdParentesco", datos.IdParentesco);
+
+        return await EscalarAsync(
+            "SP_Estudiante_CrearConEncargado",
+            parametros,
+            cancelacion);
+    }
 }

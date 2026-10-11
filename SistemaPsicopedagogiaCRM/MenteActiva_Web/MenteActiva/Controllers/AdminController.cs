@@ -565,8 +565,55 @@ public class AdminController : Controller
             .GetFromJsonAsync<List<EstudianteViewModel>>(url)
             .Result;
 
+        // Catálogos para los selects del modal "Nuevo estudiante"
+        ViewBag.NivelesEducativos = client
+            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
+            .Result
+            ?? new List<NivelEducativoViewModel>();
+
+        ViewBag.Parentescos = client
+            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos"))
+            .Result
+            ?? new List<ParentescoViewModel>();
+
         return View(estudiantes ?? new List<EstudianteViewModel>());
     }
+
+    #region Nuevo Estudiante
+
+    // Lookup de persona encargada: reenvía la búsqueda del API tal cual
+    [HttpGet]
+    public Task<IActionResult> BuscarEncargadosEstudiante(
+        string? texto,
+        CancellationToken cancelacion)
+        => ReenviarGetAsync(
+            $"estudiantes/encargados?texto={Uri.EscapeDataString(texto ?? string.Empty)}",
+            cancelacion);
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearEstudiante(NuevoEstudianteViewModel modelo)
+    {
+        if (modelo.FechaNacimiento?.Date > DateTime.Today)
+        {
+            ModelState.AddModelError(nameof(modelo.FechaNacimiento), "La fecha de nacimiento no puede ser futura.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("estudiantes"), modelo);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo registrar el estudiante.");
+    }
+
+    #endregion
 
     #region Ficha Estudiante
 

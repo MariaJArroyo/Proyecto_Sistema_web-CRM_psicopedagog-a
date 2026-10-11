@@ -240,6 +240,8 @@
                 </div>
 
             </div> <!-- cierra la Tarjeta de áreas -->
+
+
             <!-- Necesidades de apoyo -->
             <div class="Tarjeta p-3 p-md-4">
 
@@ -267,6 +269,69 @@
 
         <!-- COLUMNA DERECHA -->
         <div class="col-lg-4">
+
+            <!-- Persona encargada -->
+            <div class="Tarjeta p-3 p-md-4 mb-3">
+
+                <h3 class="mb-3">
+                    Persona encargada
+                </h3>
+
+                @if (Model.Encargados != null && Model.Encargados.Any())
+                {
+                    foreach (var encargado in Model.Encargados)
+                    {
+                        <div class="mb-3">
+
+                            <div class="fw-semibold">
+
+                                @encargado.NombreCompleto
+
+                                @if (encargado.EsPrincipal)
+                                {
+                                    <span class="badge badge-etiqueta-morado ms-1">
+                                        Principal
+                                    </span>
+                                }
+
+                            </div>
+
+                            <div class="TextoSuave small">
+                                @encargado.Parentesco
+                            </div>
+
+                            <ul class="list-unstyled TextoSuave small mb-0 mt-1">
+
+                                @if (!string.IsNullOrWhiteSpace(encargado.Correo))
+                                {
+                                    <li>
+                                        <i class="bi bi-envelope me-2"></i>
+                                        @encargado.Correo
+                                    </li>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(encargado.Identificacion))
+                                {
+                                    <li>
+                                        <i class="bi bi-person-vcard me-2"></i>
+                                        @encargado.Identificacion
+                                    </li>
+                                }
+
+                            </ul>
+
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="TextoSuave mb-0">
+                        No hay persona encargada asociada.
+                    </p>
+                }
+
+            </div>
+
 
             <div class="Tarjeta p-3 p-md-4">
 

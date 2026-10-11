@@ -51,7 +51,7 @@ public class EstudiantesController : ControllerBase
     #endregion
 
 
-    #region ver ficha   
+    #region ver ficha
     [HttpGet("{id:int}")]
     public IActionResult ConsultarFichaEstudiante(int id)
     {
@@ -80,7 +80,53 @@ public class EstudiantesController : ControllerBase
         estudiante.Areas =
             resultados.Read<AreaEstudianteResponse>().ToList();
 
+        estudiante.Encargados =
+            resultados.Read<EncargadoEstudianteResponse>().ToList();
+
         return Ok(estudiante);
+    }
+
+    #endregion
+
+    #region BuscarEncargados
+
+    // Lookup de persona encargada (nombre, cédula o correo)
+    [HttpGet("encargados")]
+    public async Task<IActionResult> BuscarEncargados(
+        [FromQuery] string? texto,
+        CancellationToken cancelacion)
+    {
+        var encargados = await _repositorioEstudiante.BuscarEncargadosAsync(
+            texto,
+            cancelacion);
+
+        return Ok(encargados);
+    }
+
+    #endregion
+
+    #region CrearEstudiante
+
+    [HttpPost]
+    public async Task<IActionResult> CrearEstudiante(
+        [FromBody] NuevoEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (request.FechaNacimiento?.Date > DateTime.Today)
+        {
+            return BadRequest(new { mensaje = "La fecha de nacimiento no puede ser futura." });
+        }
+
+        var idEstudiante = await _repositorioEstudiante.CrearConEncargadoAsync(
+            ObtenerIdUsuarioActual(),
+            request,
+            cancelacion);
+
+        return Ok(new
+        {
+            idEstudiante,
+            mensaje = "Estudiante registrado correctamente."
+        });
     }
 
     #endregion
