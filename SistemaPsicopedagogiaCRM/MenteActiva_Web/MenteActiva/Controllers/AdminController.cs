@@ -5,7 +5,7 @@ using MenteActiva.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
-using System.Text.Json;
+using System.Text.Json; 
 using System.Globalization;
 
 namespace MenteActiva.Controllers;
@@ -565,8 +565,55 @@ public class AdminController : Controller
             .GetFromJsonAsync<List<EstudianteViewModel>>(url)
             .Result;
 
+        // Catálogos para los selects del modal "Nuevo estudiante"
+        ViewBag.NivelesEducativos = client
+            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
+            .Result
+            ?? new List<NivelEducativoViewModel>();
+
+        ViewBag.Parentescos = client
+            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos"))
+            .Result
+            ?? new List<ParentescoViewModel>();
+
         return View(estudiantes ?? new List<EstudianteViewModel>());
     }
+
+    #region Nuevo Estudiante
+
+    // Lookup de persona encargada: reenvía la búsqueda del API tal cual
+    [HttpGet]
+    public Task<IActionResult> BuscarEncargadosEstudiante(
+        string? texto,
+        CancellationToken cancelacion)
+        => ReenviarGetAsync(
+            $"estudiantes/encargados?texto={Uri.EscapeDataString(texto ?? string.Empty)}",
+            cancelacion);
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CrearEstudiante(NuevoEstudianteViewModel modelo)
+    {
+        if (modelo.FechaNacimiento?.Date > DateTime.Today)
+        {
+            ModelState.AddModelError(nameof(modelo.FechaNacimiento), "La fecha de nacimiento no puede ser futura.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("estudiantes"), modelo);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo registrar el estudiante.");
+    }
+
+    #endregion
 
     #region Ficha Estudiante
 
@@ -586,10 +633,117 @@ public class AdminController : Controller
         {
             return RedirectToAction("Estudiantes");
         }
+        ViewBag.NivelesEducativos = client
+    .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
+    .Result
+    ?? new List<NivelEducativoViewModel>();
 
         return View(estudiante);
     }
+    #endregion
 
+    #region Editar Ficha Estudiante
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarFichaEstudiante(EditarFichaEstudianteViewModel modelo)
+    {
+        if (modelo.IdEstudiante <= 0)
+        {
+            ModelState.AddModelError(nameof(modelo.IdEstudiante), "El estudiante indicado no es válido.");
+        }
+
+        if (modelo.FechaNacimiento?.Date > DateTime.Today)
+        {
+            ModelState.AddModelError(nameof(modelo.FechaNacimiento), "La fecha de nacimiento no puede ser futura.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"estudiantes/{modelo.IdEstudiante}"),
+            modelo);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo actualizar la ficha del estudiante.");
+    }
+
+    #endregion
+
+    #region Agregar Area Estudiante
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AgregarAreaEstudiante(
+        int idEstudiante,
+        string nombreArea,
+        string? observacion)
+    {
+        if (idEstudiante <= 0 || string.IsNullOrWhiteSpace(nombreArea))
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe ingresar un área de dificultad válida."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var datos = new
+        {
+            NombreArea = nombreArea.Trim(),
+            Observacion = observacion?.Trim()
+        };
+
+        var respuesta = await client.PostAsJsonAsync(
+            UrlApi($"estudiantes/{idEstudiante}/areas"),
+            datos);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo registrar el área de dificultad.");
+    }
+
+    #endregion
+
+    #region EditarArea
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditarAreaEstudiante(
+    int idEstudiante,
+    int idArea,
+    string nombreArea,
+    string? observacion)
+    {
+        if (idEstudiante <= 0 || idArea <= 0 || string.IsNullOrWhiteSpace(nombreArea))
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe ingresar un área de dificultad válida."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var datos = new
+        {
+            NombreArea = nombreArea.Trim(),
+            Observacion = observacion?.Trim()
+        };
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"estudiantes/{idEstudiante}/areas/{idArea}"),
+            datos);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo actualizar el área de dificultad.");
+    }
     #endregion
 
     #endregion
@@ -599,8 +753,10 @@ public class AdminController : Controller
     public IActionResult Dashboard() => View();
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
-    public IActionResult Pagos() => View();
+    public IActionResult Pagos() => View(); 
 
+
+  #region Planes de Intervencion
     public async Task<IActionResult> Planes()
     {
         using var client = _http.CreateClient();
@@ -1002,9 +1158,7 @@ public class AdminController : Controller
         return Ok(resultado ?? new List<ActividadViewModel>());
     }
 
-
-
-
+   #endregion
 
 
     public IActionResult Reportes() => View();

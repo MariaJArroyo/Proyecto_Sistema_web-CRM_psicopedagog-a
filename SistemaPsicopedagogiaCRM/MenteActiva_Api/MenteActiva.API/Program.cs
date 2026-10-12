@@ -53,6 +53,9 @@ builder.Services.AddScoped<IServicioConfiguracion, ServicioConfiguracion>();
 builder.Services.AddScoped<IRepositorioSesion, RepositorioSesion>();
 builder.Services.AddScoped<IServicioSesiones, ServicioSesiones>();
 
+// ---------- Estudiantes ----------
+builder.Services.AddScoped<RepositorioEstudiante>();
+
 // ---------- Errores ----------
 builder.Services.AddExceptionHandler<ManejadorExcepciones>();
 builder.Services.AddProblemDetails();

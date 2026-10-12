@@ -7,9 +7,12 @@ public class FichaEstudianteResponse
     public string PrimerApellido { get; set; } = string.Empty;
     public string? SegundoApellido { get; set; }
     public DateTime? FechaNacimiento { get; set; }
+    public int? IdNivelEducativo { get; set; }
     public string? NivelEducativo { get; set; }
     public string? Institucion { get; set; }
     public string? AreasDificultad { get; set; }
     public string? Observaciones { get; set; }
     public string? NecesidadesApoyo { get; set; }
+    public List<AreaEstudianteResponse> Areas { get; set; } = new();
+    public List<EncargadoEstudianteResponse> Encargados { get; set; } = new();
 }

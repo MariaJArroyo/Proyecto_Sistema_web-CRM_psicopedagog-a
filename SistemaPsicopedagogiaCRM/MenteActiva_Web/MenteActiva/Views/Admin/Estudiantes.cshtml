@@ -2,9 +2,17 @@
 
 @{
     ViewData["Title"] = "Estudiantes";
+
+    var niveles = ViewBag.NivelesEducativos as List<MenteActiva.Models.NivelEducativoViewModel>
+                  ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+
+    var parentescos = ViewBag.Parentescos as List<MenteActiva.Models.ParentescoViewModel>
+                      ?? new List<MenteActiva.Models.ParentescoViewModel>();
 }
 
 <div class="container-fluid">
+
+    <div id="ContenedorMensaje"></div>
 
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -132,10 +140,7 @@
 
                                     <td class="TablaAcciones text-center">
 
-                                        <a href="@Url.Action(
-                                                                                       "EstudianteFicha",
-                                                                                       "Admin",
-                                                                                       new { id = estudiante.IdEstudiante })"
+                                        <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
                                            class="btn btn-sm btn-outline-secondary border-0"
                                            data-bs-toggle="tooltip"
                                            title="Ver ficha">
@@ -190,54 +195,87 @@
 
         <div class="modal-content">
 
-            <div class="modal-header">
+            <form id="FormularioNuevoEstudiante"
+                  novalidate
+                  data-url="@Url.Action("CrearEstudiante", "Admin")"
+                  data-url-encargados="@Url.Action("BuscarEncargadosEstudiante", "Admin")">
 
-                <div>
-                    <h5 class="modal-title" id="ModalNuevoEstudianteLabel">
-                        Nuevo estudiante
-                    </h5>
+                @Html.AntiForgeryToken()
 
-                    <small class="text-muted">
-                        Registre la información general del estudiante.
-                    </small>
+                <div class="modal-header">
+
+                    <div>
+                        <h5 class="modal-title" id="ModalNuevoEstudianteLabel">
+                            Nuevo estudiante
+                        </h5>
+
+                        <small class="text-muted">
+                            Registre al estudiante y asócielo a una persona encargada.
+                        </small>
+                    </div>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar">
+                    </button>
+
                 </div>
 
-                <button type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Cerrar">
-                </button>
-
-            </div>
-
-            <div class="modal-body">
-
-                <form id="FormularioNuevoEstudiante">
+                <div class="modal-body">
 
                     <div class="row g-3">
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label for="NombreEstudiante" class="form-label">
                                 Nombre
                             </label>
 
                             <input type="text"
                                    id="NombreEstudiante"
-                                   class="form-control">
+                                   class="form-control"
+                                   maxlength="100"
+                                   required>
                         </div>
 
-                        <div class="col-md-6">
-                            <label for="EdadEstudiante" class="form-label">
-                                Edad
+                        <div class="col-md-4">
+                            <label for="PrimerApellidoEstudiante" class="form-label">
+                                Primer apellido
                             </label>
 
-                            <input type="number"
-                                   id="EdadEstudiante"
+                            <input type="text"
+                                   id="PrimerApellidoEstudiante"
                                    class="form-control"
-                                   min="0">
+                                   maxlength="100"
+                                   required>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label for="SegundoApellidoEstudiante" class="form-label">
+                                Segundo apellido
+                            </label>
+
+                            <input type="text"
+                                   id="SegundoApellidoEstudiante"
+                                   class="form-control"
+                                   maxlength="100">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="FechaNacimientoEstudiante" class="form-label">
+                                Fecha de nacimiento
+                            </label>
+
+                            <input type="text"
+                                   id="FechaNacimientoEstudiante"
+                                   class="form-control"
+                                   inputmode="numeric"
+                                   maxlength="10"
+                                   autocomplete="off"
+                                   placeholder="dd/mm/aaaa">
+                        </div>
+
+                        <div class="col-md-4">
                             <label for="NivelEducativo" class="form-label">
                                 Nivel educativo
                             </label>
@@ -245,43 +283,76 @@
                             <select id="NivelEducativo"
                                     class="form-select">
 
-                                <option value="">
-                                    Seleccione...
-                                </option>
+                                <option value="">Sin especificar</option>
 
-                                <option value="Preescolar">
-                                    Preescolar
-                                </option>
-
-                                <option value="Primaria">
-                                    Primaria
-                                </option>
-
-                                <option value="Secundaria">
-                                    Secundaria
-                                </option>
+                                @foreach (var nivel in niveles)
+                                {
+                                    <option value="@nivel.IdNivelEducativo">
+                                        @nivel.Nombre
+                                    </option>
+                                }
 
                             </select>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label for="Institucion" class="form-label">
                                 Institución
                             </label>
 
                             <input type="text"
                                    id="Institucion"
-                                   class="form-control">
+                                   class="form-control"
+                                   maxlength="100">
                         </div>
 
-                        <div class="col-md-12">
-                            <label for="PersonaEncargada" class="form-label">
+                        <!-- Lookup de persona encargada -->
+                        <div class="col-md-8">
+                            <label for="BuscarEncargadoLookup" class="form-label">
                                 Persona encargada
                             </label>
 
-                            <input type="text"
-                                   id="PersonaEncargada"
-                                   class="form-control">
+                            <div class="position-relative">
+
+                                <input type="text"
+                                       id="BuscarEncargadoLookup"
+                                       class="form-control"
+                                       placeholder="Escriba nombre, cédula o correo para buscar..."
+                                       autocomplete="off">
+
+                                <input type="hidden"
+                                       id="IdEncargadoSeleccionado">
+
+                                <div id="ResultadosEncargado"
+                                     class="list-group position-absolute w-100 shadow-sm d-none"
+                                     style="z-index: 1056; max-height: 220px; overflow-y: auto;">
+                                </div>
+
+                            </div>
+
+                            <div id="EncargadoSeleccionado"
+                                 class="form-text">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="ParentescoEstudiante" class="form-label">
+                                Parentesco
+                            </label>
+
+                            <select id="ParentescoEstudiante"
+                                    class="form-select">
+
+                                <option value="">Seleccione...</option>
+
+                                @foreach (var parentesco in parentescos)
+                                {
+                                    <option value="@parentesco.IdParentesco">
+                                        @parentesco.Nombre
+                                    </option>
+                                }
+
+                            </select>
                         </div>
 
                         <div class="col-md-12">
@@ -292,29 +363,30 @@
 
                             <textarea id="ObservacionesEstudiante"
                                       class="form-control"
+                                      maxlength="1000"
                                       rows="3"></textarea>
                         </div>
 
                     </div>
 
-                </form>
+                </div>
 
-            </div>
+                <div class="modal-footer">
 
-            <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
 
-                <button type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal">
-                    Cancelar
-                </button>
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Guardar estudiante
+                    </button>
 
-                <button type="button"
-                        class="btn btn-primary">
-                    Guardar estudiante
-                </button>
+                </div>
 
-            </div>
+            </form>
 
         </div>
 

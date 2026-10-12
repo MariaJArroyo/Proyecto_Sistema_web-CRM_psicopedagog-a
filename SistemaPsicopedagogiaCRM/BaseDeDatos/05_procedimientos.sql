@@ -1669,6 +1669,9 @@ BEGIN
 END$$
 DELIMITER ;
 
+
+-- Ficha del estudiante. Devuelve tres resultados, en este orden:
+-- 1) datos del estudiante, 2) sus areas de dificultad, 3) sus encargados.
 DROP PROCEDURE IF EXISTS SP_ConsultarFichaEstudiante_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_ConsultarFichaEstudiante_CRM(
@@ -1682,50 +1685,373 @@ BEGIN
         e.PrimerApellido,
         e.SegundoApellido,
         e.FechaNacimiento,
-
+        e.IdNivelEducativo,
         ne.Nombre AS NivelEducativo,
-
         i.Nombre AS Institucion,
-
         GROUP_CONCAT(
             DISTINCT ad.Nombre
             ORDER BY ad.Nombre
             SEPARATOR ', '
         ) AS AreasDificultad,
-
         e.Observaciones,
         e.NecesidadesApoyo
-
     FROM TB_ESTUDIANTE e
-
     LEFT JOIN TB_NIVEL_EDUCATIVO ne
         ON ne.IdNivelEducativo = e.IdNivelEducativo
-
     LEFT JOIN TB_INSTITUCION i
         ON i.IdInstitucion = e.IdInstitucion
-
     LEFT JOIN TB_ESTUDIANTE_AREA ea
         ON ea.IdEstudiante = e.IdEstudiante
-
     LEFT JOIN TB_AREA_DIFICULTAD ad
         ON ad.IdAreaDificultad = ea.IdAreaDificultad
-
     WHERE e.IdEstudiante = p_IdEstudiante
       AND e.Activo = 1
-
     GROUP BY
         e.IdEstudiante,
         e.Nombre,
         e.PrimerApellido,
         e.SegundoApellido,
         e.FechaNacimiento,
+        e.IdNivelEducativo,
         ne.Nombre,
         i.Nombre,
         e.Observaciones,
         e.NecesidadesApoyo;
 
+    SELECT
+        ea.IdAreaDificultad,
+        ad.Nombre,
+        ea.Observacion
+    FROM TB_ESTUDIANTE_AREA ea
+    INNER JOIN TB_AREA_DIFICULTAD ad
+        ON ad.IdAreaDificultad = ea.IdAreaDificultad
+    WHERE ea.IdEstudiante = p_IdEstudiante
+    ORDER BY ad.Nombre;
+
+    -- Personas encargadas del estudiante (la principal primero)
+    SELECT
+        en.IdEncargado,
+        CONCAT_WS(' ', en.Nombre, en.PrimerApellido, en.SegundoApellido) AS NombreCompleto,
+        en.Identificacion,
+        en.Correo,
+        pa.Nombre AS Parentesco,
+        ee.EsPrincipal
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    INNER JOIN TB_ENCARGADO en
+        ON en.IdEncargado = ee.IdEncargado
+    INNER JOIN TB_PARENTESCO pa
+        ON pa.IdParentesco = ee.IdParentesco
+    WHERE ee.IdEstudiante = p_IdEstudiante
+    ORDER BY ee.EsPrincipal DESC, NombreCompleto;
+
 END$$
 DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarArea_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_AgregarArea_CRM(
+    IN p_IdEstudiante INT,
+    IN p_NombreArea VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_IdAreaDificultad INT;
+    DECLARE v_NombreArea VARCHAR(100);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_NombreArea = TRIM(p_NombreArea);
+
+    IF v_NombreArea IS NULL OR v_NombreArea = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    START TRANSACTION;
+
+    -- Buscar el área existente o crearla si es nueva.
+    INSERT INTO TB_AREA_DIFICULTAD (Nombre)
+    VALUES (v_NombreArea)
+    ON DUPLICATE KEY UPDATE
+        IdAreaDificultad = LAST_INSERT_ID(IdAreaDificultad);
+
+    SET v_IdAreaDificultad = LAST_INSERT_ID();
+
+    -- Evitar duplicar el área en el mismo estudiante.
+    IF EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = v_IdAreaDificultad
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta área de dificultad.';
+    END IF;
+
+    -- Asociar el área con el estudiante y guardar la observación.
+    INSERT INTO TB_ESTUDIANTE_AREA (
+        IdEstudiante,
+        IdAreaDificultad,
+        Observacion
+    )
+    VALUES (
+        p_IdEstudiante,
+        v_IdAreaDificultad,
+        NULLIF(TRIM(p_Observacion), '')
+    );
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarArea_CRM;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_EditarArea_CRM(
+    IN p_IdEstudiante INT,
+    IN p_IdAreaDificultad INT,
+    IN p_NombreArea VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_NuevoIdArea INT;
+    DECLARE v_NombreArea VARCHAR(100);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_NombreArea = TRIM(p_NombreArea);
+
+    IF v_NombreArea IS NULL OR v_NombreArea = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = p_IdAreaDificultad
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El área indicada no está registrada para este estudiante.';
+    END IF;
+
+    START TRANSACTION;
+
+    -- Busca el área por nombre o la crea si es nueva (si no cambió, devuelve la misma)
+    INSERT INTO TB_AREA_DIFICULTAD (Nombre)
+    VALUES (v_NombreArea)
+    ON DUPLICATE KEY UPDATE
+        IdAreaDificultad = LAST_INSERT_ID(IdAreaDificultad);
+
+    SET v_NuevoIdArea = LAST_INSERT_ID();
+
+    -- Si cambió de área, evitar que choque con otra que el estudiante ya tiene
+    IF v_NuevoIdArea <> p_IdAreaDificultad AND EXISTS (
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = v_NuevoIdArea
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta área de dificultad.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_AREA
+    SET IdAreaDificultad = v_NuevoIdArea,
+        Observacion = NULLIF(TRIM(p_Observacion), '')
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdAreaDificultad = p_IdAreaDificultad;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_BuscarEncargados;
+DELIMITER $$
+CREATE PROCEDURE SP_BuscarEncargados(
+    IN p_Texto VARCHAR(100)
+)
+BEGIN
+    DECLARE v_Texto VARCHAR(110);
+
+    SET v_Texto = CONCAT('%', TRIM(IFNULL(p_Texto, '')), '%');
+
+    SELECT
+        en.IdEncargado,
+        CONCAT_WS(' ', en.Nombre, en.PrimerApellido, en.SegundoApellido) AS NombreCompleto,
+        en.Identificacion,
+        en.Correo
+    FROM TB_ENCARGADO en
+    WHERE en.Activo = 1
+      AND (
+            CONCAT_WS(' ', en.Nombre, en.PrimerApellido, en.SegundoApellido) LIKE v_Texto
+         OR en.Identificacion LIKE v_Texto
+         OR en.Correo LIKE v_Texto
+      )
+    ORDER BY NombreCompleto
+    LIMIT 20;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarFicha;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_EditarFicha(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEstudiante INT,
+    IN p_Nombre VARCHAR(100),
+    IN p_PrimerApellido VARCHAR(100),
+    IN p_SegundoApellido VARCHAR(100),
+    IN p_FechaNacimiento DATE,
+    IN p_IdNivelEducativo INT,
+    IN p_NombreInstitucion VARCHAR(100),
+    IN p_Observaciones VARCHAR(1000),
+    IN p_NecesidadesApoyo VARCHAR(1000)
+)
+BEGIN
+    DECLARE v_IdInstitucion INT DEFAULT NULL;
+    DECLARE v_NombreInstitucion VARCHAR(100);
+
+    SET v_NombreInstitucion = NULLIF(TRIM(p_NombreInstitucion), '');
+
+    IF NULLIF(TRIM(p_Nombre), '') IS NULL
+       OR NULLIF(TRIM(p_PrimerApellido), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El nombre y el primer apellido son obligatorios.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    -- Institución escrita a mano: se busca por nombre y, si no existe, se crea
+    IF v_NombreInstitucion IS NOT NULL THEN
+
+        SELECT IdInstitucion INTO v_IdInstitucion
+        FROM TB_INSTITUCION
+        WHERE Nombre = v_NombreInstitucion
+        LIMIT 1;
+
+        IF v_IdInstitucion IS NULL THEN
+            INSERT INTO TB_INSTITUCION (Nombre) VALUES (v_NombreInstitucion);
+            SET v_IdInstitucion = LAST_INSERT_ID();
+        END IF;
+
+    END IF;
+
+    CALL SP_Estudiante_Editar(
+        p_IdUsuarioAccion,
+        p_IdEstudiante,
+        TRIM(p_Nombre),
+        TRIM(p_PrimerApellido),
+        NULLIF(TRIM(p_SegundoApellido), ''),
+        p_FechaNacimiento,
+        p_IdNivelEducativo,
+        v_IdInstitucion,
+        NULLIF(TRIM(p_Observaciones), ''),
+        NULLIF(TRIM(p_NecesidadesApoyo), ''),
+        NULL
+    );
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_CrearConEncargado;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_CrearConEncargado(
+    IN p_IdUsuarioAccion INT,
+    IN p_Nombre VARCHAR(100),
+    IN p_PrimerApellido VARCHAR(100),
+    IN p_SegundoApellido VARCHAR(100),
+    IN p_FechaNacimiento DATE,
+    IN p_IdNivelEducativo INT,
+    IN p_NombreInstitucion VARCHAR(100),
+    IN p_Observaciones VARCHAR(1000),
+    IN p_IdEncargado INT,
+    IN p_IdParentesco INT
+)
+BEGIN
+    DECLARE v_IdInstitucion INT DEFAULT NULL;
+    DECLARE v_NombreInstitucion VARCHAR(100);
+
+    SET v_NombreInstitucion = NULLIF(TRIM(p_NombreInstitucion), '');
+
+    IF NULLIF(TRIM(p_Nombre), '') IS NULL
+       OR NULLIF(TRIM(p_PrimerApellido), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El nombre y el primer apellido son obligatorios.';
+    END IF;
+
+    IF p_IdEncargado IS NULL OR p_IdEncargado <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe seleccionar la persona encargada.';
+    END IF;
+
+    IF p_IdParentesco IS NULL OR p_IdParentesco <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe seleccionar el parentesco.';
+    END IF;
+
+    IF v_NombreInstitucion IS NOT NULL THEN
+
+        SELECT IdInstitucion INTO v_IdInstitucion
+        FROM TB_INSTITUCION
+        WHERE Nombre = v_NombreInstitucion
+        LIMIT 1;
+
+        IF v_IdInstitucion IS NULL THEN
+            INSERT INTO TB_INSTITUCION (Nombre) VALUES (v_NombreInstitucion);
+            SET v_IdInstitucion = LAST_INSERT_ID();
+        END IF;
+
+    END IF;
+
+    -- Devuelve el IdEstudiante (el SELECT final de SP_Estudiante_Crear)
+    CALL SP_Estudiante_Crear(
+        p_IdUsuarioAccion,
+        TRIM(p_Nombre),
+        TRIM(p_PrimerApellido),
+        NULLIF(TRIM(p_SegundoApellido), ''),
+        p_FechaNacimiento,
+        p_IdNivelEducativo,
+        v_IdInstitucion,
+        NULLIF(TRIM(p_Observaciones), ''),
+        NULL,
+        p_IdEncargado,
+        p_IdParentesco,
+        NULL
+    );
+END$$
+DELIMITER ;
+
+
+
+
+
+
 
 -- ============================================================
 -- 4. Agenda y citas
