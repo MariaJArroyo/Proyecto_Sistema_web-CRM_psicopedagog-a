@@ -1673,25 +1673,32 @@ DELIMITER ;
 -- Ficha del estudiante. Devuelve tres resultados, en este orden:
 -- 1) datos del estudiante, 2) sus areas de dificultad, 3) sus encargados.
 DROP PROCEDURE IF EXISTS SP_ConsultarFichaEstudiante_CRM;
+
 DELIMITER $$
+
 CREATE PROCEDURE SP_ConsultarFichaEstudiante_CRM(
     IN p_IdEstudiante INT
 )
 BEGIN
-
+    -- 1. Datos generales del estudiante
     SELECT
         e.IdEstudiante,
         e.Nombre,
         e.PrimerApellido,
         e.SegundoApellido,
         e.FechaNacimiento,
-        e.IdNivelEducativo,
         ne.Nombre AS NivelEducativo,
         i.Nombre AS Institucion,
-        GROUP_CONCAT(
-            DISTINCT ad.Nombre
-            ORDER BY ad.Nombre
-            SEPARATOR ', '
+        (
+            SELECT GROUP_CONCAT(
+                ad.Nombre
+                ORDER BY ad.Nombre
+                SEPARATOR ', '
+            )
+            FROM TB_ESTUDIANTE_AREA ea
+            INNER JOIN TB_AREA_DIFICULTAD ad
+                ON ad.IdAreaDificultad = ea.IdAreaDificultad
+            WHERE ea.IdEstudiante = e.IdEstudiante
         ) AS AreasDificultad,
         e.Observaciones,
         e.NecesidadesApoyo
@@ -1700,51 +1707,55 @@ BEGIN
         ON ne.IdNivelEducativo = e.IdNivelEducativo
     LEFT JOIN TB_INSTITUCION i
         ON i.IdInstitucion = e.IdInstitucion
-    LEFT JOIN TB_ESTUDIANTE_AREA ea
-        ON ea.IdEstudiante = e.IdEstudiante
-    LEFT JOIN TB_AREA_DIFICULTAD ad
-        ON ad.IdAreaDificultad = ea.IdAreaDificultad
     WHERE e.IdEstudiante = p_IdEstudiante
-      AND e.Activo = 1
-    GROUP BY
-        e.IdEstudiante,
-        e.Nombre,
-        e.PrimerApellido,
-        e.SegundoApellido,
-        e.FechaNacimiento,
-        e.IdNivelEducativo,
-        ne.Nombre,
-        i.Nombre,
-        e.Observaciones,
-        e.NecesidadesApoyo;
+      AND e.Activo = 1;
 
+    -- 2. Áreas individuales y observaciones del estudiante
     SELECT
+        ea.IdEstudianteArea,
         ea.IdAreaDificultad,
         ad.Nombre,
+        ad.Descripcion,
         ea.Observacion
     FROM TB_ESTUDIANTE_AREA ea
     INNER JOIN TB_AREA_DIFICULTAD ad
         ON ad.IdAreaDificultad = ea.IdAreaDificultad
+    INNER JOIN TB_ESTUDIANTE e
+        ON e.IdEstudiante = ea.IdEstudiante
     WHERE ea.IdEstudiante = p_IdEstudiante
-    ORDER BY ad.Nombre;
+      AND e.Activo = 1
+    ORDER BY ad.Nombre, ea.IdEstudianteArea;
 
-    -- Personas encargadas del estudiante (la principal primero)
+    -- 3. Encargados del estudiante
     SELECT
-        en.IdEncargado,
-        CONCAT_WS(' ', en.Nombre, en.PrimerApellido, en.SegundoApellido) AS NombreCompleto,
-        en.Identificacion,
-        en.Correo,
-        pa.Nombre AS Parentesco,
+        ee.IdEstudianteEncargado,
+        enc.IdEncargado,
+        enc.Nombre,
+        enc.PrimerApellido,
+        enc.SegundoApellido,
+        CONCAT_WS(
+            ' ',
+            enc.Nombre,
+            enc.PrimerApellido,
+            NULLIF(enc.SegundoApellido, '')
+        ) AS NombreCompleto,
+        enc.Correo,
+        ee.IdParentesco,
+        p.Nombre AS Parentesco,
         ee.EsPrincipal
     FROM TB_ESTUDIANTE_ENCARGADO ee
-    INNER JOIN TB_ENCARGADO en
-        ON en.IdEncargado = ee.IdEncargado
-    INNER JOIN TB_PARENTESCO pa
-        ON pa.IdParentesco = ee.IdParentesco
+    INNER JOIN TB_ENCARGADO enc
+        ON enc.IdEncargado = ee.IdEncargado
+    INNER JOIN TB_PARENTESCO p
+        ON p.IdParentesco = ee.IdParentesco
+    INNER JOIN TB_ESTUDIANTE e
+        ON e.IdEstudiante = ee.IdEstudiante
     WHERE ee.IdEstudiante = p_IdEstudiante
-    ORDER BY ee.EsPrincipal DESC, NombreCompleto;
-
+      AND e.Activo = 1
+      AND enc.Activo = 1
+    ORDER BY ee.EsPrincipal DESC, enc.Nombre, enc.IdEncargado;
 END$$
+
 DELIMITER ;
 
 
