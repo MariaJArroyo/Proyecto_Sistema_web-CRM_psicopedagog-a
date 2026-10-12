@@ -3,10 +3,12 @@
 @{
     ViewData["Title"] = "Ficha de estudiante";
 
-    var niveles = ViewBag.NivelesEducativos as List<MenteActiva.Models.NivelEducativoViewModel>
-                  ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+    var niveles = ViewBag.NivelesEducativos
+        as List<MenteActiva.Models.NivelEducativoViewModel>
+        ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
 
-    var nombreCompleto = $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
+    var nombreCompleto =
+        $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
 
     var edad = Model.FechaNacimiento.HasValue
         ? DateTime.Today.Year
@@ -25,18 +27,14 @@
 
     <a href="@Url.Action("Estudiantes", "Admin")"
        class="d-inline-flex align-items-center gap-1 small mb-3">
-
         <i class="bi bi-arrow-left"></i>
         Volver a estudiantes
-
     </a>
-
 
     <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
 
         <div>
-
             <h2 class="mb-1" id="FichaNombre">
                 @nombreCompleto
             </h2>
@@ -44,30 +42,25 @@
             <p class="TextoSuave mb-0">
                 Información individual del estudiante
             </p>
-
         </div>
 
         <button type="button"
                 class="btn btn-outline-primary"
                 data-bs-toggle="modal"
                 data-bs-target="#ModalEditarFicha">
-
             <i class="bi bi-pencil me-1"></i>
             Editar ficha
-
         </button>
 
     </div>
 
+    <!-- Datos del estudiante y persona encargada -->
+    <div class="row g-3 mb-3">
 
-    <div class="row g-3">
+        <!-- Datos generales -->
+        <div class="col-lg-7">
 
-        <!-- CONTENIDO PRINCIPAL -->
-        <div class="col-lg-8">
-
-
-            <!-- Datos generales -->
-            <div class="Tarjeta p-3 p-md-4 mb-3">
+            <div class="Tarjeta p-3 p-md-4 h-100">
 
                 <h3 class="mb-3">
                     Datos generales
@@ -78,200 +71,50 @@
                     <dt class="col-sm-4 TextoSuave fw-normal">
                         Nombre completo
                     </dt>
-
-                    <dd class="col-sm-8"
-                        id="FichaDatoNombre">
-
+                    <dd class="col-sm-8" id="FichaDatoNombre">
                         @nombreCompleto
-
                     </dd>
 
+                    <dt class="col-sm-4 TextoSuave fw-normal">
+                        Fecha de nacimiento
+                    </dt>
+                    <dd class="col-sm-8" id="FichaDatoFechaNacimiento">
+                        @(Model.FechaNacimiento.HasValue
+                            ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy")
+                            : "-")
+                    </dd>
 
                     <dt class="col-sm-4 TextoSuave fw-normal">
                         Edad
                     </dt>
-
-                    <dd class="col-sm-8"
-                        id="FichaDatoEdad">
-
+                    <dd class="col-sm-8" id="FichaDatoEdad">
                         @(edad > 0 ? $"{edad} años" : "-")
-
                     </dd>
-
 
                     <dt class="col-sm-4 TextoSuave fw-normal">
                         Nivel educativo
                     </dt>
-
-                    <dd class="col-sm-8"
-                        id="FichaDatoNivel">
-
+                    <dd class="col-sm-8" id="FichaDatoNivel">
                         @(Model.NivelEducativo ?? "-")
-
                     </dd>
-
 
                     <dt class="col-sm-4 TextoSuave fw-normal">
                         Institución
                     </dt>
-
-                    <dd class="col-sm-8 mb-0"
-                        id="FichaDatoInstitucion">
-
+                    <dd class="col-sm-8 mb-0" id="FichaDatoInstitucion">
                         @(Model.Institucion ?? "-")
-
                     </dd>
 
                 </dl>
-
-            </div>
-
-
-            <!-- Información académica -->
-            <div class="Tarjeta p-3 p-md-4 mb-3">
-
-                <h3 class="mb-3">
-                    Información académica
-                </h3>
-
-                <dl class="row mb-0">
-
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Áreas de dificultad
-                    </dt>
-
-                    <dd class="col-sm-8"
-                        id="FichaDatoMateria">
-
-                        @(Model.AreasDificultad ?? "No registradas")
-
-                    </dd>
-
-
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Resumen
-                    </dt>
-
-                    <dd class="col-sm-8 mb-0"
-                        id="FichaDatoResumen">
-
-                        @(Model.Observaciones ?? "No hay observaciones registradas.")
-
-                    </dd>
-
-                </dl>
-
-            </div>
-
-
-            <!-- Áreas de dificultad -->
-            <div class="Tarjeta p-3 p-md-4 mb-3">
-
-                <div class="d-flex align-items-center justify-content-between mb-3">
-
-                    <h3 class="mb-0">
-                        Áreas de dificultad
-                    </h3>
-
-                    <button type="button"
-                            class="btn btn-sm btn-outline-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#ModalAgregarArea">
-
-                        <i class="bi bi-plus-lg me-1"></i>
-                        Agregar área
-
-                    </button>
-
-                </div>
-
-
-                <div class="list-group list-group-flush"
-                     id="ListaAreasDificultad">
-
-                    @if (Model.Areas != null && Model.Areas.Any())
-                    {
-                        foreach (var area in Model.Areas)
-                        {
-                            <div class="list-group-item px-0">
-
-                                <div class="d-flex align-items-start justify-content-between gap-2">
-
-                                    <div>
-
-                                        <span class="badge badge-etiqueta-morado mb-1">
-                                            @area.Nombre
-                                        </span>
-
-                                        @if (!string.IsNullOrWhiteSpace(area.Observacion))
-                                        {
-                                            <p class="TextoSuave small mb-0 mt-1">
-                                                @area.Observacion
-                                            </p>
-                                        }
-
-                                    </div>
-
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-secondary BotonEditarArea"
-                                            title="Editar área"
-                                            data-id-area="@area.IdAreaDificultad"
-                                            data-nombre="@area.Nombre"
-                                            data-observacion="@area.Observacion">
-
-                                        <i class="bi bi-pencil"></i>
-
-                                    </button>
-
-                                </div>
-
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="list-group-item px-0">
-                            <p class="mb-0 TextoSuave">
-                                No hay áreas de dificultad registradas.
-                            </p>
-                        </div>
-                    }
-
-                </div>
-
-            </div> <!-- cierra la Tarjeta de áreas -->
-
-
-            <!-- Necesidades de apoyo -->
-            <div class="Tarjeta p-3 p-md-4">
-
-                <h3 class="mb-3">
-                    Necesidades de apoyo
-                </h3>
-
-                @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
-                {
-                    <p class="mb-0">
-                        @Model.NecesidadesApoyo
-                    </p>
-                }
-                else
-                {
-                    <p class="TextoSuave mb-0">
-                        No hay necesidades de apoyo registradas.
-                    </p>
-                }
 
             </div>
 
         </div>
 
+        <!-- Persona encargada -->
+        <div class="col-lg-5">
 
-        <!-- COLUMNA DERECHA -->
-        <div class="col-lg-4">
-
-            <!-- Persona encargada -->
-            <div class="Tarjeta p-3 p-md-4 mb-3">
+            <div class="Tarjeta p-3 p-md-4 h-100">
 
                 <h3 class="mb-3">
                     Persona encargada
@@ -279,49 +122,55 @@
 
                 @if (Model.Encargados != null && Model.Encargados.Any())
                 {
-                    foreach (var encargado in Model.Encargados)
-                    {
-                        <div class="mb-3">
+                    <div class="d-flex flex-column gap-3">
 
-                            <div class="fw-semibold">
+                        @foreach (var encargado in Model.Encargados)
+                        {
+                            <div>
 
-                                @encargado.NombreCompleto
+                                <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
 
-                                @if (encargado.EsPrincipal)
-                                {
-                                    <span class="badge badge-etiqueta-morado ms-1">
-                                        Principal
+                                    <span class="fw-semibold">
+                                        @encargado.NombreCompleto
                                     </span>
-                                }
+
+                                    @if (encargado.EsPrincipal)
+                                    {
+                                        <span class="badge badge-etiqueta-morado">
+                                            Principal
+                                        </span>
+                                    }
+
+                                </div>
+
+                                <div class="TextoSuave small">
+                                    @encargado.Parentesco
+                                </div>
+
+                                <ul class="list-unstyled TextoSuave small mb-0 mt-2">
+
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Correo))
+                                    {
+                                        <li class="d-flex align-items-start gap-2 text-break mb-1">
+                                            <i class="bi bi-envelope"></i>
+                                            <span>@encargado.Correo</span>
+                                        </li>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Identificacion))
+                                    {
+                                        <li class="d-flex align-items-start gap-2 text-break">
+                                            <i class="bi bi-person-vcard"></i>
+                                            <span>@encargado.Identificacion</span>
+                                        </li>
+                                    }
+
+                                </ul>
 
                             </div>
+                        }
 
-                            <div class="TextoSuave small">
-                                @encargado.Parentesco
-                            </div>
-
-                            <ul class="list-unstyled TextoSuave small mb-0 mt-1">
-
-                                @if (!string.IsNullOrWhiteSpace(encargado.Correo))
-                                {
-                                    <li>
-                                        <i class="bi bi-envelope me-2"></i>
-                                        @encargado.Correo
-                                    </li>
-                                }
-
-                                @if (!string.IsNullOrWhiteSpace(encargado.Identificacion))
-                                {
-                                    <li>
-                                        <i class="bi bi-person-vcard me-2"></i>
-                                        @encargado.Identificacion
-                                    </li>
-                                }
-
-                            </ul>
-
-                        </div>
-                    }
+                    </div>
                 }
                 else
                 {
@@ -332,77 +181,131 @@
 
             </div>
 
+        </div>
 
-            <div class="Tarjeta p-3 p-md-4">
+    </div>
 
-                <h3 class="mb-3">
-                    Información del estudiante
-                </h3>
+    <!-- Información académica -->
+    <div class="Tarjeta p-3 p-md-4 mb-3">
 
-                <div class="d-flex align-items-center gap-2 mb-3">
+        <h3 class="mb-3">
+            Información académica
+        </h3>
 
-                    <div class="TopbarAdmin-Avatar">
-                        @(
-                            string.IsNullOrWhiteSpace(Model.Nombre)
-                                ? "E"
-                                : Model.Nombre.Substring(0, 1).ToUpper()
-                        )
-                    </div>
+        <dl class="row mb-0">
 
-                    <div>
+            <dt class="col-sm-4 TextoSuave fw-normal">
+                Áreas de dificultad
+            </dt>
+            <dd class="col-sm-8" id="FichaDatoMateria">
+                @(Model.AreasDificultad ?? "No registradas")
+            </dd>
 
-                        <div class="fw-semibold">
-                            @nombreCompleto
+            <dt class="col-sm-4 TextoSuave fw-normal">
+                Resumen
+            </dt>
+            <dd class="col-sm-8 mb-0" id="FichaDatoResumen">
+                @(Model.Observaciones ?? "No hay observaciones registradas.")
+            </dd>
+
+        </dl>
+
+    </div>
+
+    <!-- Áreas de dificultad -->
+    <div class="Tarjeta p-3 p-md-4 mb-3">
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+
+            <h3 class="mb-0">
+                Áreas de dificultad
+            </h3>
+
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#ModalAgregarArea">
+                <i class="bi bi-plus-lg me-1"></i>
+                Agregar área
+            </button>
+
+        </div>
+
+        <div class="list-group list-group-flush"
+             id="ListaAreasDificultad">
+
+            @if (Model.Areas != null && Model.Areas.Any())
+            {
+                foreach (var area in Model.Areas)
+                {
+                    <div class="list-group-item px-0">
+
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+
+                            <div>
+                                <span class="badge badge-etiqueta-morado mb-1">
+                                    @area.Nombre
+                                </span>
+
+                                @if (!string.IsNullOrWhiteSpace(area.Observacion))
+                                {
+                                    <p class="TextoSuave small mb-0 mt-1">
+                                        @area.Observacion
+                                    </p>
+                                }
+                            </div>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary BotonEditarArea"
+                                    title="Editar área"
+                                    aria-label="Editar área"
+                                    data-id-area="@area.IdAreaDificultad"
+                                    data-nombre="@area.Nombre"
+                                    data-observacion="@area.Observacion">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+
                         </div>
 
-                        <div class="TextoSuave small">
-                            Estudiante
-                        </div>
-
                     </div>
-
+                }
+            }
+            else
+            {
+                <div class="list-group-item px-0">
+                    <p class="mb-0 TextoSuave">
+                        No hay áreas de dificultad registradas.
+                    </p>
                 </div>
-
-
-                <ul class="list-unstyled TextoSuave small mb-0">
-
-                    <li class="mb-2">
-
-                        <i class="bi bi-mortarboard me-2"></i>
-
-                        @(Model.NivelEducativo ?? "Nivel no registrado")
-
-                    </li>
-
-                    <li class="mb-2">
-
-                        <i class="bi bi-building me-2"></i>
-
-                        @(Model.Institucion ?? "Institución no registrada")
-
-                    </li>
-
-                    @if (Model.FechaNacimiento.HasValue)
-                    {
-                        <li>
-
-                            <i class="bi bi-calendar-event me-2"></i>
-
-                            @Model.FechaNacimiento.Value.ToString("dd/MM/yyyy")
-
-                        </li>
-                    }
-
-                </ul>
-
-            </div>
+            }
 
         </div>
 
     </div>
 
-</main>
+    <!-- Necesidades de apoyo -->
+    <div class="Tarjeta p-3 p-md-4">
 
+        <h3 class="mb-3">
+            Necesidades de apoyo
+        </h3>
+
+        @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
+        {
+            <p class="mb-0">
+                @Model.NecesidadesApoyo
+            </p>
+        }
+        else
+        {
+            <p class="TextoSuave mb-0">
+                No hay necesidades de apoyo registradas.
+            </p>
+        }
+
+    </div>
+
+</main>
 
 <!-- Modal agregar área -->
 <div class="modal fade"
@@ -411,7 +314,6 @@
      aria-hidden="true">
 
     <div class="modal-dialog">
-
         <div class="modal-content">
 
             <form id="FormularioAgregarArea"
@@ -421,7 +323,6 @@
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-
                     <h5 class="modal-title">
                         Agregar área de dificultad
                     </h5>
@@ -431,18 +332,13 @@
                             data-bs-dismiss="modal"
                             aria-label="Cerrar">
                     </button>
-
                 </div>
 
                 <div class="modal-body">
 
                     <div class="mb-3">
-
-                        <label for="NombreArea"
-                               class="form-label">
-
+                        <label for="NombreArea" class="form-label">
                             Área
-
                         </label>
 
                         <input type="text"
@@ -452,16 +348,11 @@
                                maxlength="100"
                                required
                                placeholder="Ej. Razonamiento lógico-matemático">
-
                     </div>
 
                     <div class="mb-1">
-
-                        <label for="ObservacionArea"
-                               class="form-label">
-
+                        <label for="ObservacionArea" class="form-label">
                             Observación
-
                         </label>
 
                         <textarea class="form-control"
@@ -469,38 +360,28 @@
                                   name="ObservacionArea"
                                   maxlength="500"
                                   rows="3"></textarea>
-
                     </div>
 
                 </div>
 
                 <div class="modal-footer">
-
                     <button type="button"
                             class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
-
                         Cancelar
-
                     </button>
 
-                    <button type="submit"
-                            class="btn btn-primary">
-
+                    <button type="submit" class="btn btn-primary">
                         Agregar
-
                     </button>
-
                 </div>
 
             </form>
 
         </div>
-
     </div>
 
 </div>
-
 
 <!-- Modal editar área -->
 <div class="modal fade"
@@ -509,7 +390,6 @@
      aria-hidden="true">
 
     <div class="modal-dialog">
-
         <div class="modal-content">
 
             <form id="FormularioEditarArea"
@@ -518,10 +398,9 @@
 
                 @Html.AntiForgeryToken()
 
-                <input type="hidden" id="EditarIdArea" />
+                <input type="hidden" id="EditarIdArea">
 
                 <div class="modal-header">
-
                     <h5 class="modal-title">
                         Editar área de dificultad
                     </h5>
@@ -531,18 +410,13 @@
                             data-bs-dismiss="modal"
                             aria-label="Cerrar">
                     </button>
-
                 </div>
 
                 <div class="modal-body">
 
                     <div class="mb-3">
-
-                        <label for="EditarNombreArea"
-                               class="form-label">
-
+                        <label for="EditarNombreArea" class="form-label">
                             Área
-
                         </label>
 
                         <input type="text"
@@ -550,54 +424,39 @@
                                id="EditarNombreArea"
                                maxlength="100"
                                required>
-
                     </div>
 
                     <div class="mb-1">
-
-                        <label for="EditarObservacionArea"
-                               class="form-label">
-
+                        <label for="EditarObservacionArea" class="form-label">
                             Observación
-
                         </label>
 
                         <textarea class="form-control"
                                   id="EditarObservacionArea"
                                   maxlength="500"
                                   rows="3"></textarea>
-
                     </div>
 
                 </div>
 
                 <div class="modal-footer">
-
                     <button type="button"
                             class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
-
                         Cancelar
-
                     </button>
 
-                    <button type="submit"
-                            class="btn btn-primary">
-
+                    <button type="submit" class="btn btn-primary">
                         Guardar cambios
-
                     </button>
-
                 </div>
 
             </form>
 
         </div>
-
     </div>
 
 </div>
-
 
 <!-- Modal editar ficha -->
 <div class="modal fade"
@@ -606,7 +465,6 @@
      aria-hidden="true">
 
     <div class="modal-dialog modal-lg">
-
         <div class="modal-content">
 
             <form id="FormularioEditarFicha"
@@ -616,7 +474,6 @@
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-
                     <h5 class="modal-title">
                         Editar ficha del estudiante
                     </h5>
@@ -626,20 +483,14 @@
                             data-bs-dismiss="modal"
                             aria-label="Cerrar">
                     </button>
-
                 </div>
 
                 <div class="modal-body">
-
                     <div class="row g-3">
 
                         <div class="col-md-4">
-
-                            <label for="EditarNombreFicha"
-                                   class="form-label">
-
+                            <label for="EditarNombreFicha" class="form-label">
                                 Nombre
-
                             </label>
 
                             <input type="text"
@@ -648,17 +499,11 @@
                                    maxlength="100"
                                    required
                                    value="@Model.Nombre">
-
                         </div>
 
-
                         <div class="col-md-4">
-
-                            <label for="EditarPrimerApellidoFicha"
-                                   class="form-label">
-
+                            <label for="EditarPrimerApellidoFicha" class="form-label">
                                 Primer apellido
-
                             </label>
 
                             <input type="text"
@@ -667,17 +512,11 @@
                                    maxlength="100"
                                    required
                                    value="@Model.PrimerApellido">
-
                         </div>
 
-
                         <div class="col-md-4">
-
-                            <label for="EditarSegundoApellidoFicha"
-                                   class="form-label">
-
+                            <label for="EditarSegundoApellidoFicha" class="form-label">
                                 Segundo apellido
-
                             </label>
 
                             <input type="text"
@@ -685,17 +524,11 @@
                                    id="EditarSegundoApellidoFicha"
                                    maxlength="100"
                                    value="@Model.SegundoApellido">
-
                         </div>
 
-
                         <div class="col-md-4">
-
-                            <label for="EditarFechaNacimientoFicha"
-                                   class="form-label">
-
+                            <label for="EditarFechaNacimientoFicha" class="form-label">
                                 Fecha de nacimiento
-
                             </label>
 
                             <input type="text"
@@ -706,21 +539,14 @@
                                    autocomplete="off"
                                    placeholder="dd/mm/aaaa"
                                    value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
-
                         </div>
 
-
                         <div class="col-md-4">
-
-                            <label for="EditarNivelFicha"
-                                   class="form-label">
-
+                            <label for="EditarNivelFicha" class="form-label">
                                 Nivel educativo
-
                             </label>
 
-                            <select class="form-select"
-                                    id="EditarNivelFicha">
+                            <select class="form-select" id="EditarNivelFicha">
 
                                 <option value="">Sin especificar</option>
 
@@ -728,24 +554,16 @@
                                 {
                                     <option value="@nivel.IdNivelEducativo"
                                             selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
-
                                         @nivel.Nombre
-
                                     </option>
                                 }
 
                             </select>
-
                         </div>
 
-
                         <div class="col-md-4">
-
-                            <label for="EditarInstitucionFicha"
-                                   class="form-label">
-
+                            <label for="EditarInstitucionFicha" class="form-label">
                                 Institución
-
                             </label>
 
                             <input type="text"
@@ -753,77 +571,52 @@
                                    id="EditarInstitucionFicha"
                                    maxlength="100"
                                    value="@Model.Institucion">
-
                         </div>
 
-
                         <div class="col-12">
-
-                            <label for="EditarResumenFicha"
-                                   class="form-label">
-
+                            <label for="EditarResumenFicha" class="form-label">
                                 Observaciones
-
                             </label>
 
                             <textarea class="form-control"
                                       id="EditarResumenFicha"
                                       maxlength="1000"
                                       rows="3">@Model.Observaciones</textarea>
-
                         </div>
 
-
                         <div class="col-12">
-
-                            <label for="EditarNecesidadesFicha"
-                                   class="form-label">
-
+                            <label for="EditarNecesidadesFicha" class="form-label">
                                 Necesidades de apoyo
-
                             </label>
 
                             <textarea class="form-control"
                                       id="EditarNecesidadesFicha"
                                       maxlength="1000"
                                       rows="3">@Model.NecesidadesApoyo</textarea>
-
                         </div>
 
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
-
                     <button type="button"
                             class="btn btn-outline-secondary"
                             data-bs-dismiss="modal">
-
                         Cancelar
-
                     </button>
 
-                    <button type="submit"
-                            class="btn btn-primary">
-
+                    <button type="submit" class="btn btn-primary">
                         Actualizar
-
                     </button>
-
                 </div>
 
             </form>
 
         </div>
-
     </div>
 
 </div>
 
-
 @section Scripts {
-
-    <script src="~/js/estudianteFicha.js"></script>
-
+    <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
 }

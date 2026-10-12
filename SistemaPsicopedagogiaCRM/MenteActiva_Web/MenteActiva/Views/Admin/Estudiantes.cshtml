@@ -3,22 +3,29 @@
 @{
     ViewData["Title"] = "Estudiantes";
 
-    var niveles = ViewBag.NivelesEducativos as List<MenteActiva.Models.NivelEducativoViewModel>
-                  ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+    var estudiantes = Model
+        ?? new List<MenteActiva.Models.EstudianteViewModel>();
 
-    var parentescos = ViewBag.Parentescos as List<MenteActiva.Models.ParentescoViewModel>
-                      ?? new List<MenteActiva.Models.ParentescoViewModel>();
+    var niveles = ViewBag.NivelesEducativos
+        as List<MenteActiva.Models.NivelEducativoViewModel>
+        ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+
+    var parentescos = ViewBag.Parentescos
+        as List<MenteActiva.Models.ParentescoViewModel>
+        ?? new List<MenteActiva.Models.ParentescoViewModel>();
 }
 
-<div class="container-fluid">
+<main class="PrincipalAdmin">
 
     <div id="ContenedorMensaje"></div>
 
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+
         <div>
-            <h1 class="h3 mb-1">Estudiantes</h1>
-            <p class="text-muted mb-0">
+            <h2 class="mb-1">Estudiantes</h2>
+
+            <p class="TextoSuave mb-0">
                 Estudiantes registrados y su información general.
             </p>
         </div>
@@ -27,162 +34,195 @@
                 class="btn btn-primary"
                 data-bs-toggle="modal"
                 data-bs-target="#ModalNuevoEstudiante">
+
             <i class="bi bi-plus-lg me-1"></i>
             Nuevo estudiante
+
         </button>
+
     </div>
 
-    <!-- Buscador y filtros -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
+    <!-- Filtros, tabla y paginación -->
+    <div class="Tarjeta p-3 p-md-4">
 
-            <div class="row g-3 align-items-end">
+        <div class="row g-3 align-items-end mb-3"
+             data-tabla-buscador="TablaEstudiantes"
+             data-tabla-paginar="10">
 
-                <div class="col-md-8">
-                    <label for="BuscarEstudiante" class="form-label">
-                        Buscar estudiante
-                    </label>
+            <div class="col-md-8">
 
-                    <div class="input-group">
-                        <span class="input-group-text">
-                            <i class="bi bi-search"></i>
-                        </span>
+                <label for="BuscarEstudiante" class="form-label">
+                    Buscar estudiante
+                </label>
 
-                        <input type="text"
-                               id="BuscarEstudiante"
-                               class="form-control"
-                               placeholder="Buscar por nombre, institución o encargado">
-                    </div>
+                <div class="input-group">
+
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input type="text"
+                           id="BuscarEstudiante"
+                           class="form-control"
+                           data-buscar-texto
+                           placeholder="Buscar por nombre, institución o encargado">
+
                 </div>
 
-                <div class="col-md-4">
-                    <label for="FiltroNivel" class="form-label">
-                        Nivel educativo
-                    </label>
+            </div>
 
-                    <select id="FiltroNivel"
-                            class="form-select"
-                            data-buscar-estado>
-                        <option value="">Todos los niveles</option>
-                        <option value="Preescolar">Preescolar</option>
-                        <option value="Primaria">Primaria</option>
-                        <option value="Secundaria">Secundaria</option>
-                    </select>
-                </div>
+            <div class="col-md-4">
+
+                <label for="FiltroNivel" class="form-label">
+                    Nivel educativo
+                </label>
+
+                <select id="FiltroNivel"
+                        class="form-select"
+                        data-buscar-estado>
+
+                    <option value="">Todos los niveles</option>
+
+                    @foreach (var nivel in estudiantes
+                        .Select(e => e.NivelEducativo)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct()
+                        .OrderBy(n => n))
+                    {
+                        <option value="@nivel">@nivel</option>
+                    }
+
+                </select>
 
             </div>
 
         </div>
-    </div>
 
-    <!-- Tabla de estudiantes -->
-    <div class="card shadow-sm border-0">
+        <!-- Tabla -->
+        <div class="table-responsive">
 
-        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0"
+                   id="TablaEstudiantes">
 
-            <div class="table-responsive">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Edad</th>
+                        <th>Nivel educativo</th>
+                        <th>Institución</th>
+                        <th>Encargado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
 
-                <table class="table table-hover align-middle mb-0"
-                       id="TablaEstudiantes">
+                <tbody>
 
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Edad</th>
-                            <th>Nivel educativo</th>
-                            <th>Institución</th>
-                            <th>Encargado</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
+                    @foreach (var estudiante in estudiantes)
+                    {
+                        var edad = 0;
 
-                    <tbody>
-
-                        @if (Model != null && Model.Any())
+                        if (estudiante.FechaNacimiento.HasValue)
                         {
-                            foreach (var estudiante in Model)
+                            var nacimiento = estudiante.FechaNacimiento.Value.Date;
+                            var hoy = DateTime.Today;
+
+                            edad = hoy.Year - nacimiento.Year;
+
+                            if (nacimiento.AddYears(edad) > hoy)
                             {
-                                var edad = estudiante.FechaNacimiento.HasValue
-                                    ? DateTime.Today.Year
-                                      - estudiante.FechaNacimiento.Value.Year
-                                      - (
-                                          DateTime.Today.DayOfYear
-                                          < estudiante.FechaNacimiento.Value.DayOfYear
-                                            ? 1
-                                            : 0
-                                        )
-                                    : 0;
-
-                                <tr data-fila
-                                    data-estado="@estudiante.NivelEducativo">
-
-                                    <td>
-                                        <div class="fw-semibold">
-                                            @estudiante.Estudiante
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        @(edad > 0 ? $"{edad} años" : "-")
-                                    </td>
-
-                                    <td>
-                                        @estudiante.NivelEducativo
-                                    </td>
-
-                                    <td>
-                                        @estudiante.Institucion
-                                    </td>
-
-                                    <td>
-                                        @estudiante.Encargado
-                                    </td>
-
-                                    <td class="TablaAcciones text-center">
-
-                                        <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
-                                           class="btn btn-sm btn-outline-secondary border-0"
-                                           data-bs-toggle="tooltip"
-                                           title="Ver ficha">
-
-                                            <i class="bi bi-file-earmark-person"></i>
-
-                                        </a>
-
-                                    </td>
-
-                                </tr>
+                                edad--;
                             }
                         }
 
-                    </tbody>
+                        <tr data-fila
+                            data-estado="@estudiante.NivelEducativo">
 
-                </table>
+                            <td>
+                                <div class="fw-semibold">
+                                    @estudiante.Estudiante
+                                </div>
+                            </td>
 
-            </div>
+                            <td>
+                                @(estudiante.FechaNacimiento.HasValue
+                                    ? $"{edad} años"
+                                    : "-")
+                            </td>
 
-            <!-- Estado vacío -->
-            <div id="EstadoVacio"
-                 class="text-center py-5 d-none">
+                            <td>
+                                @(estudiante.NivelEducativo ?? "-")
+                            </td>
+
+                            <td>
+                                @(estudiante.Institucion ?? "-")
+                            </td>
+
+                            <td>
+                                @(estudiante.Encargado ?? "-")
+                            </td>
+
+                            <td class="TablaAcciones text-center">
+
+                                <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
+                                   class="btn btn-sm btn-outline-secondary border-0"
+                                   data-bs-toggle="tooltip"
+                                   title="Ver ficha"
+                                   aria-label="Ver ficha de @estudiante.Estudiante">
+
+                                    <i class="bi bi-file-earmark-person"></i>
+
+                                </a>
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- Main.js inserta aquí la paginación automáticamente -->
+        <!-- Sin coincidencias al buscar o filtrar -->
+        <div id="EstadoVacio"
+             data-tabla-vacio="TablaEstudiantes"
+             class="text-center py-5 d-none">
+
+            <i class="bi bi-people fs-1 text-muted"></i>
+
+            <h5 class="mt-3">
+                No se encontraron estudiantes
+            </h5>
+
+            <p class="text-muted mb-0">
+                Intenta cambiar los filtros o el texto de búsqueda.
+            </p>
+
+        </div>
+
+        <!-- Sin estudiantes registrados -->
+        @if (!estudiantes.Any())
+        {
+            <div class="text-center py-5">
 
                 <i class="bi bi-people fs-1 text-muted"></i>
 
                 <h5 class="mt-3">
-                    No se encontraron estudiantes
+                    No hay estudiantes registrados
                 </h5>
 
                 <p class="text-muted mb-0">
-                    Intenta cambiar los filtros o el texto de búsqueda.
+                    Usá el botón Nuevo estudiante para registrar uno.
                 </p>
 
             </div>
-
-        </div>
+        }
 
     </div>
 
-</div>
-
+</main>
 
 <!-- Modal nuevo estudiante -->
 <div class="modal fade"
@@ -205,13 +245,16 @@
                 <div class="modal-header">
 
                     <div>
-                        <h5 class="modal-title" id="ModalNuevoEstudianteLabel">
+
+                        <h5 class="modal-title"
+                            id="ModalNuevoEstudianteLabel">
                             Nuevo estudiante
                         </h5>
 
                         <small class="text-muted">
                             Registre al estudiante y asócielo a una persona encargada.
                         </small>
+
                     </div>
 
                     <button type="button"
@@ -227,7 +270,9 @@
                     <div class="row g-3">
 
                         <div class="col-md-4">
-                            <label for="NombreEstudiante" class="form-label">
+
+                            <label for="NombreEstudiante"
+                                   class="form-label">
                                 Nombre
                             </label>
 
@@ -236,10 +281,13 @@
                                    class="form-control"
                                    maxlength="100"
                                    required>
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="PrimerApellidoEstudiante" class="form-label">
+
+                            <label for="PrimerApellidoEstudiante"
+                                   class="form-label">
                                 Primer apellido
                             </label>
 
@@ -248,10 +296,13 @@
                                    class="form-control"
                                    maxlength="100"
                                    required>
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="SegundoApellidoEstudiante" class="form-label">
+
+                            <label for="SegundoApellidoEstudiante"
+                                   class="form-label">
                                 Segundo apellido
                             </label>
 
@@ -259,10 +310,13 @@
                                    id="SegundoApellidoEstudiante"
                                    class="form-control"
                                    maxlength="100">
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="FechaNacimientoEstudiante" class="form-label">
+
+                            <label for="FechaNacimientoEstudiante"
+                                   class="form-label">
                                 Fecha de nacimiento
                             </label>
 
@@ -273,10 +327,13 @@
                                    maxlength="10"
                                    autocomplete="off"
                                    placeholder="dd/mm/aaaa">
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="NivelEducativo" class="form-label">
+
+                            <label for="NivelEducativo"
+                                   class="form-label">
                                 Nivel educativo
                             </label>
 
@@ -293,10 +350,13 @@
                                 }
 
                             </select>
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="Institucion" class="form-label">
+
+                            <label for="Institucion"
+                                   class="form-label">
                                 Institución
                             </label>
 
@@ -304,11 +364,14 @@
                                    id="Institucion"
                                    class="form-control"
                                    maxlength="100">
+
                         </div>
 
-                        <!-- Lookup de persona encargada -->
+                        <!-- Búsqueda de persona encargada -->
                         <div class="col-md-8">
-                            <label for="BuscarEncargadoLookup" class="form-label">
+
+                            <label for="BuscarEncargadoLookup"
+                                   class="form-label">
                                 Persona encargada
                             </label>
 
@@ -333,10 +396,13 @@
                             <div id="EncargadoSeleccionado"
                                  class="form-text">
                             </div>
+
                         </div>
 
                         <div class="col-md-4">
-                            <label for="ParentescoEstudiante" class="form-label">
+
+                            <label for="ParentescoEstudiante"
+                                   class="form-label">
                                 Parentesco
                             </label>
 
@@ -353,9 +419,11 @@
                                 }
 
                             </select>
+
                         </div>
 
                         <div class="col-md-12">
+
                             <label for="ObservacionesEstudiante"
                                    class="form-label">
                                 Observaciones
@@ -365,6 +433,7 @@
                                       class="form-control"
                                       maxlength="1000"
                                       rows="3"></textarea>
+
                         </div>
 
                     </div>
@@ -394,7 +463,6 @@
 
 </div>
 
-
 @section Scripts {
-    <script src="~/js/estudiantes.js"></script>
+    <script src="~/js/estudiantes.js" asp-append-version="true"></script>
 }
