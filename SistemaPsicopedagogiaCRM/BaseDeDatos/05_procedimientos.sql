@@ -1670,8 +1670,9 @@ END$$
 DELIMITER ;
 
 
-
-DROP PROCEDURE IF EXISTS SP_ConsultarFichaEstudiante_CRM$$
+-- Ficha del estudiante. Devuelve tres resultados, en este orden:
+-- 1) datos del estudiante, 2) sus areas de dificultad, 3) sus encargados.
+DROP PROCEDURE IF EXISTS SP_ConsultarFichaEstudiante_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_ConsultarFichaEstudiante_CRM(
     IN p_IdEstudiante INT
@@ -1727,11 +1728,27 @@ BEGIN
     WHERE ea.IdEstudiante = p_IdEstudiante
     ORDER BY ad.Nombre;
 
+    -- Personas encargadas del estudiante (la principal primero)
+    SELECT
+        en.IdEncargado,
+        CONCAT_WS(' ', en.Nombre, en.PrimerApellido, en.SegundoApellido) AS NombreCompleto,
+        en.Identificacion,
+        en.Correo,
+        pa.Nombre AS Parentesco,
+        ee.EsPrincipal
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    INNER JOIN TB_ENCARGADO en
+        ON en.IdEncargado = ee.IdEncargado
+    INNER JOIN TB_PARENTESCO pa
+        ON pa.IdParentesco = ee.IdParentesco
+    WHERE ee.IdEstudiante = p_IdEstudiante
+    ORDER BY ee.EsPrincipal DESC, NombreCompleto;
+
 END$$
 DELIMITER ;
 
---Es
-DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarArea_CRM$$
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarArea_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_AgregarArea_CRM(
     IN p_IdEstudiante INT,
@@ -1803,7 +1820,7 @@ END$$
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS SP_Estudiante_EditarArea_CRM$$
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarArea_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_EditarArea_CRM(
     IN p_IdEstudiante INT,
@@ -1870,7 +1887,7 @@ END$$
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS SP_BuscarEncargados$$
+DROP PROCEDURE IF EXISTS SP_BuscarEncargados;
 DELIMITER $$
 CREATE PROCEDURE SP_BuscarEncargados(
     IN p_Texto VARCHAR(100)
@@ -1897,7 +1914,7 @@ BEGIN
 END$$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS SP_Estudiante_EditarFicha$$
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarFicha;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_EditarFicha(
     IN p_IdUsuarioAccion INT,
@@ -1962,7 +1979,7 @@ BEGIN
 END$$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS SP_Estudiante_CrearConEncargado$$
+DROP PROCEDURE IF EXISTS SP_Estudiante_CrearConEncargado;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_CrearConEncargado(
     IN p_IdUsuarioAccion INT,
