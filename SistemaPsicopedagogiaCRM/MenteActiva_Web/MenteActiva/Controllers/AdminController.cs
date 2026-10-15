@@ -756,7 +756,7 @@ public class AdminController : Controller
     public IActionResult Pagos() => View(); 
 
 
-  #region Planes de Intervencion
+    #region Planes de Intervencion
     public async Task<IActionResult> Planes()
     {
         using var client = _http.CreateClient();
@@ -1158,10 +1158,87 @@ public class AdminController : Controller
         return Ok(resultado ?? new List<ActividadViewModel>());
     }
 
-   #endregion
+    #endregion
 
+    #region Reportes
 
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
     public IActionResult Reportes() => View();
+
+    #region Consultar Reporte
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> ConsultarReportes(
+            int? idEstudiante, DateOnly? desde, DateOnly? hasta, CancellationToken cancelacion)
+    {
+        var ruta = "reportes?";
+
+        if (idEstudiante is > 0) ruta += $"idEstudiante={idEstudiante}&";
+        if (desde is not null) ruta += $"desde={FormatoFecha(desde.Value)}&";
+        if (hasta is not null) ruta += $"hasta={FormatoFecha(hasta.Value)}";
+
+        return ReenviarGetAsync(ruta, cancelacion);
+    }
+    #endregion
+
+    #region Detalle de reporte
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> DetalleReporte(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"reportes/{id}", cancelacion);
+
+    #endregion
+
+    #region Generar Reporte
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> GenerarReporte(
+    GenerarReporteViewModel modelo,
+    CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid
+            || modelo.PeriodoFin < modelo.PeriodoInicio)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione estudiante, título y un período válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("reportes"),
+            modelo,
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> EstudiantesReporte(CancellationToken cancelacion)
+     => ReenviarGetAsync("estudiantes", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> FichaEstudianteReporte(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+            return Task.FromResult<IActionResult>(BadRequest(new { mensaje = "Seleccione un estudiante válido." }));
+        return ReenviarGetAsync($"estudiantes/{id}", cancelacion);
+    }
+
+
+    #endregion
 
     #region Sesiones
 
