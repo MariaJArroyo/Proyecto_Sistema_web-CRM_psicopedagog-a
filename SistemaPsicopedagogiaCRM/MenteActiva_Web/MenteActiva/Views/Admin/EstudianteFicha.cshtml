@@ -10,149 +10,105 @@
     var nombreCompleto =
         $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
 
-    var edad = Model.FechaNacimiento.HasValue
-        ? DateTime.Today.Year
-          - Model.FechaNacimiento.Value.Year
-          - (
-              DateTime.Today.DayOfYear < Model.FechaNacimiento.Value.DayOfYear
-                ? 1
-                : 0
-            )
-        : 0;
+    int? edad = null;
+
+    if (Model.FechaNacimiento.HasValue)
+    {
+        var nacimiento = Model.FechaNacimiento.Value.Date;
+        var hoy = DateTime.Today;
+        var anios = hoy.Year - nacimiento.Year;
+
+        if (nacimiento > hoy.AddYears(-anios))
+        {
+            anios--;
+        }
+
+        edad = anios;
+    }
 }
 
 <main class="PrincipalAdmin">
 
     <div id="ContenedorMensaje"></div>
 
-    <a href="@Url.Action("Estudiantes", "Admin")"
-       class="d-inline-flex align-items-center gap-1 small mb-3">
-        <i class="bi bi-arrow-left"></i>
+    <a href="@Url.Action("Estudiantes", "Admin")" class="d-inline-flex align-items-center gap-1 small mb-3">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
         Volver a estudiantes
     </a>
 
     <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-
         <div>
-            <h2 class="mb-1" id="FichaNombre">
-                @nombreCompleto
-            </h2>
-
-            <p class="TextoSuave mb-0">
-                Información individual del estudiante
-            </p>
+            <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
+            <p class="TextoSuave mb-0">Información individual del estudiante</p>
         </div>
 
-        <button type="button"
-                class="btn btn-outline-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#ModalEditarFicha">
-            <i class="bi bi-pencil me-1"></i>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalEditarFicha">
+            <i class="bi bi-pencil me-1" aria-hidden="true"></i>
             Editar ficha
         </button>
-
     </div>
 
-    <!-- Datos del estudiante y persona encargada -->
+    <!-- Datos generales y personas encargadas -->
     <div class="row g-3 mb-3">
 
-        <!-- Datos generales -->
         <div class="col-lg-7">
-
             <div class="Tarjeta p-3 p-md-4 h-100">
-
-                <h3 class="mb-3">
-                    Datos generales
-                </h3>
+                <h3 class="mb-3">Datos generales</h3>
 
                 <dl class="row mb-0">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Nombre completo</dt>
+                    <dd id="FichaDatoNombre" class="col-sm-8">@nombreCompleto</dd>
 
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Nombre completo
-                    </dt>
-                    <dd class="col-sm-8" id="FichaDatoNombre">
-                        @nombreCompleto
-                    </dd>
-
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Fecha de nacimiento
-                    </dt>
-                    <dd class="col-sm-8" id="FichaDatoFechaNacimiento">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Fecha de nacimiento</dt>
+                    <dd id="FichaDatoFechaNacimiento" class="col-sm-8">
                         @(Model.FechaNacimiento.HasValue
                             ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy")
                             : "-")
                     </dd>
 
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Edad
-                    </dt>
-                    <dd class="col-sm-8" id="FichaDatoEdad">
-                        @(edad > 0 ? $"{edad} años" : "-")
+                    <dt class="col-sm-4 TextoSuave fw-normal">Edad</dt>
+                    <dd id="FichaDatoEdad" class="col-sm-8">
+                        @(edad.HasValue ? $"{edad.Value} años" : "-")
                     </dd>
 
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Nivel educativo
-                    </dt>
-                    <dd class="col-sm-8" id="FichaDatoNivel">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Nivel educativo</dt>
+                    <dd id="FichaDatoNivel" class="col-sm-8">
                         @(Model.NivelEducativo ?? "-")
                     </dd>
 
-                    <dt class="col-sm-4 TextoSuave fw-normal">
-                        Institución
-                    </dt>
-                    <dd class="col-sm-8 mb-0" id="FichaDatoInstitucion">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Institución</dt>
+                    <dd id="FichaDatoInstitucion" class="col-sm-8 mb-0">
                         @(Model.Institucion ?? "-")
                     </dd>
-
                 </dl>
-
             </div>
-
         </div>
 
-        <!-- Persona encargada -->
         <div class="col-lg-5">
-
             <div class="Tarjeta p-3 p-md-4 h-100">
-
-                <h3 class="mb-3">
-                    Persona encargada
-                </h3>
+                <h3 class="mb-3">Persona encargada</h3>
 
                 @if (Model.Encargados != null && Model.Encargados.Any())
                 {
                     <div class="d-flex flex-column gap-3">
-
                         @foreach (var encargado in Model.Encargados)
                         {
                             <div>
-
                                 <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                    <span class="fw-semibold">@encargado.NombreCompleto</span>
 
-                                    <span class="fw-semibold">
-                                        @encargado.NombreCompleto
-                                    </span>
-
-                                    @if (encargado.EsPrincipal)
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Parentesco))
                                     {
-                                        <span class="badge badge-etiqueta-morado">
-                                            Principal
-                                        </span>
+                                        <span class="badge badge-etiqueta-morado">@encargado.Parentesco</span>
                                     }
-
-                                </div>
-
-                                <div class="TextoSuave small">
-                                    @encargado.Parentesco
                                 </div>
 
                                 <ul class="list-unstyled TextoSuave small mb-0 mt-2">
-
                                     @if (!string.IsNullOrWhiteSpace(encargado.Correo))
                                     {
                                         <li class="d-flex align-items-start gap-2 text-break mb-1">
-                                            <i class="bi bi-envelope"></i>
+                                            <i class="bi bi-envelope" aria-hidden="true"></i>
                                             <span>@encargado.Correo</span>
                                         </li>
                                     }
@@ -160,463 +116,302 @@
                                     @if (!string.IsNullOrWhiteSpace(encargado.Identificacion))
                                     {
                                         <li class="d-flex align-items-start gap-2 text-break">
-                                            <i class="bi bi-person-vcard"></i>
+                                            <i class="bi bi-person-vcard" aria-hidden="true"></i>
                                             <span>@encargado.Identificacion</span>
                                         </li>
                                     }
-
                                 </ul>
-
                             </div>
                         }
-
                     </div>
                 }
                 else
                 {
-                    <p class="TextoSuave mb-0">
-                        No hay persona encargada asociada.
-                    </p>
+                    <p class="TextoSuave mb-0">No hay persona encargada asociada.</p>
                 }
-
             </div>
-
         </div>
 
     </div>
 
     <!-- Información académica -->
     <div class="Tarjeta p-3 p-md-4 mb-3">
-
-        <h3 class="mb-3">
-            Información académica
-        </h3>
+        <h3 class="mb-3">Información académica</h3>
 
         <dl class="row mb-0">
-
-            <dt class="col-sm-4 TextoSuave fw-normal">
-                Áreas de dificultad
-            </dt>
-            <dd class="col-sm-8" id="FichaDatoMateria">
+            <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
+            <dd id="FichaDatoMateria" class="col-sm-8">
                 @(Model.AreasDificultad ?? "No registradas")
             </dd>
 
-            <dt class="col-sm-4 TextoSuave fw-normal">
-                Resumen
-            </dt>
-            <dd class="col-sm-8 mb-0" id="FichaDatoResumen">
+            <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
+            <dd id="FichaDatoResumen" class="col-sm-8 mb-0">
                 @(Model.Observaciones ?? "No hay observaciones registradas.")
             </dd>
-
         </dl>
-
     </div>
 
-    <!-- Áreas de dificultad -->
-    <div class="Tarjeta p-3 p-md-4 mb-3">
+    <!-- Áreas actuales -->
+    <section id="AreasEstado" class="Tarjeta p-3 p-md-4 mb-3" data-id-estudiante="@Model.IdEstudiante" data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")" data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
+        @Html.AntiForgeryToken()
 
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <h3 class="mb-0">Áreas de dificultad actuales</h3>
 
-            <h3 class="mb-0">
-                Áreas de dificultad
-            </h3>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ModalAreasInactivas">
+                    Áreas inactivas
+                    <span id="CantidadAreasInactivas" class="badge bg-secondary">0</span>
+                </button>
 
-            <button type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    data-bs-toggle="modal"
-                    data-bs-target="#ModalAgregarArea">
-                <i class="bi bi-plus-lg me-1"></i>
-                Agregar área
-            </button>
-
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarArea">
+                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                    Agregar área
+                </button>
+            </div>
         </div>
 
-        <div class="list-group list-group-flush"
-             id="ListaAreasDificultad">
+        <div id="AvisoAreasEstado" class="alert d-none" role="status" aria-live="polite"></div>
 
-            @if (Model.Areas != null && Model.Areas.Any())
-            {
-                foreach (var area in Model.Areas)
-                {
-                    <div class="list-group-item px-0">
-
-                        <div class="d-flex align-items-start justify-content-between gap-2">
-
-                            <div>
-                                <span class="badge badge-etiqueta-morado mb-1">
-                                    @area.Nombre
-                                </span>
-
-                                @if (!string.IsNullOrWhiteSpace(area.Observacion))
-                                {
-                                    <p class="TextoSuave small mb-0 mt-1">
-                                        @area.Observacion
-                                    </p>
-                                }
-                            </div>
-
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-secondary BotonEditarArea"
-                                    title="Editar área"
-                                    aria-label="Editar área"
-                                    data-id-area="@area.IdAreaDificultad"
-                                    data-nombre="@area.Nombre"
-                                    data-observacion="@area.Observacion">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-
-                        </div>
-
-                    </div>
-                }
-            }
-            else
-            {
-                <div class="list-group-item px-0">
-                    <p class="mb-0 TextoSuave">
-                        No hay áreas de dificultad registradas.
-                    </p>
-                </div>
-            }
-
+        <div id="ListaAreasDificultad" class="list-group list-group-flush" aria-busy="true">
+            Cargando áreas…
         </div>
 
-    </div>
+        <button id="RecargarAreasEstado" type="button" class="btn btn-sm btn-link mt-2">
+            Actualizar áreas
+        </button>
+    </section>
 
     <!-- Necesidades de apoyo -->
     <div class="Tarjeta p-3 p-md-4">
-
-        <h3 class="mb-3">
-            Necesidades de apoyo
-        </h3>
+        <h3 class="mb-3">Necesidades de apoyo</h3>
 
         @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
         {
-            <p class="mb-0">
-                @Model.NecesidadesApoyo
-            </p>
+            <p class="mb-0">@Model.NecesidadesApoyo</p>
         }
         else
         {
-            <p class="TextoSuave mb-0">
-                No hay necesidades de apoyo registradas.
-            </p>
+            <p class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
         }
-
     </div>
 
 </main>
 
 <!-- Modal agregar área -->
-<div class="modal fade"
-     id="ModalAgregarArea"
-     tabindex="-1"
-     aria-hidden="true">
-
+<div id="ModalAgregarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloAgregarArea" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioAgregarArea"
-                  data-id-estudiante="@Model.IdEstudiante"
-                  data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
-
+            <form id="FormularioAgregarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        Agregar área de dificultad
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
+                    <h5 id="TituloAgregarArea" class="modal-title">Agregar área de dificultad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
-
                     <div class="mb-3">
-                        <label for="NombreArea" class="form-label">
-                            Área
-                        </label>
-
-                        <input type="text"
-                               class="form-control"
-                               id="NombreArea"
-                               name="NombreArea"
-                               maxlength="100"
-                               required
-                               placeholder="Ej. Razonamiento lógico-matemático">
+                        <label for="NombreArea" class="form-label">Área</label>
+                        <input id="NombreArea" name="NombreArea" type="text" class="form-control" maxlength="100" required placeholder="Ej. Razonamiento lógico-matemático">
                     </div>
 
                     <div class="mb-1">
-                        <label for="ObservacionArea" class="form-label">
-                            Observación
-                        </label>
-
-                        <textarea class="form-control"
-                                  id="ObservacionArea"
-                                  name="ObservacionArea"
-                                  maxlength="500"
-                                  rows="3"></textarea>
+                        <label for="ObservacionArea" class="form-label">Observación</label>
+                        <textarea id="ObservacionArea" name="ObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit" class="btn btn-primary">
-                        Agregar
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
                 </div>
-
             </form>
 
         </div>
     </div>
-
 </div>
 
 <!-- Modal editar área -->
-<div class="modal fade"
-     id="ModalEditarArea"
-     tabindex="-1"
-     aria-hidden="true">
-
+<div id="ModalEditarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarArea" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioEditarArea"
-                  data-id-estudiante="@Model.IdEstudiante"
-                  data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
-
+            <form id="FormularioEditarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
                 @Html.AntiForgeryToken()
 
-                <input type="hidden" id="EditarIdArea">
+                <input id="EditarIdArea" type="hidden">
 
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        Editar área de dificultad
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
+                    <h5 id="TituloEditarArea" class="modal-title">Editar área de dificultad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
-
                     <div class="mb-3">
-                        <label for="EditarNombreArea" class="form-label">
-                            Área
-                        </label>
-
-                        <input type="text"
-                               class="form-control"
-                               id="EditarNombreArea"
-                               maxlength="100"
-                               required>
+                        <label for="EditarNombreArea" class="form-label">Área</label>
+                        <input id="EditarNombreArea" type="text" class="form-control" maxlength="100" required>
                     </div>
 
                     <div class="mb-1">
-                        <label for="EditarObservacionArea" class="form-label">
-                            Observación
-                        </label>
-
-                        <textarea class="form-control"
-                                  id="EditarObservacionArea"
-                                  maxlength="500"
-                                  rows="3"></textarea>
+                        <label for="EditarObservacionArea" class="form-label">Observación</label>
+                        <textarea id="EditarObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit" class="btn btn-primary">
-                        Guardar cambios
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
                 </div>
-
             </form>
 
         </div>
     </div>
+</div>
 
+<!-- Modal áreas inactivas -->
+<div id="ModalAreasInactivas" class="modal fade" tabindex="-1" aria-labelledby="TituloAreasInactivas" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="TituloAreasInactivas" class="modal-title">Áreas trabajadas e inactivas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="TextoSuave">
+                    Se conserva la observación de cada área.
+                    Podés reactivarla si necesita volver a trabajarse.
+                </p>
+
+                <div id="AvisoAreasInactivas" class="alert d-none" role="status" aria-live="polite"></div>
+
+                <div id="ListaAreasInactivas" class="list-group list-group-flush">
+                    Cargando áreas…
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmar desactivación -->
+<div id="ModalDesactivarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloDesactivarArea" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="TituloDesactivarArea" class="modal-title">Marcar área como trabajada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <p id="NombreDesactivarArea" class="fw-semibold"></p>
+
+                <p>
+                    Dejará de aparecer entre las áreas actuales de este estudiante.
+                    Se conservará como área trabajada y podrás reactivarla.
+                </p>
+
+                <div id="AvisoDesactivarArea" class="alert d-none" role="alert"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button id="ConfirmarDesactivarArea" type="button" class="btn btn-danger">Desactivar</button>
+            </div>
+
+        </div>
+    </div>
 </div>
 
 <!-- Modal editar ficha -->
-<div class="modal fade"
-     id="ModalEditarFicha"
-     tabindex="-1"
-     aria-hidden="true">
-
+<div id="ModalEditarFicha" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarFicha" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
 
-            <form id="FormularioEditarFicha"
-                  data-id-estudiante="@Model.IdEstudiante"
-                  data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
-
+            <form id="FormularioEditarFicha" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        Editar ficha del estudiante
-                    </h5>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
+                    <h5 id="TituloEditarFicha" class="modal-title">Editar ficha del estudiante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
                     <div class="row g-3">
 
                         <div class="col-md-4">
-                            <label for="EditarNombreFicha" class="form-label">
-                                Nombre
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarNombreFicha"
-                                   maxlength="100"
-                                   required
-                                   value="@Model.Nombre">
+                            <label for="EditarNombreFicha" class="form-label">Nombre</label>
+                            <input id="EditarNombreFicha" type="text" class="form-control" maxlength="100" required value="@Model.Nombre">
                         </div>
 
                         <div class="col-md-4">
-                            <label for="EditarPrimerApellidoFicha" class="form-label">
-                                Primer apellido
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarPrimerApellidoFicha"
-                                   maxlength="100"
-                                   required
-                                   value="@Model.PrimerApellido">
+                            <label for="EditarPrimerApellidoFicha" class="form-label">Primer apellido</label>
+                            <input id="EditarPrimerApellidoFicha" type="text" class="form-control" maxlength="100" required value="@Model.PrimerApellido">
                         </div>
 
                         <div class="col-md-4">
-                            <label for="EditarSegundoApellidoFicha" class="form-label">
-                                Segundo apellido
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarSegundoApellidoFicha"
-                                   maxlength="100"
-                                   value="@Model.SegundoApellido">
+                            <label for="EditarSegundoApellidoFicha" class="form-label">Segundo apellido</label>
+                            <input id="EditarSegundoApellidoFicha" type="text" class="form-control" maxlength="100" value="@Model.SegundoApellido">
                         </div>
 
                         <div class="col-md-4">
-                            <label for="EditarFechaNacimientoFicha" class="form-label">
-                                Fecha de nacimiento
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarFechaNacimientoFicha"
-                                   inputmode="numeric"
-                                   maxlength="10"
-                                   autocomplete="off"
-                                   placeholder="dd/mm/aaaa"
-                                   value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
+                            <label for="EditarFechaNacimientoFicha" class="form-label">Fecha de nacimiento</label>
+                            <input id="EditarFechaNacimientoFicha" type="text" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa" value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
                         </div>
 
                         <div class="col-md-4">
-                            <label for="EditarNivelFicha" class="form-label">
-                                Nivel educativo
-                            </label>
+                            <label for="EditarNivelFicha" class="form-label">Nivel educativo</label>
 
-                            <select class="form-select" id="EditarNivelFicha">
-
+                            <select id="EditarNivelFicha" class="form-select">
                                 <option value="">Sin especificar</option>
 
                                 @foreach (var nivel in niveles)
                                 {
-                                    <option value="@nivel.IdNivelEducativo"
-                                            selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
+                                    <option value="@nivel.IdNivelEducativo" selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
                                         @nivel.Nombre
                                     </option>
                                 }
-
                             </select>
                         </div>
 
                         <div class="col-md-4">
-                            <label for="EditarInstitucionFicha" class="form-label">
-                                Institución
-                            </label>
-
-                            <input type="text"
-                                   class="form-control"
-                                   id="EditarInstitucionFicha"
-                                   maxlength="100"
-                                   value="@Model.Institucion">
+                            <label for="EditarInstitucionFicha" class="form-label">Institución</label>
+                            <input id="EditarInstitucionFicha" type="text" class="form-control" maxlength="100" value="@Model.Institucion">
                         </div>
 
                         <div class="col-12">
-                            <label for="EditarResumenFicha" class="form-label">
-                                Observaciones
-                            </label>
-
-                            <textarea class="form-control"
-                                      id="EditarResumenFicha"
-                                      maxlength="1000"
-                                      rows="3">@Model.Observaciones</textarea>
+                            <label for="EditarResumenFicha" class="form-label">Observaciones</label>
+                            <textarea id="EditarResumenFicha" class="form-control" maxlength="1000" rows="3">@Model.Observaciones</textarea>
                         </div>
 
                         <div class="col-12">
-                            <label for="EditarNecesidadesFicha" class="form-label">
-                                Necesidades de apoyo
-                            </label>
-
-                            <textarea class="form-control"
-                                      id="EditarNecesidadesFicha"
-                                      maxlength="1000"
-                                      rows="3">@Model.NecesidadesApoyo</textarea>
+                            <label for="EditarNecesidadesFicha" class="form-label">Necesidades de apoyo</label>
+                            <textarea id="EditarNecesidadesFicha" class="form-control" maxlength="1000" rows="3">@Model.NecesidadesApoyo</textarea>
                         </div>
 
                     </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit" class="btn btn-primary">
-                        Actualizar
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar</button>
                 </div>
 
             </form>
 
         </div>
     </div>
-
 </div>
 
 @section Scripts {
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
+    <script src="~/js/areasEstado.js" asp-append-version="true"></script>
 }

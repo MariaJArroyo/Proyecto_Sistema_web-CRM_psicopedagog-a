@@ -112,4 +112,43 @@ public class RepositorioEstudiante : RepositorioBase
             parametros,
             cancelacion);
     }
+    #region Listar áreas actuales e inactivas
+
+    public Task<IReadOnlyList<AreaEstadoResponse>> ListarAreasEstadoAsync(
+        int idEstudiante,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdEstudiante", idEstudiante);
+
+        return ConsultarAsync<AreaEstadoResponse>(
+            "SP_Estudiante_ListarAreasEstado",
+            parametros,
+            cancelacion);
+    }
+
+    #endregion
+
+    #region Desactivar o reactivar área
+
+    public Task CambiarEstadoAreaAsync(
+        int idEstudiante,
+        int idAreaDificultad,
+        bool activo,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdEstudiante", idEstudiante);
+        parametros.Add("p_IdAreaDificultad", idAreaDificultad);
+        parametros.Add("p_Activo", activo);
+
+        return EjecutarAsync(
+            "SP_Estudiante_CambiarEstadoArea",
+            parametros,
+            cancelacion);
+    }
+
+    #endregion
 }

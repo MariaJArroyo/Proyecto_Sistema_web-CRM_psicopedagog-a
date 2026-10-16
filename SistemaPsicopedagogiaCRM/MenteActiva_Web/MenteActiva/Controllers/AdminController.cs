@@ -746,6 +746,88 @@ public class AdminController : Controller
     }
     #endregion
 
+    #region Listar áreas actuales e inactivas
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ConsultarAreasEstadoEstudiante(
+        int idEstudiante,
+        CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione un estudiante válido."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var respuesta = await cliente.GetAsync(
+            UrlApi($"estudiantes/{idEstudiante}/areas/estado-lista"),
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = respuesta.Content.Headers.ContentType?.ToString()
+                ?? "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
+    #region Desactivar o reactivar área del estudiante
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarEstadoAreaEstudiante(
+        int idEstudiante,
+        int idArea,
+        bool? activo,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid ||
+            idEstudiante <= 0 ||
+            idArea <= 0 ||
+            !activo.HasValue)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Indique un estudiante, área y estado válidos."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var peticion = new HttpRequestMessage(
+            HttpMethod.Patch,
+            UrlApi($"estudiantes/{idEstudiante}/areas/{idArea}/estado"))
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new
+            {
+                activo = activo.Value
+            })
+        };
+
+        using var respuesta = await cliente.SendAsync(
+            peticion,
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = respuesta.Content.Headers.ContentType?.ToString()
+                ?? "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
     #endregion
 
 

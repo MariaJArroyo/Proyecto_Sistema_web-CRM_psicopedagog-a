@@ -1672,6 +1672,10 @@ DELIMITER ;
 
 -- Ficha del estudiante. Devuelve tres resultados, en este orden:
 -- 1) datos del estudiante, 2) sus areas de dificultad, 3) sus encargados.
+-- ============================================================
+-- REEMPLAZAR: Consultar ficha del estudiante
+-- ============================================================
+
 DROP PROCEDURE IF EXISTS SP_ConsultarFichaEstudiante_CRM;
 
 DELIMITER $$
@@ -1680,13 +1684,15 @@ CREATE PROCEDURE SP_ConsultarFichaEstudiante_CRM(
     IN p_IdEstudiante INT
 )
 BEGIN
-    -- 1. Datos generales del estudiante
+    -- Datos generales.
     SELECT
         e.IdEstudiante,
         e.Nombre,
         e.PrimerApellido,
         e.SegundoApellido,
         e.FechaNacimiento,
+        e.IdNivelEducativo,
+        e.IdInstitucion,
         ne.Nombre AS NivelEducativo,
         i.Nombre AS Institucion,
         (
@@ -1699,6 +1705,7 @@ BEGIN
             INNER JOIN TB_AREA_DIFICULTAD ad
                 ON ad.IdAreaDificultad = ea.IdAreaDificultad
             WHERE ea.IdEstudiante = e.IdEstudiante
+              AND ea.Activo = 1
         ) AS AreasDificultad,
         e.Observaciones,
         e.NecesidadesApoyo
@@ -1710,7 +1717,7 @@ BEGIN
     WHERE e.IdEstudiante = p_IdEstudiante
       AND e.Activo = 1;
 
-    -- 2. Áreas individuales y observaciones del estudiante
+    -- Áreas actuales.
     SELECT
         ea.IdEstudianteArea,
         ea.IdAreaDificultad,
@@ -1723,10 +1730,11 @@ BEGIN
     INNER JOIN TB_ESTUDIANTE e
         ON e.IdEstudiante = ea.IdEstudiante
     WHERE ea.IdEstudiante = p_IdEstudiante
+      AND ea.Activo = 1
       AND e.Activo = 1
     ORDER BY ad.Nombre, ea.IdEstudianteArea;
 
-    -- 3. Encargados del estudiante
+    -- Personas encargadas.
     SELECT
         ee.IdEstudianteEncargado,
         enc.IdEncargado,
@@ -1759,8 +1767,14 @@ END$$
 DELIMITER ;
 
 
+-- ============================================================
+-- REEMPLAZAR: Agregar área de dificultad
+-- ============================================================
+
 DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarArea_CRM;
+
 DELIMITER $$
+
 CREATE PROCEDURE SP_Estudiante_AgregarArea_CRM(
     IN p_IdEstudiante INT,
     IN p_NombreArea VARCHAR(100),
@@ -1783,7 +1797,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
     END IF;
 
-    IF NOT EXISTS (
+    IF NOT EXISTS(
         SELECT 1
         FROM TB_ESTUDIANTE
         WHERE IdEstudiante = p_IdEstudiante
@@ -1795,7 +1809,6 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Buscar el área existente o crearla si es nueva.
     INSERT INTO TB_AREA_DIFICULTAD (Nombre)
     VALUES (v_NombreArea)
     ON DUPLICATE KEY UPDATE
@@ -1803,18 +1816,16 @@ BEGIN
 
     SET v_IdAreaDificultad = LAST_INSERT_ID();
 
-    -- Evitar duplicar el área en el mismo estudiante.
-    IF EXISTS (
+    IF EXISTS(
         SELECT 1
         FROM TB_ESTUDIANTE_AREA
         WHERE IdEstudiante = p_IdEstudiante
           AND IdAreaDificultad = v_IdAreaDificultad
     ) THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta área de dificultad.';
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta area. Si esta inactiva, reactívela desde Areas inactivas.';
     END IF;
 
-    -- Asociar el área con el estudiante y guardar la observación.
     INSERT INTO TB_ESTUDIANTE_AREA (
         IdEstudiante,
         IdAreaDificultad,
@@ -1828,11 +1839,18 @@ BEGIN
 
     COMMIT;
 END$$
+
 DELIMITER ;
 
 
+-- ============================================================
+-- REEMPLAZAR: Editar área de dificultad
+-- ============================================================
+
 DROP PROCEDURE IF EXISTS SP_Estudiante_EditarArea_CRM;
+
 DELIMITER $$
+
 CREATE PROCEDURE SP_Estudiante_EditarArea_CRM(
     IN p_IdEstudiante INT,
     IN p_IdAreaDificultad INT,
@@ -1856,11 +1874,12 @@ BEGIN
         SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
     END IF;
 
-    IF NOT EXISTS (
+    IF NOT EXISTS(
         SELECT 1
         FROM TB_ESTUDIANTE_AREA
         WHERE IdEstudiante = p_IdEstudiante
           AND IdAreaDificultad = p_IdAreaDificultad
+          AND Activo = 1
     ) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'El área indicada no está registrada para este estudiante.';
@@ -1868,7 +1887,6 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Busca el área por nombre o la crea si es nueva (si no cambió, devuelve la misma)
     INSERT INTO TB_AREA_DIFICULTAD (Nombre)
     VALUES (v_NombreArea)
     ON DUPLICATE KEY UPDATE
@@ -1876,8 +1894,7 @@ BEGIN
 
     SET v_NuevoIdArea = LAST_INSERT_ID();
 
-    -- Si cambió de área, evitar que choque con otra que el estudiante ya tiene
-    IF v_NuevoIdArea <> p_IdAreaDificultad AND EXISTS (
+    IF v_NuevoIdArea <> p_IdAreaDificultad AND EXISTS(
         SELECT 1
         FROM TB_ESTUDIANTE_AREA
         WHERE IdEstudiante = p_IdEstudiante
@@ -1888,15 +1905,358 @@ BEGIN
     END IF;
 
     UPDATE TB_ESTUDIANTE_AREA
-    SET IdAreaDificultad = v_NuevoIdArea,
+    SET
+        IdAreaDificultad = v_NuevoIdArea,
         Observacion = NULLIF(TRIM(p_Observacion), '')
     WHERE IdEstudiante = p_IdEstudiante
-      AND IdAreaDificultad = p_IdAreaDificultad;
+      AND IdAreaDificultad = p_IdAreaDificultad
+      AND Activo = 1;
 
     COMMIT;
 END$$
+
 DELIMITER ;
 
+
+-- ============================================================
+-- NUEVO: Listar áreas actuales e inactivas
+-- ============================================================
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_ListarAreasEstado;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_ListarAreasEstado(
+    IN p_IdEstudiante INT
+)
+BEGIN
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT
+        ea.IdAreaDificultad,
+        a.Nombre,
+        ea.Observacion,
+        ea.Activo,
+        ea.FechaDesactivacion
+    FROM TB_ESTUDIANTE_AREA ea
+    INNER JOIN TB_AREA_DIFICULTAD a
+        ON a.IdAreaDificultad = ea.IdAreaDificultad
+    WHERE ea.IdEstudiante = p_IdEstudiante
+    ORDER BY a.Nombre, ea.IdAreaDificultad;
+END$$
+
+DELIMITER ;
+
+
+-- ============================================================
+-- NUEVO: Desactivar o reactivar área del estudiante
+-- ============================================================
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_CambiarEstadoArea;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_CambiarEstadoArea(
+    IN p_IdEstudiante INT,
+    IN p_IdAreaDificultad INT,
+    IN p_Activo BOOLEAN
+)
+BEGIN
+    DECLARE v_Actual BOOLEAN DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_Activo IS NULL OR p_Activo NOT IN (0, 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Indique un estado valido.';
+    END IF;
+
+    START TRANSACTION;
+
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT Activo
+    INTO v_Actual
+    FROM TB_ESTUDIANTE_AREA
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdAreaDificultad = p_IdAreaDificultad
+    FOR UPDATE;
+
+    IF v_Actual IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El area no pertenece a este estudiante.';
+    END IF;
+
+    IF v_Actual <> p_Activo THEN
+        UPDATE TB_ESTUDIANTE_AREA
+        SET
+            Activo = p_Activo,
+            FechaDesactivacion = IF(p_Activo = 0, NOW(), NULL)
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = p_IdAreaDificultad;
+    END IF;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarArea_CRM;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_AgregarArea_CRM(
+    IN p_IdEstudiante INT,
+    IN p_NombreArea VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_IdAreaDificultad INT;
+    DECLARE v_NombreArea VARCHAR(100);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_NombreArea = TRIM(p_NombreArea);
+
+    IF v_NombreArea IS NULL OR v_NombreArea = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
+    END IF;
+
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_AREA_DIFICULTAD (Nombre)
+    VALUES (v_NombreArea)
+    ON DUPLICATE KEY UPDATE
+        IdAreaDificultad = LAST_INSERT_ID(IdAreaDificultad);
+
+    SET v_IdAreaDificultad = LAST_INSERT_ID();
+
+    IF EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = v_IdAreaDificultad
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta area. Si esta inactiva, reactívela desde Areas inactivas.';
+    END IF;
+
+    INSERT INTO TB_ESTUDIANTE_AREA (
+        IdEstudiante,
+        IdAreaDificultad,
+        Observacion
+    )
+    VALUES (
+        p_IdEstudiante,
+        v_IdAreaDificultad,
+        NULLIF(TRIM(p_Observacion), '')
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarArea_CRM;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_EditarArea_CRM(
+    IN p_IdEstudiante INT,
+    IN p_IdAreaDificultad INT,
+    IN p_NombreArea VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_NuevoIdArea INT;
+    DECLARE v_NombreArea VARCHAR(100);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_NombreArea = TRIM(p_NombreArea);
+
+    IF v_NombreArea IS NULL OR v_NombreArea = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el nombre del área de dificultad.';
+    END IF;
+
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = p_IdAreaDificultad
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El área indicada no está registrada para este estudiante.';
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_AREA_DIFICULTAD (Nombre)
+    VALUES (v_NombreArea)
+    ON DUPLICATE KEY UPDATE
+        IdAreaDificultad = LAST_INSERT_ID(IdAreaDificultad);
+
+    SET v_NuevoIdArea = LAST_INSERT_ID();
+
+    IF v_NuevoIdArea <> p_IdAreaDificultad AND EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE_AREA
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = v_NuevoIdArea
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta área de dificultad.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_AREA
+    SET
+        IdAreaDificultad = v_NuevoIdArea,
+        Observacion = NULLIF(TRIM(p_Observacion), '')
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdAreaDificultad = p_IdAreaDificultad
+      AND Activo = 1;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_ListarAreasEstado;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_ListarAreasEstado(
+    IN p_IdEstudiante INT
+)
+BEGIN
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT
+        ea.IdAreaDificultad,
+        a.Nombre,
+        ea.Observacion,
+        ea.Activo,
+        ea.FechaDesactivacion
+    FROM TB_ESTUDIANTE_AREA ea
+    INNER JOIN TB_AREA_DIFICULTAD a
+        ON a.IdAreaDificultad = ea.IdAreaDificultad
+    WHERE ea.IdEstudiante = p_IdEstudiante
+    ORDER BY a.Nombre, ea.IdAreaDificultad;
+END$$
+
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_CambiarEstadoArea;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Estudiante_CambiarEstadoArea(
+    IN p_IdEstudiante INT,
+    IN p_IdAreaDificultad INT,
+    IN p_Activo BOOLEAN
+)
+BEGIN
+    DECLARE v_Actual BOOLEAN DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_Activo IS NULL OR p_Activo NOT IN (0, 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Indique un estado valido.';
+    END IF;
+
+    START TRANSACTION;
+
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT Activo
+    INTO v_Actual
+    FROM TB_ESTUDIANTE_AREA
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdAreaDificultad = p_IdAreaDificultad
+    FOR UPDATE;
+
+    IF v_Actual IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El area no pertenece a este estudiante.';
+    END IF;
+
+    IF v_Actual <> p_Activo THEN
+        UPDATE TB_ESTUDIANTE_AREA
+        SET
+            Activo = p_Activo,
+            FechaDesactivacion = IF(p_Activo = 0, NOW(), NULL)
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdAreaDificultad = p_IdAreaDificultad;
+    END IF;
+
+    COMMIT;
+END$$
+
+DELIMITER ;
 
 DROP PROCEDURE IF EXISTS SP_BuscarEncargados;
 DELIMITER $$
@@ -4265,56 +4625,419 @@ DELIMITER ;
 -- ============================================================
 
 DROP PROCEDURE IF EXISTS SP_Reporte_Listar;
+
 DELIMITER $$
+
 CREATE PROCEDURE SP_Reporte_Listar(
-  IN p_IdEstudiante INT,
-  IN p_Desde DATE,
-  IN p_Hasta DATE
+    IN p_IdEstudiante INT,
+    IN p_Desde DATE,
+    IN p_Hasta DATE,
+    IN p_Buscar VARCHAR(150),
+    IN p_Estado VARCHAR(10),
+    IN p_Orden VARCHAR(2)
 )
 BEGIN
-  SELECT r.IdReporte,
-         r.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         r.Titulo,
-         r.PeriodoInicio,
-         r.PeriodoFin,
-         r.VisibleEnPortal,
-         r.FechaGeneracion,
-         u.NombreCompleto AS GeneradoPor
-  FROM TB_REPORTE r
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = r.IdEstudiante
-  JOIN TB_USUARIO u ON u.IdUsuario = r.IdUsuarioGenero
-  WHERE (p_IdEstudiante IS NULL OR r.IdEstudiante = p_IdEstudiante)
-    AND (p_Desde IS NULL OR r.PeriodoInicio >= p_Desde)
-    AND (p_Hasta IS NULL OR r.PeriodoFin <= p_Hasta)
-  ORDER BY r.FechaGeneracion DESC;
+    IF p_Estado IS NULL
+       OR p_Estado NOT IN ('activos', 'inactivos', 'todos')
+       OR p_Orden IS NULL
+       OR p_Orden NOT IN ('az', 'za') THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estado o el orden del filtro no es valido.';
+    END IF;
+
+    SELECT
+        r.IdReporte,
+        r.IdEstudiante,
+        TRIM(CONCAT_WS(
+            ' ',
+            e.Nombre,
+            e.PrimerApellido,
+            e.SegundoApellido
+        )) AS Estudiante,
+        r.Titulo,
+        r.PeriodoInicio,
+        r.PeriodoFin,
+        r.VisibleEnPortal,
+        r.FechaGeneracion,
+        r.Activo,
+        u.NombreCompleto AS GeneradoPor
+    FROM TB_REPORTE r
+    INNER JOIN TB_ESTUDIANTE e
+        ON e.IdEstudiante = r.IdEstudiante
+    INNER JOIN TB_USUARIO u
+        ON u.IdUsuario = r.IdUsuarioGenero
+    WHERE (p_IdEstudiante IS NULL OR r.IdEstudiante = p_IdEstudiante)
+      AND (p_Desde IS NULL OR r.PeriodoInicio >= p_Desde)
+      AND (p_Hasta IS NULL OR r.PeriodoFin <= p_Hasta)
+      AND (
+          p_Buscar IS NULL
+          OR TRIM(p_Buscar) = ''
+          OR LOCATE(
+              TRIM(p_Buscar),
+              TRIM(CONCAT_WS(
+                  ' ',
+                  e.Nombre,
+                  e.PrimerApellido,
+                  e.SegundoApellido
+              ))
+          ) > 0
+      )
+      AND (
+          p_Estado = 'todos'
+          OR (p_Estado = 'activos' AND r.Activo = 1)
+          OR (p_Estado = 'inactivos' AND r.Activo = 0)
+      )
+    ORDER BY
+        CASE WHEN p_Orden = 'az'
+            THEN TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, e.SegundoApellido))
+        END ASC,
+        CASE WHEN p_Orden = 'za'
+            THEN TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, e.SegundoApellido))
+        END DESC,
+        r.FechaGeneracion DESC,
+        r.IdReporte DESC;
 END$$
+
 DELIMITER ;
+
 
 
 DROP PROCEDURE IF EXISTS SP_Reporte_ObtenerDetalle;
+
 DELIMITER $$
+
 CREATE PROCEDURE SP_Reporte_ObtenerDetalle(
-  IN p_IdReporte INT
+    IN p_IdReporte INT
 )
 BEGIN
-  SELECT r.IdReporte,
-         r.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         r.Titulo, r.PeriodoInicio, r.PeriodoFin,
-         r.Contenido, r.RutaArchivo, r.VisibleEnPortal, r.FechaGeneracion,
-         u.NombreCompleto AS GeneradoPor
-  FROM TB_REPORTE r
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = r.IdEstudiante
-  JOIN TB_USUARIO u ON u.IdUsuario = r.IdUsuarioGenero
-  WHERE r.IdReporte = p_IdReporte;
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_REPORTE
+        WHERE IdReporte = p_IdReporte
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El reporte solicitado no esta disponible.';
+    END IF;
+
+    SELECT
+        r.IdReporte,
+        r.IdEstudiante,
+        TRIM(CONCAT_WS(
+            ' ',
+            e.Nombre,
+            e.PrimerApellido,
+            e.SegundoApellido
+        )) AS Estudiante,
+        r.Titulo,
+        r.PeriodoInicio,
+        r.PeriodoFin,
+        r.Contenido,
+        r.RutaArchivo,
+        r.VisibleEnPortal,
+        r.FechaGeneracion,
+        u.NombreCompleto AS GeneradoPor
+    FROM TB_REPORTE r
+    INNER JOIN TB_ESTUDIANTE e
+        ON e.IdEstudiante = r.IdEstudiante
+    INNER JOIN TB_USUARIO u
+        ON u.IdUsuario = r.IdUsuarioGenero
+    WHERE r.IdReporte = p_IdReporte;
 END$$
+
 DELIMITER ;
 
 
--- SP_Reporte_Generar: no se escribe. TB_REPORTE tiene Contenido y RutaArchivo,
--- las dos opcionales, y nadie definio que lleva el reporte ni si se guarda como
--- texto o como archivo. Falta esa decision.
+DROP PROCEDURE IF EXISTS SP_Reporte_CambiarEstado;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Reporte_CambiarEstado(
+    IN p_IdReporte INT,
+    IN p_Activo BOOLEAN
+)
+BEGIN
+    IF p_IdReporte IS NULL
+       OR p_IdReporte <= 0
+       OR p_Activo IS NULL
+       OR p_Activo NOT IN (0, 1) THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Indique un reporte y estado validos.';
+    END IF;
+
+    UPDATE TB_REPORTE
+    SET Activo = p_Activo
+    WHERE IdReporte = p_IdReporte;
+
+    IF ROW_COUNT() = 0 AND NOT EXISTS(
+        SELECT 1
+        FROM TB_REPORTE
+        WHERE IdReporte = p_IdReporte
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El reporte solicitado no existe.';
+    END IF;
+END$$
+
+DELIMITER ;
+DROP PROCEDURE IF EXISTS SP_Reporte_Generar;
+
+DELIMITER $$
+
+CREATE PROCEDURE SP_Reporte_Generar(
+    IN p_IdUsuario INT,
+    IN p_IdEstudiante INT,
+    IN p_Titulo VARCHAR(150),
+    IN p_Desde DATE,
+    IN p_Hasta DATE,
+    IN p_IncluirDatosGenerales BOOLEAN,
+    IN p_IncluirSesiones BOOLEAN,
+    IN p_IncluirPlanes BOOLEAN
+)
+generar_reporte: BEGIN
+    DECLARE v_Contenido JSON;
+    DECLARE v_IdReporte INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+    IF p_Titulo IS NULL
+       OR TRIM(p_Titulo) = ''
+       OR p_Desde IS NULL
+       OR p_Hasta IS NULL
+       OR p_Hasta < p_Desde THEN
+
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Indique titulo y un periodo valido.';
+    END IF;
+
+    IF NOT EXISTS(
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    IF NOT (
+        COALESCE(p_IncluirDatosGenerales, 0)
+        OR COALESCE(p_IncluirSesiones, 0)
+        OR COALESCE(p_IncluirPlanes, 0)
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Seleccione al menos una seccion del reporte.';
+    END IF;
+
+    -- Validar sesiones si esa sección fue seleccionada.
+    IF COALESCE(p_IncluirSesiones, 0) = 1 AND NOT EXISTS(
+        SELECT 1
+        FROM TB_SESION
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+          AND DATE(FechaHoraInicio) BETWEEN p_Desde AND p_Hasta
+    ) THEN
+        COMMIT;
+        SELECT 0 AS IdReporte;
+        LEAVE generar_reporte;
+    END IF;
+
+    -- Validar planes si esa sección fue seleccionada.
+    IF COALESCE(p_IncluirPlanes, 0) = 1 AND NOT EXISTS(
+        SELECT 1
+        FROM TB_PLAN_INTERVENCION
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
+          AND FechaInicio <= p_Hasta
+          AND (FechaFin IS NULL OR FechaFin >= p_Desde)
+    ) THEN
+        COMMIT;
+        SELECT 0 AS IdReporte;
+        LEAVE generar_reporte;
+    END IF;
+
+    SELECT JSON_OBJECT(
+        'estudiante', JSON_OBJECT(
+            'nombre', CONCAT_WS(
+                ' ',
+                e.Nombre,
+                e.PrimerApellido,
+                e.SegundoApellido
+            ),
+            'nivel', n.Nombre,
+            'institucion', i.Nombre,
+
+            'areasDificultad', (
+                SELECT GROUP_CONCAT(
+                    a.Nombre
+                    ORDER BY a.Nombre
+                    SEPARATOR ', '
+                )
+                FROM TB_ESTUDIANTE_AREA ea
+                INNER JOIN TB_AREA_DIFICULTAD a
+                    ON a.IdAreaDificultad = ea.IdAreaDificultad
+                WHERE ea.IdEstudiante = e.IdEstudiante
+                  AND ea.Activo = 1
+            ),
+
+            'areasTrabajadas', IFNULL((
+                SELECT JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'nombre', a.Nombre,
+                        'observacion', ea.Observacion,
+                        'fechaDesactivacion', ea.FechaDesactivacion
+                    )
+                )
+                FROM TB_ESTUDIANTE_AREA ea
+                INNER JOIN TB_AREA_DIFICULTAD a
+                    ON a.IdAreaDificultad = ea.IdAreaDificultad
+                WHERE ea.IdEstudiante = e.IdEstudiante
+                  AND ea.Activo = 0
+            ), JSON_ARRAY())
+        ),
+
+        'sesiones', IFNULL((
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'fecha', DATE(s.FechaHoraInicio),
+                    'tipoAtencion', ta.Nombre,
+                    'objetivo', s.Objetivo,
+                    'duracionMinutos', s.DuracionMinutos,
+                    'tema', s.TemaTrabajado,
+                    'actividadesRealizadas', s.ActividadesRealizadas,
+                    'acuerdos', s.Acuerdos,
+                    'objetivosAlcanzados', s.ObjetivosAlcanzados,
+                    'habilidadesDesarrolladas', s.HabilidadesDesarrolladas,
+                    'observaciones', s.Observaciones,
+                    'avances', s.Avances,
+                    'recomendaciones', s.Recomendaciones
+                )
+            )
+            FROM TB_SESION s
+            INNER JOIN TB_TIPO_ATENCION ta
+                ON ta.IdTipoAtencion = s.IdTipoAtencion
+            WHERE s.IdEstudiante = e.IdEstudiante
+              AND s.Activo = 1
+              AND DATE(s.FechaHoraInicio) BETWEEN p_Desde AND p_Hasta
+        ), JSON_ARRAY()),
+
+        'planes', IFNULL((
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'titulo', pl.Titulo,
+                    'estado', ep.Nombre,
+                    'objetivoGeneral', pl.ObjetivoGeneral,
+                    'fechaInicio', pl.FechaInicio,
+                    'fechaFin', pl.FechaFin,
+                    'observaciones', pl.Observaciones,
+
+                    'estrategias', IFNULL((
+                        SELECT JSON_ARRAYAGG(
+                            JSON_OBJECT(
+                                'descripcion', es.Descripcion,
+                                'orden', es.Orden,
+
+                                'actividades', IFNULL((
+                                    SELECT JSON_ARRAYAGG(
+                                        JSON_OBJECT(
+                                            'nombre', ac.Nombre,
+                                            'descripcion', ac.Descripcion,
+                                            'completada', IF(ac.Completada = 1, 1, 0)
+                                        )
+                                    )
+                                    FROM TB_ACTIVIDAD ac
+                                    WHERE ac.IdEstrategia = es.IdEstrategia
+                                ), JSON_ARRAY())
+                            )
+                        )
+                        FROM TB_ESTRATEGIA es
+                        WHERE es.IdPlan = pl.IdPlan
+                    ), JSON_ARRAY()),
+
+                    'actividades', (
+                        SELECT COUNT(*)
+                        FROM TB_ACTIVIDAD ac
+                        INNER JOIN TB_ESTRATEGIA es
+                            ON es.IdEstrategia = ac.IdEstrategia
+                        WHERE es.IdPlan = pl.IdPlan
+                    ),
+
+                    'actividadesCompletadas', (
+                        SELECT COUNT(*)
+                        FROM TB_ACTIVIDAD ac
+                        INNER JOIN TB_ESTRATEGIA es
+                            ON es.IdEstrategia = ac.IdEstrategia
+                        WHERE es.IdPlan = pl.IdPlan
+                          AND ac.Completada = 1
+                    )
+                )
+            )
+            FROM TB_PLAN_INTERVENCION pl
+            INNER JOIN TB_ESTADO_PLAN ep
+                ON ep.IdEstadoPlan = pl.IdEstadoPlan
+            WHERE pl.IdEstudiante = e.IdEstudiante
+              AND pl.Activo = 1
+              AND pl.FechaInicio <= p_Hasta
+              AND (pl.FechaFin IS NULL OR pl.FechaFin >= p_Desde)
+        ), JSON_ARRAY())
+
+    ) INTO v_Contenido
+    FROM TB_ESTUDIANTE e
+    LEFT JOIN TB_NIVEL_EDUCATIVO n
+        ON n.IdNivelEducativo = e.IdNivelEducativo
+    LEFT JOIN TB_INSTITUCION i
+        ON i.IdInstitucion = e.IdInstitucion
+    WHERE e.IdEstudiante = p_IdEstudiante;
+
+    IF NOT COALESCE(p_IncluirDatosGenerales, 0) THEN
+        SET v_Contenido = JSON_REMOVE(v_Contenido, '$.estudiante');
+    END IF;
+
+    IF NOT COALESCE(p_IncluirSesiones, 0) THEN
+        SET v_Contenido = JSON_REMOVE(v_Contenido, '$.sesiones');
+    END IF;
+
+    IF NOT COALESCE(p_IncluirPlanes, 0) THEN
+        SET v_Contenido = JSON_REMOVE(v_Contenido, '$.planes');
+    END IF;
+
+    INSERT INTO TB_REPORTE (
+        IdEstudiante,
+        IdUsuarioGenero,
+        Titulo,
+        PeriodoInicio,
+        PeriodoFin,
+        Contenido,
+        VisibleEnPortal,
+        Activo
+    )
+    VALUES (
+        p_IdEstudiante,
+        p_IdUsuario,
+        TRIM(p_Titulo),
+        p_Desde,
+        p_Hasta,
+        v_Contenido,
+        0,
+        1
+    );
+
+    SET v_IdReporte = LAST_INSERT_ID();
+
+    COMMIT;
+
+    SELECT v_IdReporte AS IdReporte;
+END$$
+
+DELIMITER ;
 
 -- ============================================================
 -- 9. Materiales y tareas

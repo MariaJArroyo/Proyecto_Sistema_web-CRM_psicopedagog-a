@@ -623,6 +623,145 @@ function iniciarFormularioNuevoEstudiante(formulario) {
         iniciarEditarArea();
     }
 })();
+// =====================================================
+// GUARDAR EDICIÓN DE LA FICHA
+// =====================================================
+
+(function () {
+    "use strict";
+
+    function iniciarEdicionFicha() {
+        const formulario = document.getElementById("FormularioEditarFicha");
+
+        if (!formulario || formulario.dataset.guardadoFichaInicializado === "true") return;
+
+        formulario.dataset.guardadoFichaInicializado = "true";
+
+        const campo = id => document.getElementById(id);
+        const modal = campo("ModalEditarFicha");
+        const boton = formulario.querySelector('button[type="submit"]');
+
+        const alerta = document.createElement("div");
+        alerta.className = "alert d-none";
+        alerta.setAttribute("role", "alert");
+
+        formulario.querySelector(".modal-body").prepend(alerta);
+
+        let guardando = false;
+
+        function fechaParaGuardar(valor) {
+            if (!valor.trim()) return "";
+
+            const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(valor.trim());
+
+            if (!partes) return null;
+
+            const [, dia, mes, anio] = partes;
+            const d = Number(dia);
+            const m = Number(mes);
+            const a = Number(anio);
+
+            if (a < 1000 || m < 1 || m > 12 || d < 1) return null;
+            if (d > new Date(Date.UTC(a, m, 0)).getUTCDate()) return null;
+
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        formulario.addEventListener("submit", async function (evento) {
+            evento.preventDefault();
+
+            if (guardando) return;
+
+            alerta.className = "alert d-none";
+            alerta.textContent = "";
+
+            if (!formulario.reportValidity()) return;
+
+            const id = Number(formulario.dataset.idEstudiante);
+            const nombre = campo("EditarNombreFicha").value.trim();
+            const apellido = campo("EditarPrimerApellidoFicha").value.trim();
+            const nacimiento = fechaParaGuardar(campo("EditarFechaNacimientoFicha").value);
+
+            if (!Number.isInteger(id) || id <= 0 || !nombre || !apellido || nacimiento === null) {
+                alerta.className = "alert alert-warning";
+                alerta.textContent = nacimiento === null
+                    ? "Ingrese una fecha de nacimiento válida en formato dd/mm/aaaa."
+                    : "Revise el estudiante, nombre y primer apellido.";
+
+                return;
+            }
+
+            const datos = new FormData(formulario);
+
+            datos.set("IdEstudiante", String(id));
+            datos.set("Nombre", nombre);
+            datos.set("PrimerApellido", apellido);
+            datos.set("SegundoApellido", campo("EditarSegundoApellidoFicha").value.trim());
+            datos.set("FechaNacimiento", nacimiento);
+            datos.set("IdNivelEducativo", campo("EditarNivelFicha").value);
+            datos.set("Institucion", campo("EditarInstitucionFicha").value.trim());
+            datos.set("Observaciones", campo("EditarResumenFicha").value.trim());
+            datos.set("NecesidadesApoyo", campo("EditarNecesidadesFicha").value.trim());
+
+            guardando = true;
+
+            const textoOriginal = boton.textContent;
+
+            boton.disabled = true;
+            boton.textContent = "Guardando…";
+
+            try {
+                const respuesta = await fetch(formulario.dataset.url, {
+                    method: "POST",
+                    body: datos,
+                    headers: { Accept: "application/json" }
+                });
+
+                if (respuesta.redirected) {
+                    throw new Error("La sesión pudo haber vencido. Recargue la página e intente nuevamente.");
+                }
+
+                if (!respuesta.ok) {
+                    let mensaje = "No se pudo actualizar la ficha del estudiante.";
+
+                    try {
+                        const error = await respuesta.json();
+                        mensaje = error.mensaje || mensaje;
+                    } catch {
+                        // Conserva el mensaje general.
+                    }
+
+                    throw new Error(mensaje);
+                }
+
+                sessionStorage.setItem(
+                    "EstudiantesMensaje",
+                    "Ficha del estudiante actualizada correctamente."
+                );
+
+                window.location.reload();
+            } catch (error) {
+                alerta.className = "alert alert-danger";
+                alerta.textContent = error.message ||
+                    "No se pudo confirmar el guardado. Recargue la ficha para comprobarlo antes de reintentar.";
+            } finally {
+                guardando = false;
+                boton.disabled = false;
+                boton.textContent = textoOriginal;
+            }
+        });
+
+        modal.addEventListener("hide.bs.modal", function (evento) {
+            if (guardando) evento.preventDefault();
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarEdicionFicha);
+    } else {
+        iniciarEdicionFicha();
+    }
+})();
 
 // ---------- inicialización ----------
 
