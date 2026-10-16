@@ -409,19 +409,40 @@ CREATE TABLE IF NOT EXISTS TB_SOLICITUD_CONTACTO (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_AREA (
-  IdEstudianteArea INT NOT NULL AUTO_INCREMENT,
-  IdEstudiante INT NOT NULL,
-  IdAreaDificultad INT NOT NULL,
-  Observacion VARCHAR(500) NULL,
-  FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (IdEstudianteArea),
-  UNIQUE KEY UX_EstudianteArea_Relacion (IdEstudiante, IdAreaDificultad),
-  KEY IX_EstudianteArea_AreaDificultad (IdAreaDificultad),
-  CONSTRAINT FK_EstudianteArea_Estudiante FOREIGN KEY (IdEstudiante)
-    REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT FK_EstudianteArea_AreaDificultad FOREIGN KEY (IdAreaDificultad)
-    REFERENCES TB_AREA_DIFICULTAD (IdAreaDificultad) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    IdEstudianteArea INT NOT NULL AUTO_INCREMENT,
+    IdEstudiante INT NOT NULL,
+    IdAreaDificultad INT NOT NULL,
+    Observacion VARCHAR(500) NULL,
+    Activo BOOLEAN NOT NULL DEFAULT 1,
+    FechaDesactivacion DATETIME NULL,
+    FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (IdEstudianteArea),
+
+    UNIQUE KEY UX_EstudianteArea_Relacion (
+        IdEstudiante,
+        IdAreaDificultad
+    ),
+
+    KEY IX_EstudianteArea_AreaDificultad (
+        IdAreaDificultad
+    ),
+
+    CONSTRAINT FK_EstudianteArea_Estudiante
+        FOREIGN KEY (IdEstudiante)
+        REFERENCES TB_ESTUDIANTE (IdEstudiante)
+        ON DELETE CASCADE
+        ON UPDATE RESTRICT,
+
+    CONSTRAINT FK_EstudianteArea_AreaDificultad
+        FOREIGN KEY (IdAreaDificultad)
+        REFERENCES TB_AREA_DIFICULTAD (IdAreaDificultad)
+        ON DELETE RESTRICT
+        ON UPDATE RESTRICT
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- ============================================================
@@ -661,26 +682,49 @@ CREATE TABLE IF NOT EXISTS TB_ACTIVIDAD (
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS TB_REPORTE (
-  IdReporte INT NOT NULL AUTO_INCREMENT,
-  IdEstudiante INT NOT NULL,
-  IdUsuarioGenero INT NOT NULL,
-  Titulo VARCHAR(150) NOT NULL,
-  PeriodoInicio DATE NOT NULL,
-  PeriodoFin DATE NOT NULL,
-  Contenido LONGTEXT NULL,
-  RutaArchivo VARCHAR(500) NULL,
-  VisibleEnPortal BOOLEAN NOT NULL DEFAULT 0,
-  FechaGeneracion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (IdReporte),
-  KEY IX_Reporte_Estudiante (IdEstudiante),
-  KEY IX_Reporte_UsuarioGenero (IdUsuarioGenero),
-  CONSTRAINT FK_Reporte_Estudiante FOREIGN KEY (IdEstudiante)
-    REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT FK_Reporte_UsuarioGenero FOREIGN KEY (IdUsuarioGenero)
-    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT CK_Reporte_TituloNoVacio CHECK (TRIM(Titulo) <> ''),
-  CONSTRAINT CK_Reporte_Periodo CHECK (PeriodoFin >= PeriodoInicio)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    IdReporte INT NOT NULL AUTO_INCREMENT,
+    IdEstudiante INT NOT NULL,
+    IdUsuarioGenero INT NOT NULL,
+    Titulo VARCHAR(150) NOT NULL,
+    PeriodoInicio DATE NOT NULL,
+    PeriodoFin DATE NOT NULL,
+    Contenido LONGTEXT NULL,
+    RutaArchivo VARCHAR(500) NULL,
+    VisibleEnPortal BOOLEAN NOT NULL DEFAULT 0,
+    Activo BOOLEAN NOT NULL DEFAULT 1,
+    FechaGeneracion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (IdReporte),
+
+    KEY IX_Reporte_Estudiante (
+        IdEstudiante
+    ),
+
+    KEY IX_Reporte_UsuarioGenero (
+        IdUsuarioGenero
+    ),
+
+    CONSTRAINT FK_Reporte_Estudiante
+        FOREIGN KEY (IdEstudiante)
+        REFERENCES TB_ESTUDIANTE (IdEstudiante)
+        ON DELETE RESTRICT
+        ON UPDATE RESTRICT,
+
+    CONSTRAINT FK_Reporte_UsuarioGenero
+        FOREIGN KEY (IdUsuarioGenero)
+        REFERENCES TB_USUARIO (IdUsuario)
+        ON DELETE RESTRICT
+        ON UPDATE RESTRICT,
+
+    CONSTRAINT CK_Reporte_TituloNoVacio
+        CHECK (TRIM(Titulo) <> ''),
+
+    CONSTRAINT CK_Reporte_Periodo
+        CHECK (PeriodoFin >= PeriodoInicio)
+
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_0900_ai_ci;
 
 -- El pago es el cobro: que se debe, cuanto y cuando vence. Quien pago, como y
 -- cuando vive en TB_ABONO, porque un cobro se puede cancelar en partes y cada

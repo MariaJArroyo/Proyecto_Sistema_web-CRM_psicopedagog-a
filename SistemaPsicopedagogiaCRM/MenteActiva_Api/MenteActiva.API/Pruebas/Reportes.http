@@ -1,0 +1,67 @@
+### Pruebas de los endpoints de reportes (M7 - HU-M7-4)
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que tener el campo Activo en TB_REPORTE
+###      y los datos de 03_datos_prueba.sql (reportes 1 y 2).
+###   2. Ejecutar "0. Login" y copiar el token a la variable @token de abajo.
+###   3. Ejecutar de arriba hacia abajo.
+###
+### Datos sembrados que se usan aqui:
+###   reporte 1  estudiante 1, habilitado
+###   reporte 2  estudiante 1, DESHABILITADO
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwianRpIjoiNGFlYTRmNWEtYzg4MS00ZDE3LTkzYmMtOWMzNzIyNDI4ZjBjIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiIzIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6IkFkbWluaXN0cmFkb3IgZGUgcHJ1ZWJhIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZW1haWxhZGRyZXNzIjoiYWRtaW4ucHJ1ZWJhQGV4YW1wbGUuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQWRtaW5pc3RyYWRvciIsImV4cCI6MTc5MjA1NDU1MCwiaXNzIjoiTWVudGVBY3RpdmEuQXBpIiwiYXVkIjoiTWVudGVBY3RpdmEuV2ViIn0.QCKjVWxLKRedcDrfX-Y1P0OUuCVWDk11zXKPUCWDV0U
+@tokenAsistente = yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2IiwianRpIjoiNWJhMTQ5YmYtY2Q2Zi00NmVkLThjODktODIwNmFhZWU0MjI5IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiI2IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6IkFzaXN0ZW50ZSBkZSBwcnVlYmEiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJhc2lzdGVudGUucHJ1ZWJhQGV4YW1wbGUuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQXNpc3RlbnRlIiwiZXhwIjoxNzkyMDU0Njc2LCJpc3MiOiJNZW50ZUFjdGl2YS5BcGkiLCJhdWQiOiJNZW50ZUFjdGl2YS5XZWIifQ.7iQAeded5mNZL7nLfhNW9hl-L9IqZ2oArU2cQbRdwL8
+
+### 0. Login del administrador. Devuelve 200 con el token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+
+### 1. Listar reportes. Devuelve 200 y solo el reporte 1 (el 2 esta deshabilitado).
+GET {{host}}/api/reportes
+Authorization: Bearer {{token}}
+
+
+### 2. Detalle del reporte 1. Devuelve 200 con titulo, periodo, contenido, estudiante y quien lo genero. (Escenarios 1 y 2)
+GET {{host}}/api/reportes/1
+Authorization: Bearer {{token}}
+
+
+### 3. Detalle del reporte 2 (deshabilitado). Devuelve 400 con "El reporte solicitado no esta disponible." (Escenario 3)
+GET {{host}}/api/reportes/2
+Authorization: Bearer {{token}}
+
+
+### 4. Detalle de un reporte que no existe. Devuelve el mismo 400 que la 3. (Escenario 3)
+GET {{host}}/api/reportes/999
+Authorization: Bearer {{token}}
+
+
+### 5. Sin token. Devuelve 401.
+GET {{host}}/api/reportes/1
+
+
+### 6. Con el Asistente. Devuelve 403: el reporte lleva informacion clinica.
+### Antes: login del asistente y pegar su token en @tokenAsistente.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+###
+GET {{host}}/api/reportes/1
+Authorization: Bearer {{tokenAsistente}}

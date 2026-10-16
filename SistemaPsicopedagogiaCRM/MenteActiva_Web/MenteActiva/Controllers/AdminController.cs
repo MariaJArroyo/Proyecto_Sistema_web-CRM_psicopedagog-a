@@ -746,6 +746,88 @@ public class AdminController : Controller
     }
     #endregion
 
+    #region Listar áreas actuales e inactivas
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ConsultarAreasEstadoEstudiante(
+        int idEstudiante,
+        CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione un estudiante válido."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var respuesta = await cliente.GetAsync(
+            UrlApi($"estudiantes/{idEstudiante}/areas/estado-lista"),
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = respuesta.Content.Headers.ContentType?.ToString()
+                ?? "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
+    #region Desactivar o reactivar área del estudiante
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarEstadoAreaEstudiante(
+        int idEstudiante,
+        int idArea,
+        bool? activo,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid ||
+            idEstudiante <= 0 ||
+            idArea <= 0 ||
+            !activo.HasValue)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Indique un estudiante, área y estado válidos."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var peticion = new HttpRequestMessage(
+            HttpMethod.Patch,
+            UrlApi($"estudiantes/{idEstudiante}/areas/{idArea}/estado"))
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new
+            {
+                activo = activo.Value
+            })
+        };
+
+        using var respuesta = await cliente.SendAsync(
+            peticion,
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = respuesta.Content.Headers.ContentType?.ToString()
+                ?? "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
     #endregion
 
 
@@ -756,7 +838,7 @@ public class AdminController : Controller
     public IActionResult Pagos() => View(); 
 
 
-  #region Planes de Intervencion
+    #region Planes de Intervencion
     public async Task<IActionResult> Planes()
     {
         using var client = _http.CreateClient();
@@ -1158,10 +1240,167 @@ public class AdminController : Controller
         return Ok(resultado ?? new List<ActividadViewModel>());
     }
 
-   #endregion
+    #endregion
 
 
-    public IActionResult Reportes() => View();
+    #region Reportes
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public IActionResult Reportes()
+    {
+        return View();
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> ConsultarReportes(
+        int? idEstudiante,
+        DateOnly? desde,
+        DateOnly? hasta,
+        string? buscar,
+        string? estado,
+        string? orden,
+        CancellationToken cancelacion)
+    {
+        var filtros = new List<string>();
+
+        if (idEstudiante is > 0)
+            filtros.Add($"idEstudiante={idEstudiante}");
+
+        if (desde.HasValue)
+            filtros.Add($"desde={FormatoFecha(desde.Value)}");
+
+        if (hasta.HasValue)
+            filtros.Add($"hasta={FormatoFecha(hasta.Value)}");
+
+        filtros.Add(
+            "buscar=" + Uri.EscapeDataString(buscar ?? string.Empty));
+
+        filtros.Add(
+            "estado=" + Uri.EscapeDataString(estado ?? "activos"));
+
+        filtros.Add(
+            "orden=" + Uri.EscapeDataString(orden ?? "az"));
+
+        return ReenviarGetAsync(
+            "reportes?" + string.Join("&", filtros),
+            cancelacion);
+    }
+
+    #endregion
+
+    #region Detalle de reporte
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> DetalleReporte(int id, CancellationToken cancelacion)
+    {
+        return ReenviarGetAsync($"reportes/{id}",cancelacion);
+    }
+
+    #endregion
+
+    #region Generar reporte
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> GenerarReporte( GenerarReporteViewModel modelo,CancellationToken cancelacion)
+    {
+        modelo.IncluirDatosGenerales = true;
+
+        if (!ModelState.IsValid|| modelo.PeriodoFin < modelo.PeriodoInicio)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione estudiante, título y un período válido."
+            });
+        }
+
+        if (!modelo.IncluirDatosGenerales && !modelo.IncluirSesiones&& !modelo.IncluirPlanes)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione al menos una sección del reporte."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        using var respuesta = await client.PostAsJsonAsync(UrlApi("reportes"),modelo,cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = "application/json",StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
+    #region Estudiantes para reportes
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> EstudiantesReporte(CancellationToken cancelacion)
+    {
+        return ReenviarGetAsync("estudiantes",cancelacion);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> FichaEstudianteReporte(int id,CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new
+                {
+                    mensaje = "Seleccione un estudiante válido."
+                }));
+        }
+
+        return ReenviarGetAsync($"estudiantes/{id}", cancelacion);
+    }
+
+    #endregion
+
+    #region Cambiar estado de reporte
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarEstadoReporte(int id, bool? activo,CancellationToken cancelacion)
+    {
+        if (id <= 0 || !activo.HasValue)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Indique un reporte y estado válidos."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var peticion = new HttpRequestMessage(
+            HttpMethod.Patch, UrlApi($"reportes/{id}/estado"))
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new
+            {
+                activo = activo.Value
+            })
+        };
+
+        using var respuesta = await cliente.SendAsync(peticion,cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
 
     #region Sesiones
 

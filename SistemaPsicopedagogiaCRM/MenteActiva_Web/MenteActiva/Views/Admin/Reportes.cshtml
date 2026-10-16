@@ -2,182 +2,207 @@
     ViewData["Title"] = "Reportes";
 }
 
-      <main class="PrincipalAdmin">
-        <div class="mb-4">
-          <h2 class="mb-1">Reportes de estudiante</h2>
-          <p class="TextoSuave mb-0">Sesiones, avances y progreso general por estudiante.</p>
-        </div>
+<link rel="stylesheet" href="~/css/Reportes.css" asp-append-version="true" />
 
-        <div class="Tarjeta p-3 p-md-4 mb-3 NoImprimir">
-          <div class="row g-3 align-items-end">
-            <div class="col-md-5">
-              <label for="FiltroEstudianteReporte" class="form-label">Estudiante</label>
-              <select class="form-select" id="FiltroEstudianteReporte">
-                <option value="" selected>Seleccione un estudiante</option>
-                <option value="MariaRodriguez">María Rodríguez</option>
-                <option value="DiegoVargas">Diego Vargas</option>
-                <option value="AnaCastro">Ana Castro</option>
-                <option value="KevinFernandez">Kevin Fernández</option>
-                <option value="FabianMendez">Fabián Méndez</option>
-                <option value="ValeriaMora">Valeria Mora</option>
-                <option value="EmilyAraya">Emily Araya</option>
-                <option value="FabianSolis">Fabián Solís</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label for="FiltroDesde" class="form-label">Desde</label>
-              <input type="date" class="form-control" id="FiltroDesde" value="2026-06-01">
-            </div>
-            <div class="col-md-3">
-              <label for="FiltroHasta" class="form-label">Hasta</label>
-              <input type="date" class="form-control" id="FiltroHasta" value="2026-07-12">
-            </div>
-            <div class="col-md-1 text-end">
-              <button type="button" class="btn btn-outline-primary w-100" id="BotonExportarPdf" title="Exportar PDF"
-                data-bs-toggle="tooltip" disabled>
-                <i class="bi bi-file-earmark-pdf"></i>
-              </button>
-            </div>
-          </div>
-          <div class="alert alert-warning d-none mt-3 mb-0" id="AvisoRangoInvalido">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            La fecha "Desde" no puede ser posterior a la fecha "Hasta".
+
+<main class="PrincipalAdmin">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="mb-1">Reportes</h2>
+      <p class="TextoSuave mb-0" id="ResumenReportes" aria-live="polite"></p>
+    </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalGenerarReporte">
+      <i class="bi bi-plus-lg me-1"></i>Generar reporte
+    </button>
+  </div>
+
+  <div class="Tarjeta p-3 p-md-4">
+    <form id="FormularioFiltrosReportes" class="mb-3"
+          data-url-estado="@Url.Action("CambiarEstadoReporte", "Admin")">
+      @Html.AntiForgeryToken()
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <label for="BuscarNombreReporte" class="form-label">Buscar estudiante</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input id="BuscarNombreReporte" type="search" class="form-control" maxlength="150"
+                   placeholder="Buscar por nombre o apellidos del estudiante" autocomplete="off" />
           </div>
         </div>
-
-        <!-- Estado vacío: ningún estudiante seleccionado -->
-        <div class="EstadoVacio" id="ReporteSinSeleccion">
-          <i class="bi bi-bar-chart-line"></i>
-          <p class="mb-0">Seleccione un estudiante para generar el reporte.</p>
+        <div class="col-md-4">
+          <label for="EstadoFiltroReporte" class="form-label">Estado</label>
+          <select id="EstadoFiltroReporte" class="form-select">
+            <option value="activos" selected>Activos</option>
+            <option value="inactivos">Inactivos</option>
+            <option value="todos">Todos</option>
+          </select>
         </div>
+      </div>
+      <small id="CargandoReportes" class="TextoSuave d-none" role="status" aria-live="polite">Cargando reportes…</small>
+    </form>
 
-        <div class="Tarjeta p-3 p-md-4 ReporteImprimible d-none" id="ContenidoReporte">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-            <div>
-              <h3 class="mb-1" id="ReporteNombreEstudiante"></h3>
-              <p class="TextoSuave mb-0" id="ReporteDatosEstudiante"></p>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="TablaReportes">
+        <thead>
+          <tr>
+            <th>Reporte</th>
+            <th>Estudiante</th>
+            <th>Generado por</th>
+            <th class="TablaAcciones">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="CuerpoTablaReportes"></tbody>
+      </table>
+    </div>
+
+    <div class="EstadoVacio d-none" id="VacioReportes">
+      <i class="bi bi-bar-chart-line"></i>
+      <p id="MensajeVacioReportes" class="mb-0">No hay reportes generados todavía.</p>
+    </div>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+      <div class="d-flex align-items-center gap-2">
+        <label for="CantidadReportes" class="mb-0">Mostrar</label>
+        <select id="CantidadReportes" class="form-select form-select-sm w-auto">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+        <span id="RangoReportes" class="TextoSuave" role="status" aria-live="polite"></span>
+      </div>
+      <nav aria-label="Paginación de reportes" class="d-flex align-items-center gap-2">
+        <button id="AnteriorReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Anterior</button>
+        <span id="PaginaReportes" class="TextoSuave">Página 1 de 1</span>
+        <button id="SiguienteReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Siguiente</button>
+      </nav>
+    </div>
+    <div class="alert d-none mt-3" id="AlertaReportes" role="alert"></div>
+
+  </div>
+</main>
+
+<!-- HU-M7-4: detalle del reporte -->
+<div class="modal fade" id="ModalDetalleReporte" tabindex="-1" aria-labelledby="TituloDetalleReporte" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="TituloDetalleReporte">Detalle del reporte</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="DatosDetalleReporte" class="mb-4"></div>
+        <div id="ContenidoDetalleReporte"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="ModalGenerarReporte" tabindex="-1"
+     aria-labelledby="TituloGenerarReporte" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="TituloGenerarReporte">Generar reporte del estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="FormularioGenerarReporte" action="@Url.Action("GenerarReporte", "Admin")" method="post"
+            data-url-estudiantes="@Url.Action("EstudiantesReporte", "Admin")"
+            data-url-ficha="@Url.Action("FichaEstudianteReporte", "Admin")">
+        @Html.AntiForgeryToken()
+        <div class="modal-body">
+          <div id="AlertaGenerarReporte" class="alert d-none" role="alert"></div>
+          <div class="mb-3">
+            <label for="BuscarEstudianteReporte" class="form-label">Estudiante</label>
+            <div class="position-relative">
+              <input id="BuscarEstudianteReporte" type="text" class="form-control" maxlength="150"
+                     placeholder="Escriba el nombre del estudiante…" autocomplete="off" disabled
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="ResultadosEstudiantesReporte" aria-describedby="AyudaLookupReporte" />
+              <input id="EstudianteReporte" name="IdEstudiante" type="hidden" />
+              <div id="ResultadosEstudiantesReporte" role="listbox" aria-label="Estudiantes encontrados"
+                   class="list-group position-absolute w-100 shadow d-none"
+                   style="z-index: 1060; max-height: 220px; overflow-y: auto;"></div>
             </div>
-            <button type="button" class="btn btn-primary NoImprimir" id="BotonExportarPdfPrincipal">
-              <i class="bi bi-download me-1"></i>Exportar PDF
-            </button>
+            <small id="AyudaLookupReporte" class="TextoSuave d-block" role="status" aria-live="polite">
+              Cargando estudiantes…
+            </small>
+            <button id="RecargarEstudiantesReporte" type="button" class="btn btn-link btn-sm px-0">Actualizar estudiantes</button>
           </div>
-
-          <h6 class="mb-2">Sesiones en el período seleccionado</h6>
-          <div class="table-responsive mb-3">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Tipo de atención</th>
-                  <th>Tema trabajado</th>
-                  <th>Avances</th>
-                </tr>
-              </thead>
-              <tbody id="ReporteTablaSesiones"></tbody>
-            </table>
+          <div id="FichaEstudianteReporte" class="border rounded bg-light p-3 mb-3 d-none">
+            <h6>Información del estudiante</h6>
+            <div id="DatosEstudianteReporte"></div>
           </div>
-          <p class="TextoSuave small d-none" id="ReporteSinSesiones">
-            Sin sesiones registradas para este estudiante en el rango de fechas seleccionado.
-          </p>
+          <div class="mb-3">
+            <label for="TituloReporte" class="form-label">Título del reporte</label>
+            <input id="TituloReporte" name="Titulo" class="form-control" maxlength="150" required />
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="InicioReporte" class="form-label">Fecha inicial</label>
+              <input id="InicioReporte" name="PeriodoInicio" type="text" class="form-control" placeholder="dd-mm-aaaa" maxlength="10" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}" title="Escriba la fecha en formato dd-mm-aaaa" required />
+            </div>
+            <div class="col-md-6">
+              <label for="FinReporte" class="form-label">Fecha final</label>
+              <input id="FinReporte" name="PeriodoFin" type="text" class="form-control" placeholder="dd-mm-aaaa" maxlength="10" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}" title="Escriba la fecha en formato dd-mm-aaaa" required />
+            </div>
+          </div>
+          <fieldset id="SeccionesReporte" class="border rounded p-3 mt-3">
+            <legend class="float-none w-auto px-2 fs-6">Contenido adicional</legend>
+            <input id="IncluirDatosGenerales" name="IncluirDatosGenerales" type="hidden" value="true" />
+            <p class="TextoSuave small mb-2">Los datos del estudiante y del reporte se incluyen siempre en el encabezado.</p>
+            <div class="form-check">
+              <input id="IncluirSesiones" name="IncluirSesiones" type="checkbox" value="true" class="form-check-input" checked />
+              <label for="IncluirSesiones" class="form-check-label">Historial de sesiones, notas, avances y recomendaciones</label>
+            </div>
+            <div class="form-check">
+              <input id="IncluirPlanes" name="IncluirPlanes" type="checkbox" value="true" class="form-check-input" checked />
+              <label for="IncluirPlanes" class="form-check-label">Planes de intervención, estrategias y actividades</label>
+            </div>
+            <small class="TextoSuave d-block mt-2">Podés dejar ambas casillas sin marcar para generar solo el resumen del estudiante.</small>
+            <small class="TextoSuave d-block mt-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Si incluís sesiones, el estudiante debe tener al menos una sesión activa dentro del período seleccionado.</small>
+          </fieldset>
 
-          <h6 class="mb-2">Resumen de progreso</h6>
-          <p class="mb-0" id="ReporteResumenProgreso"></p>
+
+
         </div>
-      </main>
+        <div class="modal-footer">
+          <button id="CerrarGenerarReporte" type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="GenerarReporteBtn" type="submit" class="btn btn-primary" disabled>Generar reporte</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="ModalEstadoReporte" tabindex="-1" aria-labelledby="TituloEstadoReporte" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="TituloEstadoReporte" class="modal-title">Cambiar estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="NombreEstadoReporte" class="fw-semibold"></p>
+        <p id="MensajeEstadoReporte"></p>
+        <div id="AlertaEstadoReporte" class="alert d-none" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="ConfirmarEstadoReporte" type="button" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 @section Scripts {
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var infoEstudiantes = {
-        MariaRodriguez: {
-          nombre: "María Rodríguez", nivel: "Primaria", institucion: "Escuela Buenaventura Corrales", encargado: "Carlos Jiménez",
-          resumen: "María muestra avances constantes en comprensión lectora y mantiene una actitud motivada en cada sesión."
-        },
-        DiegoVargas: {
-          nombre: "Diego Vargas", nivel: "Secundaria", institucion: "Liceo de Costa Rica", encargado: "Rodolfo Vargas",
-          resumen: "Diego ha mejorado su capacidad de atención sostenida, aunque aún requiere apoyo en sesiones largas."
-        },
-        AnaCastro: {
-          nombre: "Ana Castro", nivel: "Primaria", institucion: "Escuela República de Costa Rica", encargado: "Marjorie Castro",
-          resumen: "Ana se encuentra en la etapa inicial de reconocimiento de lectoescritura, con buena disposición al trabajo."
-        },
-        KevinFernandez: {
-          nombre: "Kevin Fernández", nivel: "Secundaria", institucion: "Colegio Técnico Don Bosco", encargado: "José Fernández",
-          resumen: "La familia de Kevin implementó una rutina de estudio en casa que ha mostrado resultados positivos."
-        },
-        FabianMendez: { nombre: "Fabián Méndez", nivel: "Primaria", institucion: "Escuela Los Ángeles", encargado: "Laura Méndez", resumen: "" },
-        ValeriaMora: {
-          nombre: "Valeria Mora", nivel: "Primaria", institucion: "Escuela Roosevelt", encargado: "Marta Mora",
-          resumen: "Valeria domina progresivamente las operaciones básicas y muestra seguridad al resolver ejercicios."
-        },
-        EmilyAraya: { nombre: "Emily Araya", nivel: "Secundaria", institucion: "Liceo Franco Costarricense", encargado: "Patricia Araya", resumen: "" },
-        FabianSolis: { nombre: "Fabián Solís", nivel: "Primaria", institucion: "Escuela Ricardo Jiménez", encargado: "Óscar Solís", resumen: "" }
-      };
-      var sesionesReporte = [
-        { estudiante: "MariaRodriguez", fecha: "2026-07-10", fechaTexto: "10 jul 2026", tipo: "Tutoría académica", tema: "Fracciones", avances: "Logró resolver problemas básicos de fracciones." },
-        { estudiante: "MariaRodriguez", fecha: "2026-06-20", fechaTexto: "20 jun 2026", tipo: "Tutoría académica", tema: "Fracciones equivalentes", avances: "Identifica fracciones equivalentes con apoyo visual." },
-        { estudiante: "DiegoVargas", fecha: "2026-07-08", fechaTexto: "8 jul 2026", tipo: "Sesión psicopedagógica", tema: "Atención sostenida", avances: "Mejoró el tiempo de concentración a 15 minutos." },
-        { estudiante: "AnaCastro", fecha: "2026-07-05", fechaTexto: "5 jul 2026", tipo: "Evaluación", tema: "Lectoescritura inicial", avances: "Reconoce la mayoría de las vocales." },
-        { estudiante: "ValeriaMora", fecha: "2026-07-01", fechaTexto: "1 jul 2026", tipo: "Tutoría académica", tema: "Multiplicación", avances: "Domina las tablas del 2 al 5." },
-        { estudiante: "KevinFernandez", fecha: "2026-06-28", fechaTexto: "28 jun 2026", tipo: "Orientación a padres", tema: "Organización de horarios", avances: "La familia definió una rutina de estudio semanal." }
-      ];
-      var selectEstudiante = document.getElementById("FiltroEstudianteReporte");
-      var campoDesde = document.getElementById("FiltroDesde");
-      var campoHasta = document.getElementById("FiltroHasta");
-      var estadoSinSeleccion = document.getElementById("ReporteSinSeleccion");
-      var contenidoReporte = document.getElementById("ContenidoReporte");
-      function ActualizarReporte() {
-        var idEstudiante = selectEstudiante.value;
-        var botonExportar = document.getElementById("BotonExportarPdf");
-        var avisoRangoInvalido = document.getElementById("AvisoRangoInvalido");
-        botonExportar.disabled = !idEstudiante;
-        if (!idEstudiante) {
-          estadoSinSeleccion.classList.remove("d-none");
-          contenidoReporte.classList.add("d-none");
-          avisoRangoInvalido.classList.add("d-none");
-          return;
-        }
-        estadoSinSeleccion.classList.add("d-none");
-        contenidoReporte.classList.remove("d-none");
-        var info = infoEstudiantes[idEstudiante];
-        document.getElementById("ReporteNombreEstudiante").textContent = info.nombre;
-        document.getElementById("ReporteDatosEstudiante").textContent = info.nivel + " · " + info.institucion + " · Encargado: " + info.encargado;
-        document.getElementById("ReporteResumenProgreso").textContent = info.resumen || "Aún no hay suficiente información para generar un resumen de progreso.";
-        var desde = campoDesde.value;
-        var hasta = campoHasta.value;
-        if (desde && hasta && desde > hasta) {
-          avisoRangoInvalido.classList.remove("d-none");
-          document.getElementById("ReporteTablaSesiones").innerHTML = "";
-          document.getElementById("ReporteSinSesiones").classList.add("d-none");
-          return;
-        }
-        avisoRangoInvalido.classList.add("d-none");
-        var sesiones = sesionesReporte.filter(function (sesion) {
-          return sesion.estudiante === idEstudiante && (!desde || sesion.fecha >= desde) && (!hasta || sesion.fecha <= hasta);
-        });
-        sesiones.sort(function (a, b) { return b.fecha.localeCompare(a.fecha); });
-        var cuerpoTabla = document.getElementById("ReporteTablaSesiones");
-        cuerpoTabla.innerHTML = "";
-        sesiones.forEach(function (sesion) {
-          var fila = document.createElement("tr");
-          fila.innerHTML =
-            "<td></td><td></td><td></td><td></td>";
-          fila.children[0].textContent = sesion.fechaTexto;
-          fila.children[1].textContent = sesion.tipo;
-          fila.children[2].textContent = sesion.tema;
-          fila.children[3].textContent = sesion.avances;
-          cuerpoTabla.appendChild(fila);
-        });
-        document.getElementById("ReporteSinSesiones").classList.toggle("d-none", sesiones.length !== 0);
-      }
-      selectEstudiante.addEventListener("change", ActualizarReporte);
-      campoDesde.addEventListener("change", ActualizarReporte);
-      campoHasta.addEventListener("change", ActualizarReporte);
-      function ExportarPdf() {
-        window.print();
-      }
-      document.getElementById("BotonExportarPdf").addEventListener("click", ExportarPdf);
-      document.getElementById("BotonExportarPdfPrincipal").addEventListener("click", ExportarPdf);
-    });
-  </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"></script>
+    <script src="~/js/Reportes.js" asp-append-version="true"></script>
+    <script src="~/js/ReportesPdf.js" asp-append-version="true"></script>
 }
+
+
