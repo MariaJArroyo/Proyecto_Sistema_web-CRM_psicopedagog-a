@@ -15,4 +15,8 @@ public sealed class GenerarReporteViewModel
 
     [Required]
     public DateOnly? PeriodoFin { get; set; }
+
+    public bool IncluirDatosGenerales { get; set; } = true;
+    public bool IncluirSesiones { get; set; } = true;
+    public bool IncluirPlanes { get; set; } = true;
 }

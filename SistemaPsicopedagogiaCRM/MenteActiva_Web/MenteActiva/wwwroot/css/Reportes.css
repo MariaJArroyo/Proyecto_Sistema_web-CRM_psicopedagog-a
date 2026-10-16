@@ -1,0 +1,59 @@
+﻿<style >
+#ModalDetalleReporte .ReporteFicha {
+    border: 1px solid #dfe5ef;
+    border-radius: .6rem;
+    background: #f8fafc;
+}
+
+#ModalDetalleReporte .ReporteFicha dt {
+    font-weight: 400;
+    color: #6c7b90;
+}
+
+#ModalDetalleReporte .ReporteFicha dd {
+    overflow-wrap: anywhere;
+}
+
+#ModalDetalleReporte .ReporteBloque {
+    border: 1px solid #dfe5ef;
+    border-radius: .6rem;
+    margin-bottom: .75rem;
+}
+
+    #ModalDetalleReporte .ReporteBloque > summary {
+        padding: 1rem;
+        cursor: pointer;
+        list-style: none;
+    }
+
+        #ModalDetalleReporte .ReporteBloque > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        #ModalDetalleReporte .ReporteBloque > summary:focus-visible {
+            outline: 2px solid #516fae;
+            outline-offset: 2px;
+        }
+
+    #ModalDetalleReporte .ReporteBloque[open] > summary {
+        border-bottom: 1px solid #dfe5ef;
+    }
+
+        #ModalDetalleReporte .ReporteBloque[open] > summary .ReporteFlecha {
+            transform: rotate(180deg);
+        }
+
+#ModalDetalleReporte .ReporteResumenTexto {
+    min-width: 0;
+}
+
+#ModalDetalleReporte .ReporteFlecha {
+    transition: transform .15s;
+}
+
+#ModalDetalleReporte .ReporteNota {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+</style >

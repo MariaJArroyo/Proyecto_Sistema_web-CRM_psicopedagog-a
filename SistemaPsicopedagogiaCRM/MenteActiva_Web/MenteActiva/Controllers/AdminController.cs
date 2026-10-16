@@ -1160,45 +1160,74 @@ public class AdminController : Controller
 
     #endregion
 
+
     #region Reportes
 
+    [HttpGet]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
-    public IActionResult Reportes() => View();
-
-    #region Consultar Reporte
+    public IActionResult Reportes()
+    {
+        return View();
+    }
 
     [HttpGet]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public Task<IActionResult> ConsultarReportes(
-            int? idEstudiante, DateOnly? desde, DateOnly? hasta, CancellationToken cancelacion)
+        int? idEstudiante,
+        DateOnly? desde,
+        DateOnly? hasta,
+        string? buscar,
+        string? estado,
+        string? orden,
+        CancellationToken cancelacion)
     {
-        var ruta = "reportes?";
+        var filtros = new List<string>();
 
-        if (idEstudiante is > 0) ruta += $"idEstudiante={idEstudiante}&";
-        if (desde is not null) ruta += $"desde={FormatoFecha(desde.Value)}&";
-        if (hasta is not null) ruta += $"hasta={FormatoFecha(hasta.Value)}";
+        if (idEstudiante is > 0)
+            filtros.Add($"idEstudiante={idEstudiante}");
 
-        return ReenviarGetAsync(ruta, cancelacion);
+        if (desde.HasValue)
+            filtros.Add($"desde={FormatoFecha(desde.Value)}");
+
+        if (hasta.HasValue)
+            filtros.Add($"hasta={FormatoFecha(hasta.Value)}");
+
+        filtros.Add(
+            "buscar=" + Uri.EscapeDataString(buscar ?? string.Empty));
+
+        filtros.Add(
+            "estado=" + Uri.EscapeDataString(estado ?? "activos"));
+
+        filtros.Add(
+            "orden=" + Uri.EscapeDataString(orden ?? "az"));
+
+        return ReenviarGetAsync(
+            "reportes?" + string.Join("&", filtros),
+            cancelacion);
     }
+
     #endregion
 
     #region Detalle de reporte
+
     [HttpGet]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public Task<IActionResult> DetalleReporte(int id, CancellationToken cancelacion)
-        => ReenviarGetAsync($"reportes/{id}", cancelacion);
+    {
+        return ReenviarGetAsync($"reportes/{id}",cancelacion);
+    }
 
     #endregion
 
-    #region Generar Reporte
+    #region Generar reporte
+
     [HttpPost]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
-    public async Task<IActionResult> GenerarReporte(
-    GenerarReporteViewModel modelo,
-    CancellationToken cancelacion)
+    public async Task<IActionResult> GenerarReporte( GenerarReporteViewModel modelo,CancellationToken cancelacion)
     {
-        if (!ModelState.IsValid
-            || modelo.PeriodoFin < modelo.PeriodoInicio)
+        modelo.IncluirDatosGenerales = true;
+
+        if (!ModelState.IsValid|| modelo.PeriodoFin < modelo.PeriodoInicio)
         {
             return BadRequest(new
             {
@@ -1206,12 +1235,80 @@ public class AdminController : Controller
             });
         }
 
+        if (!modelo.IncluirDatosGenerales && !modelo.IncluirSesiones&& !modelo.IncluirPlanes)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Seleccione al menos una sección del reporte."
+            });
+        }
+
         using var client = _http.CreateClient();
 
-        using var respuesta = await client.PostAsJsonAsync(
-            UrlApi("reportes"),
-            modelo,
-            cancelacion);
+        using var respuesta = await client.PostAsJsonAsync(UrlApi("reportes"),modelo,cancelacion);
+
+        return new ContentResult
+        {
+            Content = await respuesta.Content.ReadAsStringAsync(cancelacion),
+            ContentType = "application/json",StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
+    #region Estudiantes para reportes
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> EstudiantesReporte(CancellationToken cancelacion)
+    {
+        return ReenviarGetAsync("estudiantes",cancelacion);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> FichaEstudianteReporte(int id,CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return Task.FromResult<IActionResult>(
+                BadRequest(new
+                {
+                    mensaje = "Seleccione un estudiante válido."
+                }));
+        }
+
+        return ReenviarGetAsync($"estudiantes/{id}", cancelacion);
+    }
+
+    #endregion
+
+    #region Cambiar estado de reporte
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarEstadoReporte(int id, bool? activo,CancellationToken cancelacion)
+    {
+        if (id <= 0 || !activo.HasValue)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Indique un reporte y estado válidos."
+            });
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var peticion = new HttpRequestMessage(
+            HttpMethod.Patch, UrlApi($"reportes/{id}/estado"))
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new
+            {
+                activo = activo.Value
+            })
+        };
+
+        using var respuesta = await cliente.SendAsync(peticion,cancelacion);
 
         return new ContentResult
         {
@@ -1220,23 +1317,6 @@ public class AdminController : Controller
             StatusCode = (int)respuesta.StatusCode
         };
     }
-
-    #endregion
-
-    [HttpGet]
-    [Authorize(Roles = "Administrador,Psicopedagoga")]
-    public Task<IActionResult> EstudiantesReporte(CancellationToken cancelacion)
-     => ReenviarGetAsync("estudiantes", cancelacion);
-
-    [HttpGet]
-    [Authorize(Roles = "Administrador,Psicopedagoga")]
-    public Task<IActionResult> FichaEstudianteReporte(int id, CancellationToken cancelacion)
-    {
-        if (id <= 0)
-            return Task.FromResult<IActionResult>(BadRequest(new { mensaje = "Seleccione un estudiante válido." }));
-        return ReenviarGetAsync($"estudiantes/{id}", cancelacion);
-    }
-
 
     #endregion
 

@@ -384,6 +384,245 @@ function iniciarFormularioNuevoEstudiante(formulario) {
         }
     });
 }
+// ---------- Agregar área de dificultad ----------
+
+(function () {
+    "use strict";
+
+    function iniciarAgregarArea() {
+        const formulario = document.getElementById("FormularioAgregarArea");
+
+        if (!formulario) return;
+
+        const campoNombre = document.getElementById("NombreArea");
+        const campoObservacion = document.getElementById("ObservacionArea");
+        const boton = formulario.querySelector('button[type="submit"]');
+
+        const alerta = document.createElement("div");
+        alerta.className = "alert d-none";
+        alerta.setAttribute("role", "alert");
+
+        formulario.querySelector(".modal-body").prepend(alerta);
+
+        let guardando = false;
+
+        formulario.addEventListener("submit", async function (evento) {
+            evento.preventDefault();
+
+            if (guardando) return;
+
+            alerta.className = "alert d-none";
+            alerta.textContent = "";
+
+            const nombre = campoNombre.value.trim();
+            const idEstudiante = Number(formulario.dataset.idEstudiante);
+
+            if (!nombre) {
+                alerta.className = "alert alert-warning";
+                alerta.textContent = "Ingrese el nombre del área de dificultad.";
+                campoNombre.focus();
+                return;
+            }
+
+            if (!Number.isInteger(idEstudiante) || idEstudiante <= 0) {
+                alerta.className = "alert alert-danger";
+                alerta.textContent = "No se pudo identificar al estudiante. Recargue la página.";
+                return;
+            }
+
+            if (!formulario.reportValidity()) return;
+
+            const datos = new FormData(formulario);
+
+            datos.set("idEstudiante", String(idEstudiante));
+            datos.set("nombreArea", nombre);
+            datos.set("observacion", campoObservacion.value.trim());
+
+            guardando = true;
+
+            const textoBoton = boton?.textContent;
+
+            if (boton) {
+                boton.disabled = true;
+                boton.textContent = "Guardando…";
+            }
+
+            try {
+                const respuesta = await fetch(formulario.dataset.url, {
+                    method: "POST",
+                    body: datos,
+                    headers: {
+                        Accept: "application/json"
+                    }
+                });
+
+                if (!respuesta.ok) {
+                    let mensaje = "No se pudo registrar el área de dificultad.";
+
+                    try {
+                        const error = await respuesta.json();
+                        mensaje = error.mensaje || mensaje;
+                    } catch {
+                        // Conserva el mensaje general.
+                    }
+
+                    throw new Error(mensaje);
+                }
+
+                window.location.reload();
+            } catch (error) {
+                alerta.className = "alert alert-danger";
+                alerta.textContent = error.message ||
+                    "No se pudo conectar con el servidor.";
+            } finally {
+                guardando = false;
+
+                if (boton) {
+                    boton.disabled = false;
+                    boton.textContent = textoBoton;
+                }
+            }
+        });
+
+        document.getElementById("ModalAgregarArea")
+            ?.addEventListener("hide.bs.modal", function (evento) {
+                if (guardando) evento.preventDefault();
+            });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarAgregarArea);
+    } else {
+        iniciarAgregarArea();
+    }
+})();
+
+// ---------- Editar área de dificultad ----------
+
+(function () {
+    "use strict";
+
+    function iniciarEditarArea() {
+        const formulario = document.getElementById("FormularioEditarArea");
+        const modal = document.getElementById("ModalEditarArea");
+
+        if (!formulario || !modal) return;
+
+        const campoId = document.getElementById("EditarIdArea");
+        const campoNombre = document.getElementById("EditarNombreArea");
+        const campoObservacion = document.getElementById("EditarObservacionArea");
+        const botonGuardar = formulario.querySelector('button[type="submit"]');
+
+        const alerta = document.createElement("div");
+        alerta.className = "alert d-none";
+        alerta.setAttribute("role", "alert");
+
+        formulario.querySelector(".modal-body").prepend(alerta);
+
+        let guardando = false;
+
+        document.addEventListener("click", function (evento) {
+            const boton = evento.target.closest(".BotonEditarArea");
+
+            if (!boton || guardando) return;
+
+            evento.preventDefault();
+
+            campoId.value = boton.dataset.idArea || "";
+            campoNombre.value = boton.dataset.nombre || "";
+            campoObservacion.value = boton.dataset.observacion || "";
+
+            alerta.className = "alert d-none";
+            alerta.textContent = "";
+
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+        });
+
+        formulario.addEventListener("submit", async function (evento) {
+            evento.preventDefault();
+
+            if (guardando) return;
+
+            alerta.className = "alert d-none";
+            alerta.textContent = "";
+
+            const idEstudiante = Number(formulario.dataset.idEstudiante);
+            const idArea = Number(campoId.value);
+            const nombre = campoNombre.value.trim();
+
+            if (!Number.isInteger(idEstudiante) || idEstudiante <= 0 ||
+                !Number.isInteger(idArea) || idArea <= 0 || !nombre) {
+                alerta.className = "alert alert-warning";
+                alerta.textContent = "Seleccione un área válida e ingrese su nombre.";
+                return;
+            }
+
+            if (!formulario.reportValidity()) return;
+
+            const datos = new FormData(formulario);
+
+            datos.set("idEstudiante", String(idEstudiante));
+            datos.set("idArea", String(idArea));
+            datos.set("nombreArea", nombre);
+            datos.set("observacion", campoObservacion.value.trim());
+
+            guardando = true;
+
+            const textoOriginal = botonGuardar?.textContent;
+
+            if (botonGuardar) {
+                botonGuardar.disabled = true;
+                botonGuardar.textContent = "Guardando…";
+            }
+
+            try {
+                const respuesta = await fetch(formulario.dataset.url, {
+                    method: "POST",
+                    body: datos,
+                    headers: {
+                        Accept: "application/json"
+                    }
+                });
+
+                if (!respuesta.ok) {
+                    let mensaje = "No se pudo actualizar el área de dificultad.";
+
+                    try {
+                        const error = await respuesta.json();
+                        mensaje = error.mensaje || mensaje;
+                    } catch {
+                        // Conserva el mensaje general.
+                    }
+
+                    throw new Error(mensaje);
+                }
+
+                window.location.reload();
+            } catch (error) {
+                alerta.className = "alert alert-danger";
+                alerta.textContent = error.message ||
+                    "No se pudo conectar con el servidor.";
+            } finally {
+                guardando = false;
+
+                if (botonGuardar) {
+                    botonGuardar.disabled = false;
+                    botonGuardar.textContent = textoOriginal;
+                }
+            }
+        });
+
+        modal.addEventListener("hide.bs.modal", function (evento) {
+            if (guardando) evento.preventDefault();
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarEditarArea);
+    } else {
+        iniciarEditarArea();
+    }
+})();
 
 // ---------- inicialización ----------
 

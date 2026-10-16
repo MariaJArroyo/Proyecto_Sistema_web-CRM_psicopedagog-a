@@ -2,132 +2,208 @@
     ViewData["Title"] = "Reportes";
 }
 
+<link rel="stylesheet" href="~/css/Reportes.css" asp-append-version="true" />
+
+
 <main class="PrincipalAdmin">
 
-    <div class="mb-4">
-        <h2 class="mb-1">Reportes de estudiante</h2>
-        <p class="TextoSuave mb-0" id="ResumenReportes" aria-live="polite">&nbsp;</p>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="mb-1">Reportes</h2>
+      <p class="TextoSuave mb-0" id="ResumenReportes" aria-live="polite"></p>
+    </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalGenerarReporte">
+      <i class="bi bi-plus-lg me-1"></i>Generar reporte
+    </button>
+  </div>
+
+  <div class="Tarjeta p-3 p-md-4">
+    <form id="FormularioFiltrosReportes" class="mb-3"
+          data-url-estado="@Url.Action("CambiarEstadoReporte", "Admin")">
+      @Html.AntiForgeryToken()
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <label for="BuscarNombreReporte" class="form-label">Buscar estudiante</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            <input id="BuscarNombreReporte" type="search" class="form-control" maxlength="150"
+                   placeholder="Buscar por nombre o apellidos del estudiante" autocomplete="off" />
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label for="EstadoFiltroReporte" class="form-label">Estado</label>
+          <select id="EstadoFiltroReporte" class="form-select">
+            <option value="activos" selected>Activos</option>
+            <option value="inactivos">Inactivos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+      </div>
+      <small id="CargandoReportes" class="TextoSuave d-none" role="status" aria-live="polite">Cargando reportes…</small>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="TablaReportes">
+        <thead>
+          <tr>
+            <th>Reporte</th>
+            <th>Estudiante</th>
+            <th>Generado por</th>
+            <th class="TablaAcciones">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="CuerpoTablaReportes"></tbody>
+      </table>
     </div>
 
-    <div class="d-flex justify-content-end mb-3">
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalGenerarReporte">
-            <i class="bi bi-plus-lg me-1"></i>Generar reporte
-        </button>
+    <div class="EstadoVacio d-none" id="VacioReportes">
+      <i class="bi bi-bar-chart-line"></i>
+      <p id="MensajeVacioReportes" class="mb-0">No hay reportes generados todavía.</p>
     </div>
-    <div class="Tarjeta p-3 p-md-4">
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="TablaReportes">
-                <thead>
-                    <tr>
-                        <th>Reporte</th>
-                        <th>Estudiante</th>
-                        <th>Período</th>
-                        <th>Generado</th>
-                        <th>Generado por</th>
-                        <th class="TablaAcciones">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="CuerpoTablaReportes"></tbody>
-            </table>
-        </div>
-
-        <div class="EstadoVacio d-none" id="VacioReportes">
-            <i class="bi bi-bar-chart-line"></i>
-            <p class="mb-0">No hay reportes generados todavía.</p>
-        </div>
-
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
-            <div class="d-flex align-items-center gap-2">
-                <label for="CantidadReportes" class="mb-0">Mostrar</label>
-                <select id="CantidadReportes" class="form-select form-select-sm w-auto">
-                    <option value="5">5</option>
-                    <option value="10" selected>10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                </select>
-                <span id="RangoReportes" class="TextoSuave" role="status" aria-live="polite"></span>
-            </div>
-            <nav aria-label="Paginación de reportes" class="d-flex align-items-center gap-2">
-                <button id="AnteriorReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Anterior</button>
-                <span id="PaginaReportes" class="TextoSuave">Página 1 de 1</span>
-                <button id="SiguienteReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Siguiente</button>
-            </nav>
-        </div>
-        <div class="alert d-none mt-3" id="AlertaReportes" role="alert"></div>
-
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+      <div class="d-flex align-items-center gap-2">
+        <label for="CantidadReportes" class="mb-0">Mostrar</label>
+        <select id="CantidadReportes" class="form-select form-select-sm w-auto">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+        <span id="RangoReportes" class="TextoSuave" role="status" aria-live="polite"></span>
+      </div>
+      <nav aria-label="Paginación de reportes" class="d-flex align-items-center gap-2">
+        <button id="AnteriorReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Anterior</button>
+        <span id="PaginaReportes" class="TextoSuave">Página 1 de 1</span>
+        <button id="SiguienteReportes" type="button" class="btn btn-sm btn-outline-secondary" aria-controls="TablaReportes" disabled>Siguiente</button>
+      </nav>
     </div>
+    <div class="alert d-none mt-3" id="AlertaReportes" role="alert"></div>
+
+  </div>
 </main>
 
 <!-- HU-M7-4: detalle del reporte -->
-<div class="modal fade" id="ModalDetalleReporte" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="TituloDetalleReporte">Detalle del reporte</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <dl class="row mb-3" id="DatosDetalleReporte"></dl>
-                <hr>
-                <div id="ContenidoDetalleReporte"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
+<div class="modal fade" id="ModalDetalleReporte" tabindex="-1" aria-labelledby="TituloDetalleReporte" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="TituloDetalleReporte">Detalle del reporte</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="DatosDetalleReporte" class="mb-4"></div>
+        <div id="ContenidoDetalleReporte"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
+  </div>
 </div>
 
 <div class="modal fade" id="ModalGenerarReporte" tabindex="-1"
      aria-labelledby="TituloGenerarReporte" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="TituloGenerarReporte">Generar reporte del estudiante</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="TituloGenerarReporte">Generar reporte del estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="FormularioGenerarReporte" action="@Url.Action("GenerarReporte", "Admin")" method="post"
+            data-url-estudiantes="@Url.Action("EstudiantesReporte", "Admin")"
+            data-url-ficha="@Url.Action("FichaEstudianteReporte", "Admin")">
+        @Html.AntiForgeryToken()
+        <div class="modal-body">
+          <div id="AlertaGenerarReporte" class="alert d-none" role="alert"></div>
+          <div class="mb-3">
+            <label for="BuscarEstudianteReporte" class="form-label">Estudiante</label>
+            <div class="position-relative">
+              <input id="BuscarEstudianteReporte" type="text" class="form-control" maxlength="150"
+                     placeholder="Escriba el nombre del estudiante…" autocomplete="off" disabled
+                     role="combobox" aria-autocomplete="list" aria-expanded="false"
+                     aria-controls="ResultadosEstudiantesReporte" aria-describedby="AyudaLookupReporte" />
+              <input id="EstudianteReporte" name="IdEstudiante" type="hidden" />
+              <div id="ResultadosEstudiantesReporte" role="listbox" aria-label="Estudiantes encontrados"
+                   class="list-group position-absolute w-100 shadow d-none"
+                   style="z-index: 1060; max-height: 220px; overflow-y: auto;"></div>
             </div>
-            <form id="FormularioGenerarReporte" action="@Url.Action("GenerarReporte", "Admin")" method="post"
-                  data-url-estudiantes="@Url.Action("EstudiantesReporte", "Admin")"
-                  data-url-ficha="@Url.Action("FichaEstudianteReporte", "Admin")">
-                @Html.AntiForgeryToken()
-                <div class="modal-body">
-                    <div id="AlertaGenerarReporte" class="alert d-none" role="alert"></div>
-                    <div class="mb-3">
-                        <label for="EstudianteReporte" class="form-label">Estudiante</label>
-                        <select id="EstudianteReporte" name="IdEstudiante" class="form-select" required disabled>
-                            <option value="">Cargando estudiantes…</option>
-                        </select>
-                        <button id="RecargarEstudiantesReporte" type="button" class="btn btn-link btn-sm px-0">Actualizar estudiantes</button>
-                    </div>
-                    <div id="FichaEstudianteReporte" class="border rounded bg-light p-3 mb-3 d-none">
-                        <h6>Información del estudiante</h6>
-                        <div id="DatosEstudianteReporte"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="TituloReporte" class="form-label">Título del reporte</label>
-                        <input id="TituloReporte" name="Titulo" class="form-control" maxlength="150" required />
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="InicioReporte" class="form-label">Fecha inicial</label>
-                            <input id="InicioReporte" name="PeriodoInicio" type="date" class="form-control" required />
-                        </div>
-                        <div class="col-md-6">
-                            <label for="FinReporte" class="form-label">Fecha final</label>
-                            <input id="FinReporte" name="PeriodoFin" type="date" class="form-control" required />
-                        </div>
-                    </div>
-                    <p class="TextoSuave small mt-3 mb-0">El reporte incluirá las sesiones y los planes del período seleccionado, junto con el estado de pagos.</p>
-                </div>
-                <div class="modal-footer">
-                    <button id="CerrarGenerarReporte" type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button id="GenerarReporteBtn" type="submit" class="btn btn-primary" disabled>Generar reporte</button>
-                </div>
-            </form>
+            <small id="AyudaLookupReporte" class="TextoSuave d-block" role="status" aria-live="polite">
+              Cargando estudiantes…
+            </small>
+            <button id="RecargarEstudiantesReporte" type="button" class="btn btn-link btn-sm px-0">Actualizar estudiantes</button>
+          </div>
+          <div id="FichaEstudianteReporte" class="border rounded bg-light p-3 mb-3 d-none">
+            <h6>Información del estudiante</h6>
+            <div id="DatosEstudianteReporte"></div>
+          </div>
+          <div class="mb-3">
+            <label for="TituloReporte" class="form-label">Título del reporte</label>
+            <input id="TituloReporte" name="Titulo" class="form-control" maxlength="150" required />
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="InicioReporte" class="form-label">Fecha inicial</label>
+              <input id="InicioReporte" name="PeriodoInicio" type="text" class="form-control" placeholder="dd-mm-aaaa" maxlength="10" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}" title="Escriba la fecha en formato dd-mm-aaaa" required />
+            </div>
+            <div class="col-md-6">
+              <label for="FinReporte" class="form-label">Fecha final</label>
+              <input id="FinReporte" name="PeriodoFin" type="text" class="form-control" placeholder="dd-mm-aaaa" maxlength="10" pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}" title="Escriba la fecha en formato dd-mm-aaaa" required />
+            </div>
+          </div>
+          <fieldset id="SeccionesReporte" class="border rounded p-3 mt-3">
+            <legend class="float-none w-auto px-2 fs-6">Contenido adicional</legend>
+            <input id="IncluirDatosGenerales" name="IncluirDatosGenerales" type="hidden" value="true" />
+            <p class="TextoSuave small mb-2">Los datos del estudiante y del reporte se incluyen siempre en el encabezado.</p>
+            <div class="form-check">
+              <input id="IncluirSesiones" name="IncluirSesiones" type="checkbox" value="true" class="form-check-input" checked />
+              <label for="IncluirSesiones" class="form-check-label">Historial de sesiones, notas, avances y recomendaciones</label>
+            </div>
+            <div class="form-check">
+              <input id="IncluirPlanes" name="IncluirPlanes" type="checkbox" value="true" class="form-check-input" checked />
+              <label for="IncluirPlanes" class="form-check-label">Planes de intervención, estrategias y actividades</label>
+            </div>
+            <small class="TextoSuave d-block mt-2">Podés dejar ambas casillas sin marcar para generar solo el resumen del estudiante.</small>
+            <small class="TextoSuave d-block mt-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Si incluís sesiones, el estudiante debe tener al menos una sesión activa dentro del período seleccionado.</small>
+          </fieldset>
+
+
+
         </div>
+        <div class="modal-footer">
+          <button id="CerrarGenerarReporte" type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="GenerarReporteBtn" type="submit" class="btn btn-primary" disabled>Generar reporte</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
+<div class="modal fade" id="ModalEstadoReporte" tabindex="-1" aria-labelledby="TituloEstadoReporte" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="TituloEstadoReporte" class="modal-title">Cambiar estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p id="NombreEstadoReporte" class="fw-semibold"></p>
+        <p id="MensajeEstadoReporte"></p>
+        <div id="AlertaEstadoReporte" class="alert d-none" role="alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="ConfirmarEstadoReporte" type="button" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"></script>
     <script src="~/js/Reportes.js" asp-append-version="true"></script>
+    <script src="~/js/ReportesPdf.js" asp-append-version="true"></script>
 }
+
+
+

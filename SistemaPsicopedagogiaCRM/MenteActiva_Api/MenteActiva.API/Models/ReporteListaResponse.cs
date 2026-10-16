@@ -11,4 +11,6 @@ public sealed class ReporteListaResponse
     public bool VisibleEnPortal { get; set; }
     public DateTime FechaGeneracion { get; set; }
     public string GeneradoPor { get; set; } = string.Empty;
+
+    public bool Activo { get; set; }
 }

@@ -1,4 +1,4 @@
-﻿// Reportes de estudiante (M7): listado y detalle (HU-M7-4).
+// Reportes de estudiante (M7): listado y detalle (HU-M7-4).
 //
 // Todo pasa por /Admin/..., que reenvia al API: el navegador nunca habla con el
 // API directamente.
@@ -14,6 +14,11 @@
     let reportes = [];
     let paginaActual = 1;
     let cantidadPorPagina = 10;
+    let filtrosAplicados = { buscar: "", estado: "activos" };
+    let solicitudReportes = null;
+    let temporizadorBusqueda = null;
+    let cambioEstado = null;
+    let guardandoEstado = false;
 
     // =====================================================
     // UTILIDADES
@@ -50,12 +55,21 @@
         }
     }
 
-    function formatoFecha(iso) {
-        const f = new Date(iso);
-        if (isNaN(f)) return "";
-        return f.toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
+    function fechaParaApi(texto) {
+        const partes = /^(\d{2})-(\d{2})-(\d{4})$/.exec(texto.trim());
+        if (!partes) return null;
+        const [, dia, mes, anio] = partes;
+        const d = Number(dia), m = Number(mes), a = Number(anio);
+        if (a < 1000 || m < 1 || m > 12 || d < 1) return null;
+        if (d > new Date(Date.UTC(a, m, 0)).getUTCDate()) return null;
+        return anio + "-" + mes + "-" + dia;
     }
 
+    function formatoFecha(iso) {
+        if (!iso) return "";
+        const partes = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+        return partes ? `${partes[3]}-${partes[2]}-${partes[1]}` : "";
+    }
     function formatoFechaHora(iso) {
         const f = new Date(iso);
         if (isNaN(f)) return "";
@@ -71,32 +85,67 @@
     // LISTADO
     // =====================================================
 
+    function hayFiltrosAplicados() {
+        return Boolean(filtrosAplicados.buscar || filtrosAplicados.estado !== "activos");
+    }
+
     async function cargar() {
+        solicitudReportes?.abort();
+        const control = new AbortController();
+        solicitudReportes = control;
         paginaActual = 1;
         ocultarAlerta();
-
+        const parametros = new URLSearchParams();
+        if (filtrosAplicados.buscar) parametros.set("buscar", filtrosAplicados.buscar);
+        parametros.set("estado", filtrosAplicados.estado);
+        parametros.set("orden", "az");
+        $("TablaReportes").setAttribute("aria-busy", "true");
+        $("CargandoReportes").classList.remove("d-none");
         try {
-            const respuesta = await fetch(RUTAS.listar, { headers: { "Accept": "application/json" } });
-
-            if (!respuesta.ok) {
-                reportes = [];
-                pintar();
-                mostrarAlerta(await leerMensaje(respuesta, "No se pudieron cargar los reportes."));
-                return;
-            }
-
-            reportes = await respuesta.json();
+            const respuesta = await fetch(RUTAS.listar + (parametros.size ? "?" + parametros.toString() : ""), {
+                signal: control.signal, headers: { "Accept": "application/json" }
+            });
+            if (!respuesta.ok) throw new Error(await leerMensaje(respuesta, "No se pudieron cargar los reportes."));
+            const datos = await respuesta.json();
+            if (control.signal.aborted || solicitudReportes !== control) return;
+            if (!Array.isArray(datos)) throw new Error("La respuesta de reportes no es válida.");
+            reportes = datos;
             pintar();
-
-        } catch {
+        } catch (error) {
+            if (error.name === "AbortError" || control.signal.aborted || solicitudReportes !== control) return;
             reportes = [];
             pintar();
-            mostrarAlerta("No se pudo conectar con el servidor.");
+            $("VacioReportes").classList.add("d-none");
+            $("ResumenReportes").textContent = "No se pudo cargar el listado.";
+            mostrarAlerta(error.message || "No se pudo conectar con el servidor.");
+        } finally {
+            if (solicitudReportes === control) {
+                $("TablaReportes").setAttribute("aria-busy", "false");
+                $("CargandoReportes").classList.add("d-none");
+            }
         }
+    }
+
+    async function aplicarFiltrosReportes(evento) {
+        evento.preventDefault();
+        clearTimeout(temporizadorBusqueda);
+        if (!evento.currentTarget.reportValidity()) return;
+        filtrosAplicados = {
+            buscar: $("BuscarNombreReporte").value.trim(),
+            estado: $("EstadoFiltroReporte").value
+        };
+        await cargar();
+    }
+
+    function buscarConFiltrosActuales() {
+        return aplicarFiltrosReportes({ preventDefault() {}, currentTarget: $("FormularioFiltrosReportes") });
     }
 
     function pintar() {
         const n = reportes.length;
+        $("MensajeVacioReportes").textContent = hayFiltrosAplicados()
+            ? "No se encontraron reportes con los criterios seleccionados."
+            : "No hay reportes activos para mostrar.";
         const totalPaginas = Math.max(1, Math.ceil(n / cantidadPorPagina));
         paginaActual = Math.max(1, Math.min(paginaActual, totalPaginas));
         const inicio = (paginaActual - 1) * cantidadPorPagina;
@@ -118,25 +167,92 @@
         $("TablaReportes").classList.toggle("d-none", n === 0);
 
         $("CuerpoTablaReportes").innerHTML = reportesPagina.map(function (r) {
+            const activo = r.activo === true;
+
             return `
-                <tr>
-                  <td>${escaparHtml(r.titulo)}</td>
-                  <td>${escaparHtml(r.estudiante)}</td>
-                  <td>${escaparHtml(textoPeriodo(r))}</td>
-                  <td>${escaparHtml(formatoFechaHora(r.fechaGeneracion))}</td>
-                  <td>${escaparHtml(r.generadoPor)}</td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0"
-                            data-accion="ver" data-id="${r.idReporte}" title="Ver detalle">
-                      <i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>`;
+        <tr>
+            <td>${escaparHtml(r.titulo)}</td>
+            <td>${escaparHtml(r.estudiante)}</td>
+            <td>${escaparHtml(r.generadoPor)}</td>
+
+            <td class="TablaAcciones text-nowrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver" data-id="${escaparHtml(r.idReporte)}" 
+                title="Consultar reporte" aria-label="Consultar reporte" ${activo ? "" : "disabled"}>
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm text-danger border-0" data-accion="pdf" data-id="${escaparHtml(r.idReporte)}" 
+                title="Descargar PDF" aria-label="Descargar reporte en PDF" ${activo ? "" : "disabled"}>
+                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm border-0 ${activo ? "text-primary" : "text-secondary"}" 
+                data-accion="estado" data-id="${escaparHtml(r.idReporte)}" role="switch" aria-checked="${activo}" 
+                title="${activo ? "Desactivar reporte" : "Reactivar reporte"}" aria-label="${activo ? "Desactivar reporte" : "Reactivar reporte"}">
+                    <i class="bi ${activo ? "bi-toggle-on" : "bi-toggle-off"} fs-5" aria-hidden="true"></i>
+                </button>
+            </td>
+        </tr>`;
         }).join("");
+
+
     }
 
     // =====================================================
     // DETALLE (HU-M7-4)
     // =====================================================
+
+    function abrirCambioEstadoReporte(id) {
+        const reporte = reportes.find(r => r.idReporte === id);
+        if (!reporte || guardandoEstado) return;
+        cambioEstado = { id: reporte.idReporte, activo: !reporte.activo };
+        $("TituloEstadoReporte").textContent = cambioEstado.activo ? "Reactivar reporte" : "Desactivar reporte";
+        $("NombreEstadoReporte").textContent = reporte.titulo;
+        $("MensajeEstadoReporte").textContent = cambioEstado.activo
+            ? "El reporte volverá a estar disponible. Si estaba marcado como visible en el portal, también volverá a mostrarse allí."
+            : "El reporte se conservará en el historial, pero dejará de estar disponible en el listado de activos y en el portal.";
+        $("AlertaEstadoReporte").className = "alert d-none";
+        $("AlertaEstadoReporte").textContent = "";
+        $("ConfirmarEstadoReporte").textContent = cambioEstado.activo ? "Reactivar" : "Desactivar";
+        $("ConfirmarEstadoReporte").className = "btn " + (cambioEstado.activo ? "btn-success" : "btn-danger");
+        $("ConfirmarEstadoReporte").disabled = false;
+        bootstrap.Modal.getOrCreateInstance($("ModalEstadoReporte")).show();
+    }
+
+    async function confirmarEstadoReporte() {
+        if (!cambioEstado || guardandoEstado) return;
+        const cambio = { ...cambioEstado };
+        guardandoEstado = true;
+        $("ConfirmarEstadoReporte").disabled = true;
+        $("ConfirmarEstadoReporte").textContent = "Guardando…";
+        try {
+            const formulario = $("FormularioFiltrosReportes");
+            const datos = new FormData(formulario);
+            datos.set("id", String(cambio.id));
+            datos.set("activo", String(cambio.activo));
+            const respuesta = await fetch(formulario.dataset.urlEstado, {
+                method: "POST", body: datos, headers: { "Accept": "application/json" }
+            });
+            if (!respuesta.ok) throw new Error(await leerMensaje(respuesta, "No se pudo cambiar el estado del reporte."));
+            const mensaje = await leerMensaje(respuesta, "Estado actualizado correctamente.");
+            guardandoEstado = false;
+            const modal = $("ModalEstadoReporte");
+            await new Promise(resolve => {
+                modal.addEventListener("hidden.bs.modal", resolve, { once: true });
+                bootstrap.Modal.getOrCreateInstance(modal).hide();
+            });
+            await cargar();
+            mostrarAlerta(mensaje, "success");
+        } catch (error) {
+            $("AlertaEstadoReporte").className = "alert alert-danger";
+            $("AlertaEstadoReporte").textContent = error.message || "No se pudo confirmar el cambio. Actualice el listado antes de reintentar.";
+        } finally {
+            guardandoEstado = false;
+            $("ConfirmarEstadoReporte").disabled = false;
+            $("ConfirmarEstadoReporte").textContent = cambio.activo ? "Reactivar" : "Desactivar";
+        }
+    }
+
 
     async function abrirDetalle(id) {
         ocultarAlerta();
@@ -165,158 +281,145 @@
 
     // Escenarios 1 y 2: toda la informacion del reporte, con fecha de
     // generacion, estudiante y quien lo genero.
+    function leerContenidoReporte(contenido) {
+        if (!contenido) return null;
+        try {
+            const datos = JSON.parse(contenido);
+            return datos && typeof datos === "object" && !Array.isArray(datos) ? datos : null;
+        } catch { return null; }
+    }
+
+    function campoFichaReporte(etiqueta, valor) {
+        const texto = valor === null || valor === undefined || String(valor).trim() === ""
+            ? "No registrado en este reporte" : String(valor);
+        return `<dt class="col-sm-5 mb-2">${escaparHtml(etiqueta)}</dt><dd class="col-sm-7 mb-2">${escaparHtml(texto)}</dd>`;
+    }
+
     function pintarDetalle(r) {
         $("TituloDetalleReporte").textContent = r.titulo;
-
-        const datos = [
-            ["Estudiante", r.estudiante],
-            ["Período", textoPeriodo(r)],
-            ["Fecha de generación", formatoFechaHora(r.fechaGeneracion)],
-            ["Generado por", r.generadoPor],
-            ["Visible en el portal", r.visibleEnPortal ? "Sí" : "No"]
-        ];
-
-        $("DatosDetalleReporte").innerHTML = datos.map(function ([etiqueta, valor]) {
-            return `
-                <dt class="col-sm-4 TextoSuave fw-normal">${escaparHtml(etiqueta)}</dt>
-                <dd class="col-sm-8">${escaparHtml(valor)}</dd>`;
-        }).join("");
-
+        const datos = leerContenidoReporte(r.contenido);
+        const e = datos?.estudiante || {};
+        $("DatosDetalleReporte").innerHTML = `
+            <div class="ReporteFicha p-3 p-lg-4">
+                <div class="row g-4">
+                    <section class="col-md-6">
+                        <h6 class="mb-3">Estudiante</h6>
+                        <dl class="row mb-0 small">
+                            ${campoFichaReporte("Nombre", e.nombre || r.estudiante)}
+                            ${campoFichaReporte("Nivel educativo", e.nivel)}
+                            ${campoFichaReporte("Institución", e.institucion)}
+                            ${campoFichaReporte("Áreas de dificultad", e.areasDificultad)}
+                        </dl>
+                    </section>
+                    <section class="col-md-6">
+                        <h6 class="mb-3">Información del reporte</h6>
+                        <dl class="row mb-0 small">
+                            ${campoFichaReporte("Período", textoPeriodo(r))}
+                            ${campoFichaReporte("Fecha de generación", formatoFechaHora(r.fechaGeneracion))}
+                            ${campoFichaReporte("Generado por", r.generadoPor)}
+                            ${campoFichaReporte("Visible en el portal", r.visibleEnPortal ? "Sí" : "No")}
+                        </dl>
+                    </section>
+                </div>
+            </div>`;
         $("ContenidoDetalleReporte").innerHTML = htmlContenido(r.contenido);
     }
 
-    // El contenido es la foto guardada al generar el reporte: JSON con
-    // secciones o, en los reportes anteriores, texto plano.
     function htmlContenido(contenido) {
-        if (!contenido || !contenido.trim()) {
-            return '<p class="TextoSuave mb-0">Este reporte no tiene contenido registrado.</p>';
-        }
-
-        let datos = null;
-        try {
-            datos = JSON.parse(contenido);
-        } catch {
-            datos = null;
-        }
-
-        if (datos === null || typeof datos !== "object" || Array.isArray(datos)) {
-            return `<p class="mb-0" style="white-space: pre-wrap;">${escaparHtml(contenido)}</p>`;
-        }
-
-        return [
-            seccionEstudiante(datos.estudiante),
-            seccionSesiones(datos.sesiones),
-            seccionPlanes(datos.planes),
-            seccionPagos(datos.pagos)
-        ].join("");
-    }
-
-    function filaDato(etiqueta, valor) {
-        if (!valor) return "";
-        return `<p class="mb-1"><span class="TextoSuave">${escaparHtml(etiqueta)}:</span> ${escaparHtml(valor)}</p>`;
-    }
-
-    function seccionEstudiante(e) {
-        if (!e) return "";
-        return `
-            <h6 class="mb-2">Datos del estudiante</h6>
-            <div class="mb-3">
-              ${filaDato("Nombre", e.nombre)}
-              ${filaDato("Nivel educativo", e.nivel)}
-              ${filaDato("Institución", e.institucion)}
-              ${filaDato("Áreas de dificultad", e.areasDificultad)}
-            </div>`;
+        if (!contenido || !contenido.trim()) return '<p class="TextoSuave mb-0">Este reporte no tiene contenido adicional registrado.</p>';
+        const datos = leerContenidoReporte(contenido);
+        if (!datos) return `<div class="ReporteNota">${escaparHtml(contenido)}</div>`;
+        const bloques = [seccionSesiones(datos.sesiones), seccionPlanes(datos.planes)].join("");
+        return bloques || '<p class="TextoSuave mb-0">Este reporte incluye únicamente el resumen del estudiante.</p>';
     }
 
     function notaReporte(etiqueta, valor) {
         if (valor === null || valor === undefined || String(valor).trim() === "") return "";
-        return `<div class="mb-3">
-            <div class="TextoSuave small fw-semibold">${escaparHtml(etiqueta)}</div>
-            <div style="white-space: pre-wrap; overflow-wrap: anywhere;">${escaparHtml(String(valor))}</div>
-        </div>`;
+        return `<div class="mb-2"><div class="TextoSuave small fw-semibold mb-1">${escaparHtml(etiqueta)}</div><div class="ReporteNota" style="white-space: pre-wrap; overflow-wrap: anywhere;">${escaparHtml(String(valor))}</div></div>`;
+    }
+
+    function cuadriculaNotasReporte(campos) {
+        return `<div class="row g-3">` + campos.filter(c => c[1] !== null && c[1] !== undefined && String(c[1]).trim() !== "")
+            .map(c => `<div class="${c[2] ? "col-12" : "col-md-6"}">${notaReporte(c[0], c[1])}</div>`).join("") + `</div>`;
     }
 
     function seccionSesiones(sesiones) {
         if (!Array.isArray(sesiones)) return "";
-        if (!sesiones.length) {
-            return '<h6>Sesiones</h6><p class="TextoSuave mb-3">Sin sesiones en el período.</p>';
-        }
-        const ordenadas = [...sesiones].sort((a, b) =>
-            String(b.fecha ?? "").localeCompare(String(a.fecha ?? "")));
-        return `<h6 class="mb-3">Historial y notas de sesiones</h6>` +
-            ordenadas.map(s => `<article class="border rounded p-3 mb-3">
-                <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
-                    <strong>${escaparHtml(formatoFecha(s.fecha))}</strong>
-                    <span class="TextoSuave">${escaparHtml(s.tipoAtencion)}</span>
+        if (!sesiones.length) return '<h6>Sesiones</h6><p class="TextoSuave mb-4">Sin sesiones registradas en este reporte.</p>';
+        const ordenadas = [...sesiones].sort((a,b) => String(b.fecha ?? "").localeCompare(String(a.fecha ?? "")));
+        return `<section class="mb-4"><h6 class="mb-3">Sesiones <span class="badge bg-light text-dark border ms-1">${sesiones.length}</span></h6>` + ordenadas.map(s => `
+            <details class="ReporteBloque">
+                <summary>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="flex-grow-1 ReporteResumenTexto">
+                            <strong>${escaparHtml(formatoFecha(s.fecha))}</strong>
+                            <div class="TextoSuave small text-truncate">${escaparHtml(s.tema || "Sin tema registrado")}</div>
+                        </div>
+                        <span class="badge bg-light text-dark border">${escaparHtml(s.tipoAtencion)}</span>
+                        <i class="bi bi-chevron-down ReporteFlecha" aria-hidden="true"></i>
+                    </div>
+                </summary>
+                <div class="p-3 p-lg-4">
+                    ${cuadriculaNotasReporte([
+                        ["Duración", s.duracionMinutos != null ? `${s.duracionMinutos} minutos` : null],
+                        ["Objetivo de la sesión", s.objetivo],
+                        ["Tema trabajado", s.tema],
+                        ["Actividades realizadas", s.actividadesRealizadas],
+                        ["Avances", s.avances],
+                        ["Objetivos alcanzados", s.objetivosAlcanzados],
+                        ["Habilidades desarrolladas", s.habilidadesDesarrolladas],
+                        ["Acuerdos", s.acuerdos],
+                        ["Recomendaciones", s.recomendaciones, true],
+                        ["Observaciones", s.observaciones, true]
+                    ])}
                 </div>
-                ${notaReporte("Duración", s.duracionMinutos != null ? `${s.duracionMinutos} minutos` : null)}
-                ${notaReporte("Objetivo de la sesión", s.objetivo)}
-                ${notaReporte("Tema trabajado", s.tema)}
-                ${notaReporte("Actividades realizadas", s.actividadesRealizadas)}
-                ${notaReporte("Avances", s.avances)}
-                ${notaReporte("Objetivos alcanzados", s.objetivosAlcanzados)}
-                ${notaReporte("Habilidades desarrolladas", s.habilidadesDesarrolladas)}
-                ${notaReporte("Acuerdos", s.acuerdos)}
-                ${notaReporte("Recomendaciones", s.recomendaciones)}
-                ${notaReporte("Observaciones de la sesión", s.observaciones)}
-            </article>`).join("");
+            </details>`).join("") + `</section>`;
     }
 
     function seccionPlanes(planes) {
         if (!Array.isArray(planes)) return "";
-        if (!planes.length) {
-            return '<h6>Planes de intervención</h6><p class="TextoSuave mb-3">Sin planes de intervención.</p>';
-        }
-        return `<h6 class="mb-3">Planes de intervención</h6>` +
-            planes.map(p => `<article class="border rounded p-3 mb-3">
-                <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
-                    <strong>${escaparHtml(p.titulo)}</strong>
-                    <span class="badge bg-light text-dark border">${escaparHtml(p.estado)}</span>
+        if (!planes.length) return '<h6>Planes de intervención</h6><p class="TextoSuave mb-3">Sin planes registrados en este reporte.</p>';
+        return `<section><h6 class="mb-3">Planes de intervención <span class="badge bg-light text-dark border ms-1">${planes.length}</span></h6>` + planes.map(p => `
+            <details class="ReporteBloque">
+                <summary>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="flex-grow-1 ReporteResumenTexto">
+                            <strong>${escaparHtml(p.titulo)}</strong>
+                            <div class="TextoSuave small">${p.actividades != null ? `${escaparHtml(p.actividadesCompletadas ?? 0)} de ${escaparHtml(p.actividades)} actividades completadas` : "Plan de intervención"}</div>
+                        </div>
+                        <span class="badge bg-light text-dark border">${escaparHtml(p.estado)}</span>
+                        <i class="bi bi-chevron-down ReporteFlecha" aria-hidden="true"></i>
+                    </div>
+                </summary>
+                <div class="p-3 p-lg-4">
+                    ${cuadriculaNotasReporte([
+                        ["Objetivo general", p.objetivoGeneral, true],
+                        ["Fecha de inicio", p.fechaInicio ? formatoFecha(p.fechaInicio) : null],
+                        ["Fecha de finalización", p.fechaFin ? formatoFecha(p.fechaFin) : null],
+                        ["Observaciones", p.observaciones, true]
+                    ])}
+                    ${estrategiasReporte(p.estrategias)}
                 </div>
-                ${notaReporte("Objetivo general", p.objetivoGeneral)}
-                ${notaReporte("Fecha de inicio", p.fechaInicio ? formatoFecha(p.fechaInicio) : null)}
-                ${notaReporte("Fecha de finalización", p.fechaFin ? formatoFecha(p.fechaFin) : null)}
-                ${notaReporte("Observaciones del plan", p.observaciones)}
-                ${notaReporte("Cumplimiento", p.actividades != null
-                ? `${p.actividadesCompletadas ?? 0} de ${p.actividades} actividades completadas` : null)}
-                ${estrategiasReporte(p.estrategias)}
-            </article>`).join("");
+            </details>`).join("") + `</section>`;
     }
 
     function estrategiasReporte(estrategias) {
         if (!Array.isArray(estrategias)) return "";
-        if (!estrategias.length) return '<p class="TextoSuave mb-0">Sin estrategias registradas.</p>';
-        const ordenadas = [...estrategias].sort((a, b) =>
-            (a.orden ?? Number.MAX_SAFE_INTEGER) - (b.orden ?? Number.MAX_SAFE_INTEGER));
-        return ordenadas.map((e, indice) => {
+        if (!estrategias.length) return '<p class="TextoSuave mb-0 mt-3">Sin estrategias registradas.</p>';
+        const ordenadas = [...estrategias].sort((a,b) => (a.orden ?? Number.MAX_SAFE_INTEGER) - (b.orden ?? Number.MAX_SAFE_INTEGER));
+        return `<h6 class="mt-4 mb-3">Estrategias y actividades</h6>` + ordenadas.map((e, indice) => {
             const actividades = Array.isArray(e.actividades) ? e.actividades : [];
-            return `<div class="border-top pt-3 mt-3">
-                <div class="fw-semibold mb-2">Estrategia ${indice + 1}</div>
-                ${notaReporte("Descripción", e.descripcion)}
-                ${actividades.length ? `<ul class="list-unstyled mb-0">` + actividades.map(a => {
-                const completada = a.completada === true || a.completada === 1;
-                return `<li class="mb-3">
-                        <span class="badge ${completada ? "bg-success" : "bg-secondary"}">
-                            ${completada ? "Completada" : "Pendiente"}
-                        </span>
-                        <span class="fw-semibold">${escaparHtml(a.nombre)}</span>
-                        ${notaReporte("Detalle de la actividad", a.descripcion)}
-                    </li>`;
-            }).join("") + `</ul>` : '<p class="TextoSuave mb-0">Sin actividades registradas.</p>'}
-            </div>`;
+            return `<details class="ReporteBloque">
+                <summary><div class="d-flex align-items-center gap-3"><div class="flex-grow-1 ReporteResumenTexto"><strong>Estrategia ${indice + 1}</strong><div class="TextoSuave small text-truncate">${escaparHtml(e.descripcion)}</div></div><i class="bi bi-chevron-down ReporteFlecha" aria-hidden="true"></i></div></summary>
+                <div class="p-3">
+                    ${notaReporte("Descripción", e.descripcion)}
+                    ${actividades.length ? `<ul class="row g-3 list-unstyled mb-0 mt-1">` + actividades.map(a => {
+                        const completada = a.completada === true || a.completada === 1;
+                        return `<li class="col-md-6"><div class="border rounded p-3 h-100"><span class="badge ${completada ? "bg-success" : "bg-secondary"} mb-2">${completada ? "Completada" : "Pendiente"}</span><div class="fw-semibold mb-2">${escaparHtml(a.nombre)}</div>${notaReporte("Detalle", a.descripcion)}</div></li>`;
+                    }).join("") + `</ul>` : '<p class="TextoSuave mb-0">Sin actividades registradas.</p>'}
+                </div>
+            </details>`;
         }).join("");
-    }
-    function seccionPagos(p) {
-        if (!p) return "";
-        const moneda = (v) => "₡" + Number(v ?? 0).toLocaleString("es-CR");
-
-        return `
-            <h6 class="mb-2">Estado de pagos</h6>
-            <div class="mb-0">
-              ${filaDato("Total cobrado", moneda(p.totalCobrado))}
-              ${filaDato("Total abonado", moneda(p.totalAbonado))}
-              ${filaDato("Saldo", moneda(p.saldo))}
-            </div>`;
     }
 
     // =====================================================
@@ -346,7 +449,7 @@
     });
     $("CuerpoTablaReportes").addEventListener("click", function (evento) {
         const boton = evento.target.closest("button[data-accion='ver']");
-        if (boton) abrirDetalle(boton.dataset.id);
+        if (boton && !boton.disabled) abrirDetalle(boton.dataset.id);
     });
 
     let solicitudFicha = null;
@@ -365,37 +468,107 @@
         $("AlertaGenerarReporte").textContent = "";
     }
 
-    async function cargarEstudiantesReporte() {
+
+    let estudiantesLookup = [];
+    let coincidenciasLookup = [];
+    let indiceLookup = -1;
+
+    function normalizarBusqueda(valor) {
+        return String(valor ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+    }
+
+    function cerrarLookupReporte() {
+        $("ResultadosEstudiantesReporte").classList.add("d-none");
+        $("BuscarEstudianteReporte").setAttribute("aria-expanded", "false");
+        $("BuscarEstudianteReporte").removeAttribute("aria-activedescendant");
+        indiceLookup = -1;
+    }
+
+    function invalidarEstudianteReporte() {
         solicitudFicha?.abort();
+        $("EstudianteReporte").value = "";
         fichaCargada = false;
         $("GenerarReporteBtn").disabled = true;
         $("FichaEstudianteReporte").classList.add("d-none");
-        const selector = $("EstudianteReporte");
+        $("DatosEstudianteReporte").innerHTML = "";
+    }
+
+    function mostrarCoincidenciasReporte() {
+        const campo = $("BuscarEstudianteReporte");
+        if(campo.disabled) return;
+        const consulta = normalizarBusqueda(campo.value);
+        const palabras = consulta.split(/\s+/).filter(Boolean);
+        const todas = estudiantesLookup.filter(e => {
+            const nombre = normalizarBusqueda(e.estudiante);
+            return palabras.every(palabra => nombre.includes(palabra));
+        });
+        coincidenciasLookup = todas.slice(0, 8);
+        indiceLookup = -1;
+        campo.removeAttribute("aria-activedescendant");
+        const lista = $("ResultadosEstudiantesReporte");
+        lista.replaceChildren();
+        coincidenciasLookup.forEach((e, indice) => {
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.id = `opcionEstudianteReporte${indice}`;
+            boton.className = "list-group-item list-group-item-action text-start";
+            boton.setAttribute("role", "option");
+            boton.setAttribute("aria-selected", "false");
+            boton.tabIndex = -1;
+            boton.textContent = `${e.estudiante} · ${e.nivelEducativo || "Sin nivel registrado"} · ID ${e.idEstudiante}`;
+            boton.addEventListener("mousedown", evento => evento.preventDefault());
+            boton.addEventListener("click", () => elegirEstudianteReporte(e));
+            lista.append(boton);
+        });
+        $("AyudaLookupReporte").textContent = todas.length === 0
+            ? "No se encontraron estudiantes."
+            : todas.length > 8
+                ? `${todas.length} coincidencias. Se muestran 8; escriba más para precisar.`
+                : `${todas.length} coincidencia(s). Seleccione un estudiante.`;
+        lista.classList.toggle("d-none", coincidenciasLookup.length === 0);
+        campo.setAttribute("aria-expanded", String(coincidenciasLookup.length > 0));
+    }
+
+    function elegirEstudianteReporte(estudiante) {
+        if(generandoReporte) return;
+        $("EstudianteReporte").value = estudiante.idEstudiante;
+        $("BuscarEstudianteReporte").value = estudiante.estudiante;
+        $("AyudaLookupReporte").textContent = "Estudiante seleccionado.";
+        cerrarLookupReporte();
+        seleccionarEstudianteReporte();
+    }
+
+    async function cargarEstudiantesReporte() {
+        invalidarEstudianteReporte();
+        estudiantesLookup = [];
+        const campo = $("BuscarEstudianteReporte");
         const actualizar = $("RecargarEstudiantesReporte");
-        selector.disabled = true;
+        campo.value = "";
+        campo.disabled = true;
         actualizar.disabled = true;
-        selector.replaceChildren(new Option("Cargando estudiantes…", ""));
+        cerrarLookupReporte();
+        $("AyudaLookupReporte").textContent = "Cargando estudiantes…";
         limpiarAlertaGeneracion();
         try {
-            const formulario = $("FormularioGenerarReporte");
-            const respuesta = await fetch(formulario.dataset.urlEstudiantes, {
+            const respuesta = await fetch($("FormularioGenerarReporte").dataset.urlEstudiantes, {
                 headers: { "Accept": "application/json" }
             });
             if (!respuesta.ok) throw new Error(await leerMensaje(respuesta, "No se pudieron cargar los estudiantes."));
             const estudiantes = await respuesta.json();
             if (!Array.isArray(estudiantes)) throw new Error("La lista de estudiantes no es válida.");
-            selector.replaceChildren(new Option("Seleccione un estudiante", ""));
-            [...estudiantes].sort((a, b) => a.estudiante.localeCompare(b.estudiante, "es"))
-                .forEach(e => selector.add(new Option(`${e.estudiante} · ID ${e.idEstudiante}`, e.idEstudiante)));
-            selector.disabled = estudiantes.length === 0;
-            if (!estudiantes.length) alertaGeneracion("No hay estudiantes disponibles.");
-        } catch (error) {
-            selector.replaceChildren(new Option("No se pudieron cargar los estudiantes", ""));
+            estudiantesLookup = [...estudiantes].sort((a,b) => a.estudiante.localeCompare(b.estudiante,"es"));
+            campo.disabled = estudiantesLookup.length === 0;
+            $("AyudaLookupReporte").textContent = estudiantesLookup.length
+                ? "Busque por nombre y seleccione una coincidencia."
+                : "No hay estudiantes disponibles.";
+        } catch(error) {
             alertaGeneracion(error.message || "No se pudo cargar la lista.");
+            $("AyudaLookupReporte").textContent = "Use Actualizar estudiantes para volver a intentarlo.";
         } finally {
             actualizar.disabled = false;
         }
     }
+
 
     async function seleccionarEstudianteReporte() {
         solicitudFicha?.abort();
@@ -448,6 +621,26 @@
         }
     }
 
+    function reiniciarFormularioReporte() {
+        solicitudFicha?.abort();
+        solicitudFicha = null;
+        $("FormularioGenerarReporte").reset();
+        invalidarEstudianteReporte();
+        tituloAutomatico = "";
+        $("TituloReporte").value = "";
+        $("BuscarEstudianteReporte").value = "";
+        $("BuscarEstudianteReporte").disabled = estudiantesLookup.length === 0;
+        coincidenciasLookup = [];
+        $("ResultadosEstudiantesReporte").replaceChildren();
+        cerrarLookupReporte();
+        limpiarAlertaGeneracion();
+        $("GenerarReporteBtn").textContent = "Generar reporte";
+        $("SeccionesReporte").disabled = false;
+        $("AyudaLookupReporte").textContent = estudiantesLookup.length
+            ? "Busque por nombre y seleccione una coincidencia."
+            : "Use Actualizar estudiantes para cargar la lista.";
+    }
+
     async function cerrarModalGeneracion() {
         const modal = $("ModalGenerarReporte");
         if (!modal.classList.contains("show")) return;
@@ -460,7 +653,13 @@
         evento.preventDefault();
         const formulario = evento.currentTarget;
         if (!formulario.reportValidity()) return;
-        if ($("FinReporte").value < $("InicioReporte").value) {
+        const desde = fechaParaApi($("InicioReporte").value);
+        const hasta = fechaParaApi($("FinReporte").value);
+        if (!desde || !hasta) {
+            alertaGeneracion("Ingrese fechas válidas en formato dd-mm-aaaa.");
+            return;
+        }
+        if (hasta < desde) {
             alertaGeneracion("La fecha final debe ser igual o posterior a la inicial.");
             return;
         }
@@ -471,8 +670,15 @@
         const boton = $("GenerarReporteBtn");
         if (boton.disabled) return;
         const datosFormulario = new FormData(formulario);
+        datosFormulario.set("IncluirDatosGenerales", "true");
+        ["IncluirSesiones", "IncluirPlanes"].forEach(nombre =>
+            datosFormulario.set(nombre, String($(nombre).checked)));
+        datosFormulario.set("PeriodoInicio", desde);
+        datosFormulario.set("PeriodoFin", hasta);
+        cerrarLookupReporte();
         generandoReporte = true;
-        $("EstudianteReporte").disabled = true;
+        $("SeccionesReporte").disabled = true;
+        $("BuscarEstudianteReporte").disabled = true;
         $("RecargarEstudiantesReporte").disabled = true;
         boton.disabled = true;
         boton.textContent = "Generando…";
@@ -502,21 +708,76 @@
                 : "No se pudo confirmar la generación. Revise el listado antes de intentar nuevamente.");
         } finally {
             generandoReporte = false;
-            $("EstudianteReporte").disabled = false;
+            $("SeccionesReporte").disabled = false;
+            $("BuscarEstudianteReporte").disabled = estudiantesLookup.length === 0;
             $("RecargarEstudiantesReporte").disabled = false;
             boton.disabled = false;
             boton.textContent = "Generar reporte";
         }
     }
 
-    $("EstudianteReporte").addEventListener("change", seleccionarEstudianteReporte);
+
+    $("BuscarEstudianteReporte").addEventListener("input", () => {
+        invalidarEstudianteReporte();
+        limpiarAlertaGeneracion();
+        mostrarCoincidenciasReporte();
+    });
+    $("BuscarEstudianteReporte").addEventListener("focus", mostrarCoincidenciasReporte);
+    $("BuscarEstudianteReporte").addEventListener("blur", cerrarLookupReporte);
+    $("BuscarEstudianteReporte").addEventListener("keydown", evento => {
+        if(evento.key === "Escape") {
+            evento.preventDefault();
+            evento.stopPropagation();
+            cerrarLookupReporte();
+            return;
+        }
+        if(evento.key === "Enter") {
+            evento.preventDefault();
+            if(indiceLookup >= 0) elegirEstudianteReporte(coincidenciasLookup[indiceLookup]);
+            return;
+        }
+        if(!["ArrowDown", "ArrowUp"].includes(evento.key)) return;
+        evento.preventDefault();
+        if($("ResultadosEstudiantesReporte").classList.contains("d-none")) mostrarCoincidenciasReporte();
+        if(!coincidenciasLookup.length) return;
+        const salto = evento.key === "ArrowDown" ? 1 : -1;
+        indiceLookup = indiceLookup < 0 ? (salto > 0 ? 0 : coincidenciasLookup.length - 1) : (indiceLookup + salto + coincidenciasLookup.length) % coincidenciasLookup.length;
+        Array.from($("ResultadosEstudiantesReporte").children).forEach((opcion, indice) => {
+            opcion.classList.toggle("active", indice === indiceLookup);
+            opcion.setAttribute("aria-selected", String(indice === indiceLookup));
+        });
+        const activa = $("ResultadosEstudiantesReporte").children[indiceLookup];
+        $("BuscarEstudianteReporte").setAttribute("aria-activedescendant", activa.id);
+        activa.scrollIntoView({block:"nearest"});
+    });
+    $("ModalGenerarReporte").addEventListener("hidden.bs.modal", cerrarLookupReporte);
+
     $("RecargarEstudiantesReporte").addEventListener("click", cargarEstudiantesReporte);
     $("FormularioGenerarReporte").addEventListener("submit", generarReporte);
     $("ModalGenerarReporte").addEventListener("hide.bs.modal", evento => {
         if (generandoReporte) evento.preventDefault();
     });
+    $("ModalGenerarReporte").addEventListener("show.bs.modal", reiniciarFormularioReporte);
+    $("FormularioFiltrosReportes").addEventListener("submit", aplicarFiltrosReportes);
+    $("BuscarNombreReporte").addEventListener("input", () => {
+        clearTimeout(temporizadorBusqueda);
+        temporizadorBusqueda = setTimeout(buscarConFiltrosActuales, 350);
+    });
+    $("EstadoFiltroReporte").addEventListener("change", buscarConFiltrosActuales);
+    $("CuerpoTablaReportes").addEventListener("click", evento => {
+        const boton = evento.target.closest("button[data-accion='estado']");
+        if (boton) abrirCambioEstadoReporte(Number(boton.dataset.id));
+    });
+    $("ConfirmarEstadoReporte").addEventListener("click", confirmarEstadoReporte);
+    $("ModalEstadoReporte").addEventListener("hide.bs.modal", evento => {
+        if (guardandoEstado) evento.preventDefault();
+    });
+    $("ModalEstadoReporte").addEventListener("hidden.bs.modal", () => { cambioEstado = null; });
+
     cargarEstudiantesReporte();
     cargar();
 })();
+
+
 
 
