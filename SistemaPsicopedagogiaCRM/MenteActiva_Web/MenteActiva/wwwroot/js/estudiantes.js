@@ -93,7 +93,9 @@ function iniciarFormularioNuevoEstudiante(formulario) {
     const lista = document.getElementById("ResultadosEncargado");
     const aviso = document.getElementById("EncargadoSeleccionado");
 
-    aplicarMascaraFecha(campoFecha);
+     // El calendario no deja elegir fechas futuras (fecha local, no UTC)
+    const hoy = new Date();
+    campoFecha.max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
     let temporizador = null;
     let numeroBusqueda = 0;
@@ -307,17 +309,12 @@ function iniciarFormularioNuevoEstudiante(formulario) {
             return;
         }
 
-        const fechaIso = fechaAIso(campoFecha.value.trim());
+        // type="date" ya entrega yyyy-MM-dd (o vacio, porque es opcional).
+        // badInput = fecha incompleta o imposible; el max impide fechas futuras.
+        const fechaIso = campoFecha.value;
 
-        if (fechaIso === null) {
-            alert("Ingrese la fecha de nacimiento con el formato dd/mm/aaaa.");
-            campoFecha.focus();
-            return;
-        }
-
-        if (fechaIso && new Date(fechaIso + "T00:00:00") > new Date()) {
-            alert("La fecha de nacimiento no puede ser futura.");
-            campoFecha.focus();
+        if (campoFecha.validity.badInput || (fechaIso && fechaIso > campoFecha.max)) {
+            marcarInvalido(campoFecha);
             return;
         }
 

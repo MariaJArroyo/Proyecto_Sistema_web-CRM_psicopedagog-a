@@ -320,13 +320,11 @@
                                 Fecha de nacimiento
                             </label>
 
-                            <input type="text"
+                            <input type="date"
                                    id="FechaNacimientoEstudiante"
                                    class="form-control"
-                                   inputmode="numeric"
-                                   maxlength="10"
-                                   autocomplete="off"
-                                   placeholder="dd/mm/aaaa">
+                                   min="1900-01-01">
+                            <div class="invalid-feedback">Ingrese una fecha válida que no sea futura.</div>
 
                         </div>
 

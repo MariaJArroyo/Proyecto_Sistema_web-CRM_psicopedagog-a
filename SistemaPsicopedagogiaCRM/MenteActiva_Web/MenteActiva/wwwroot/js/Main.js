@@ -1,5 +1,3 @@
-
-
 document.addEventListener("DOMContentLoaded", function () {
   InicializarSidebarAdmin();
   InicializarEnlaceActivo();
@@ -167,9 +165,10 @@ function InicializarTablasBuscables() {
         fila.classList.toggle("d-none", visibles.indexOf(fila) === -1);
       });
 
-      // El aviso es de "sin resultados": una tabla vacia de origen no lo muestra
-      if (estadoVacio) {
-        estadoVacio.classList.toggle("d-none", filas.length === 0 || coincidentes.length !== 0);
+      // El aviso es de "sin resultados". Si la tabla no tiene filas, se deja como
+      // lo puso el servidor (por ejemplo "No hay planes registrados").
+      if (estadoVacio && filas.length > 0) {
+        estadoVacio.classList.toggle("d-none", coincidentes.length !== 0);
       }
 
       if (paginador) {
@@ -200,6 +199,10 @@ function InicializarTablasBuscables() {
         Filtrar();
       });
     }
+
+    // Si otro JS agrega o quita filas, avisa con este evento y se recalcula
+    // filtro y paginacion sin cambiar de pagina
+    tabla.addEventListener("tabla:actualizada", Filtrar);
 
     Filtrar();
   });
@@ -283,6 +286,64 @@ function BotonPagina(contenido, pagina, activo, deshabilitado, etiqueta) {
   return '<li class="page-item' + (activo ? " active" : "") + (deshabilitado ? " disabled" : "") + '">' +
     '<button type="button" class="page-link" data-pagina="' + pagina + '" aria-label="' + etiqueta + '"' +
     (activo ? ' aria-current="page"' : "") + (deshabilitado ? " disabled" : "") + ">" + contenido + "</button></li>";
+}
+
+// Paginacion para tablas que pinta otro JS con datos del servidor (no usan el
+// buscador de arriba). Se llama cada vez que se vuelven a pintar las filas:
+//   PaginarTabla("TablaSesiones");                            -> vuelve a la pagina 1
+//   PaginarTabla("TablaSesiones", { conservarPagina: true }); -> se queda en la pagina actual
+var PaginadoresTabla = {};
+
+function PaginarTabla(tablaId, opciones) {
+  opciones = opciones || {};
+
+  var tabla = document.getElementById(tablaId);
+  if (!tabla) {
+    return;
+  }
+
+  var estado = PaginadoresTabla[tablaId];
+
+  // La primera vez se crea el paginador debajo de la tabla y sus eventos
+  if (!estado) {
+    estado = PaginadoresTabla[tablaId] = {
+      paginador: CrearPaginador(tabla, tablaId, opciones.tamano || 10),
+      pagina: 1
+    };
+
+    estado.dibujar = function () {
+      var filas = Array.prototype.slice.call(tabla.querySelectorAll("tbody tr"));
+      var tamano = parseInt(estado.paginador.tamano.value, 10);
+      var totalPaginas = Math.max(1, Math.ceil(filas.length / tamano));
+
+      estado.pagina = Math.min(Math.max(estado.pagina, 1), totalPaginas);
+      var inicio = (estado.pagina - 1) * tamano;
+
+      filas.forEach(function (fila, i) {
+        fila.classList.toggle("d-none", i < inicio || i >= inicio + tamano);
+      });
+
+      DibujarPaginador(estado.paginador, filas.length, inicio, tamano, estado.pagina, totalPaginas);
+    };
+
+    estado.paginador.tamano.addEventListener("change", function () {
+      estado.pagina = 1;
+      estado.dibujar();
+    });
+
+    estado.paginador.lista.addEventListener("click", function (evento) {
+      var boton = evento.target.closest("button[data-pagina]");
+      if (!boton || boton.disabled) {
+        return;
+      }
+      estado.pagina = parseInt(boton.getAttribute("data-pagina"), 10);
+      estado.dibujar();
+    });
+  } else if (!opciones.conservarPagina) {
+    estado.pagina = 1;
+  }
+
+  estado.dibujar();
 }
 
 

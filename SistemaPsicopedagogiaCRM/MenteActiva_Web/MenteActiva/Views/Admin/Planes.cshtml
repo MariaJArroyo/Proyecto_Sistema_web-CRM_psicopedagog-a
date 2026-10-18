@@ -17,7 +17,7 @@
 
     <div class="Tarjeta p-3 p-md-4">
 
-        <div class="row g-2 mb-3" data-tabla-buscador="TablaPlanes">
+        <div class="row g-2 mb-3" data-tabla-buscador="TablaPlanes" data-tabla-paginar="10">
             <div class="col-12">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -983,7 +983,7 @@
 
 @section Scripts {
 
-    <script src="~/js/Validaciones.js"></script>
+    <script src="~/js/Validaciones.js" asp-append-version="true"></script>
 
     <script>
 
@@ -1489,6 +1489,9 @@ if (accionConfirmadaPlan === "eliminar") {
         var tituloPlan = fila.getAttribute("data-valor-titulo");
 
         fila.remove();
+
+        // Que el buscador y la paginacion recalculen sin la fila borrada
+        tabla.dispatchEvent(new Event("tabla:actualizada"));
 
         var filasRestantes = tabla.querySelectorAll("tbody tr[data-fila]");
 

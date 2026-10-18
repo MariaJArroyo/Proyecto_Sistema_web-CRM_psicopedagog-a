@@ -25,6 +25,8 @@
     ];
 
     let sesiones = [];
+    // Tras editar o inactivar se queda en la misma pagina; con filtros nuevos vuelve a la 1
+    let conservarPagina = false;
     let idSesionInactivar = null;
 
     // =====================================================
@@ -128,7 +130,11 @@
         return parametros.toString();
     }
 
-    async function cargar() {
+    async function cargar(conservar) {
+        // Si se llama con cargar(true) se queda en la misma pagina.
+        // Los filtros la llaman sin true, asi que vuelve a la pagina 1.
+        conservarPagina = conservar === true;
+
         ocultarAlerta($("AlertaSesiones"));
 
         try {
@@ -203,6 +209,8 @@
                   </td>
                 </tr>`;
         }).join("");
+
+        PaginarTabla("TablaSesiones", { conservarPagina: conservarPagina });
     }
 
     // HU-M5-5 escenario 3: los mismos datos, mostrando solo el avance
@@ -492,7 +500,7 @@
 
         modal("ModalEditarSesion").hide();
         notificar("Sesión actualizada correctamente.", "success");
-        await cargar();
+        await cargar(true);
     }
 
     // =====================================================
@@ -524,7 +532,7 @@
         modal("ModalInactivarSesion").hide();
         notificar("Sesión inactivada correctamente.", "success");
         idSesionInactivar = null;
-        await cargar();
+        await cargar(true);
     }
 
     // =====================================================
