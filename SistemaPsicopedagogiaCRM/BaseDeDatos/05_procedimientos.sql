@@ -6408,19 +6408,6 @@ END$$
 DELIMITER ;
 
 
--- =========================================================
--- AGREGAR OBSERVACIONES AL PLAN
--- Añade el campo Observaciones a TB_PLAN_INTERVENCION.
--- Se permite NULL porque este dato es opcional.
--- =========================================================
-USE mente_activa;
-
-ALTER TABLE TB_PLAN_INTERVENCION
-ADD COLUMN Observaciones VARCHAR(1000) NULL
-AFTER ObjetivoGeneral;
-
-
-
 USE mente_activa;
 
 -- =========================================================
