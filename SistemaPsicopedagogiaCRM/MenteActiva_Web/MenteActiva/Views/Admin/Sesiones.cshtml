@@ -106,7 +106,7 @@
 </main>
 
 <div class="modal fade" id="ModalNuevaSesion" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <form id="FormularioNuevaSesion" novalidate>
         <div class="modal-header">
@@ -204,34 +204,42 @@
 
             <div class="col-12"><hr class="my-1"></div>
 
-            <div class="col-md-6">
-              <label for="ObjetivosAlcanzadosNuevaSesion" class="form-label">Objetivos alcanzados</label>
-              <textarea class="form-control" id="ObjetivosAlcanzadosNuevaSesion"
-                        name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+            <!-- Observaciones va al lado y no abajo: es el campo que mas crece
+                 y asi alargarlo no empuja el resto del formulario -->
+            <div class="col-lg-8">
+              <div class="row g-3">
+
+                <div class="col-md-6">
+                  <label for="ObjetivosAlcanzadosNuevaSesion" class="form-label">Objetivos alcanzados</label>
+                  <textarea class="form-control" id="ObjetivosAlcanzadosNuevaSesion"
+                            name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="HabilidadesNuevaSesion" class="form-label">Habilidades desarrolladas</label>
+                  <textarea class="form-control" id="HabilidadesNuevaSesion"
+                            name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="AvancesNuevaSesion" class="form-label">Avances</label>
+                  <textarea class="form-control" id="AvancesNuevaSesion" name="Avances"
+                            rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="RecomendacionesNuevaSesion" class="form-label">Recomendaciones</label>
+                  <textarea class="form-control" id="RecomendacionesNuevaSesion" name="Recomendaciones"
+                            rows="2" maxlength="1000"></textarea>
+                </div>
+
+              </div>
             </div>
 
-            <div class="col-md-6">
-              <label for="HabilidadesNuevaSesion" class="form-label">Habilidades desarrolladas</label>
-              <textarea class="form-control" id="HabilidadesNuevaSesion"
-                        name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-md-6">
-              <label for="AvancesNuevaSesion" class="form-label">Avances</label>
-              <textarea class="form-control" id="AvancesNuevaSesion" name="Avances"
-                        rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-md-6">
-              <label for="RecomendacionesNuevaSesion" class="form-label">Recomendaciones</label>
-              <textarea class="form-control" id="RecomendacionesNuevaSesion" name="Recomendaciones"
-                        rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-12">
+            <div class="col-lg-4 d-flex flex-column">
               <label for="ObservacionesNuevaSesion" class="form-label">Observaciones</label>
-              <textarea class="form-control" id="ObservacionesNuevaSesion" name="Observaciones"
-                        rows="2" maxlength="1000"></textarea>
+              <textarea class="form-control CampoObservaciones" id="ObservacionesNuevaSesion"
+                        name="Observaciones" rows="2" maxlength="1000"></textarea>
             </div>
 
           </div>
@@ -246,7 +254,7 @@
 </div>
 
 <div class="modal fade" id="ModalDetalleSesion" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Detalle de la sesión</h5>
@@ -256,7 +264,12 @@
         <div class="alert alert-secondary d-none" id="DetalleSesionInactiva">
           Esta sesión está inactiva. Se conserva en el historial, pero no aparece en los listados.
         </div>
-        <dl class="row mb-0" id="DetalleSesionCampos"></dl>
+
+        <div class="DetalleSesion-Encabezado" id="DetalleSesionEncabezado"></div>
+
+        <div class="row g-3" id="DetalleSesionCuerpo"></div>
+
+        <p class="TextoSuave small mb-0 mt-3" id="DetalleSesionPie"></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -266,7 +279,7 @@
 </div>
 
 <div class="modal fade" id="ModalEditarSesion" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <form id="FormularioEditarSesion" novalidate>
         <div class="modal-header">
@@ -350,34 +363,40 @@
 
             <div class="col-12"><hr class="my-1"></div>
 
-            <div class="col-md-6">
-              <label for="EditarObjetivosAlcanzadosSesion" class="form-label">Objetivos alcanzados</label>
-              <textarea class="form-control" id="EditarObjetivosAlcanzadosSesion"
-                        name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+            <div class="col-lg-8">
+              <div class="row g-3">
+
+                <div class="col-md-6">
+                  <label for="EditarObjetivosAlcanzadosSesion" class="form-label">Objetivos alcanzados</label>
+                  <textarea class="form-control" id="EditarObjetivosAlcanzadosSesion"
+                            name="ObjetivosAlcanzados" rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="EditarHabilidadesSesion" class="form-label">Habilidades desarrolladas</label>
+                  <textarea class="form-control" id="EditarHabilidadesSesion"
+                            name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="EditarAvancesSesion" class="form-label">Avances</label>
+                  <textarea class="form-control" id="EditarAvancesSesion" name="Avances"
+                            rows="2" maxlength="1000"></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="EditarRecomendacionesSesion" class="form-label">Recomendaciones</label>
+                  <textarea class="form-control" id="EditarRecomendacionesSesion" name="Recomendaciones"
+                            rows="2" maxlength="1000"></textarea>
+                </div>
+
+              </div>
             </div>
 
-            <div class="col-md-6">
-              <label for="EditarHabilidadesSesion" class="form-label">Habilidades desarrolladas</label>
-              <textarea class="form-control" id="EditarHabilidadesSesion"
-                        name="HabilidadesDesarrolladas" rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-md-6">
-              <label for="EditarAvancesSesion" class="form-label">Avances</label>
-              <textarea class="form-control" id="EditarAvancesSesion" name="Avances"
-                        rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-md-6">
-              <label for="EditarRecomendacionesSesion" class="form-label">Recomendaciones</label>
-              <textarea class="form-control" id="EditarRecomendacionesSesion" name="Recomendaciones"
-                        rows="2" maxlength="1000"></textarea>
-            </div>
-
-            <div class="col-12">
+            <div class="col-lg-4 d-flex flex-column">
               <label for="EditarObservacionesSesion" class="form-label">Observaciones</label>
-              <textarea class="form-control" id="EditarObservacionesSesion" name="Observaciones"
-                        rows="2" maxlength="1000"></textarea>
+              <textarea class="form-control CampoObservaciones" id="EditarObservacionesSesion"
+                        name="Observaciones" rows="2" maxlength="1000"></textarea>
             </div>
 
           </div>
