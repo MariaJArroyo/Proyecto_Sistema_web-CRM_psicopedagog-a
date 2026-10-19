@@ -266,36 +266,85 @@
 
             $("DetalleSesionInactiva").classList.toggle("d-none", s.activo !== false);
 
-            const campos = [
-                ["Estudiante", s.estudiante],
-                ["Fecha y hora", formatoFechaHora(s.fechaHoraInicio)],
-                ["Duración", textoDuracion(s.duracionMinutos)],
-                ["Tipo de sesión", s.tipoSesion],
-                ["Tipo de atención", s.tipoAtencion],
-                ["Cita de origen", s.idCita ? formatoFechaHora(s.fechaHoraCita) : "Sesión suelta"],
-                ["Objetivo", s.objetivo],
-                ["Tema trabajado", s.temaTrabajado],
-                ["Actividades realizadas", s.actividadesRealizadas],
-                ["Acuerdos", s.acuerdos],
-                ["Objetivos alcanzados", s.objetivosAlcanzados],
-                ["Habilidades desarrolladas", s.habilidadesDesarrolladas],
-                ["Avances", s.avances],
-                ["Recomendaciones", s.recomendaciones],
-                ["Observaciones", s.observaciones],
-                ["Registrada por", s.registradaPor],
-                ["Última modificación", s.fechaModificacion ? formatoFechaHora(s.fechaModificacion) : "Sin cambios"]
-            ];
+            $("DetalleSesionEncabezado").innerHTML = encabezadoDetalle(s);
+            $("DetalleSesionCuerpo").innerHTML = cuerpoDetalle(s);
 
-            $("DetalleSesionCampos").innerHTML = campos.map(function ([etiqueta, valor]) {
-                return `<dt class="col-sm-4 TextoSuave fw-normal">${etiqueta}</dt>
-                        <dd class="col-sm-8">${escaparHtml(valor || "—")}</dd>`;
-            }).join("");
+            const modificacion = s.fechaModificacion
+                ? `Última modificación: ${escaparHtml(formatoFechaHora(s.fechaModificacion))}`
+                : "Sin cambios desde que se registró";
+            $("DetalleSesionPie").innerHTML =
+                `Registrada por ${escaparHtml(s.registradaPor || "—")} &middot; ${modificacion}`;
 
             modal("ModalDetalleSesion").show();
 
         } catch {
             notificar("No se pudo conectar con el servidor.", "danger");
         }
+    }
+
+    // Los datos de cabecera van como etiquetas en una sola linea, no como filas:
+    // son cortos y apilarlos era lo que alargaba el modal
+    function encabezadoDetalle(s) {
+        const etiquetas = [
+            ["calendar-event", formatoFechaHora(s.fechaHoraInicio)],
+            ["clock", textoDuracion(s.duracionMinutos)],
+            ["journal-text", s.tipoSesion],
+            ["people", s.tipoAtencion],
+            ["link-45deg", s.idCita ? `Cita del ${formatoFechaHora(s.fechaHoraCita)}` : "Sesión suelta"]
+        ];
+
+        return `
+            <h5 class="mb-2">${escaparHtml(s.estudiante || "—")}</h5>
+            <div class="d-flex flex-wrap gap-2">
+              ${etiquetas.map(function ([icono, texto]) {
+                  return `<span class="DetalleSesion-Etiqueta">
+                            <i class="bi bi-${icono}"></i>${escaparHtml(texto || "—")}
+                          </span>`;
+              }).join("")}
+            </div>`;
+    }
+
+    function cuerpoDetalle(s) {
+        const loTrabajado = [
+            ["Objetivo", s.objetivo],
+            ["Tema trabajado", s.temaTrabajado],
+            ["Actividades realizadas", s.actividadesRealizadas],
+            ["Acuerdos", s.acuerdos]
+        ];
+
+        const losResultados = [
+            ["Objetivos alcanzados", s.objetivosAlcanzados],
+            ["Habilidades desarrolladas", s.habilidadesDesarrolladas],
+            ["Avances", s.avances],
+            ["Recomendaciones", s.recomendaciones]
+        ];
+
+        return `
+            <div class="col-lg-6">
+              ${bloqueDetalle("Lo trabajado", loTrabajado)}
+            </div>
+            <div class="col-lg-6">
+              ${bloqueDetalle("Resultados", losResultados)}
+            </div>
+            <div class="col-12">
+              ${bloqueDetalle("Observaciones", [["Observaciones", s.observaciones]], true)}
+            </div>`;
+    }
+
+    function bloqueDetalle(titulo, campos, sinEtiquetas) {
+        const cuerpo = campos.map(function ([etiqueta, valor]) {
+            return `
+                <div class="DetalleSesion-Campo">
+                  ${sinEtiquetas ? "" : `<span class="DetalleSesion-Etiqueta-Campo">${etiqueta}</span>`}
+                  <p class="mb-0">${escaparHtml(valor || "—")}</p>
+                </div>`;
+        }).join("");
+
+        return `
+            <section class="DetalleSesion-Bloque h-100">
+              <h6 class="DetalleSesion-Bloque-Titulo">${titulo}</h6>
+              ${cuerpo}
+            </section>`;
     }
 
     // =====================================================
