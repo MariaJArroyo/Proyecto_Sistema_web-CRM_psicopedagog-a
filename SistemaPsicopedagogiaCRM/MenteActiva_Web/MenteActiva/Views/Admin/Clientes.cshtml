@@ -18,7 +18,7 @@
                 class="btn btn-primary"
                 data-bs-toggle="modal"
                 data-bs-target="#ModalNuevoCliente">
-            <i class="bi bi-plus-lg me-1"></i>Nuevo cliente
+            <i class="bi bi-plus-lg me-1"></i>Nuevo encargado
         </button>
     </div>
  
@@ -203,141 +203,203 @@
  
                 <div class="alert d-none" id="DetalleClienteMensaje" role="alert"></div>
  
-                <!-- Datos del encargado -->
-                <h6 class="text-uppercase small fw-semibold TextoSuave mb-3">
-                    <i class="bi bi-person me-1"></i>Datos del encargado
-                </h6>
- 
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="TextoSuave small">Teléfono</div>
-                        <div id="DetalleTelefono">-</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="TextoSuave small">Correo</div>
-                        <div id="DetalleCorreo" class="text-break">-</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="TextoSuave small">Servicio de interés</div>
-                        <div id="DetalleServicio">-</div>
-                    </div>
-                    <div class="col-12">
-                        <div class="TextoSuave small">Observaciones</div>
-                        <div id="DetalleObservaciones" style="white-space:pre-line;">-</div>
-                    </div>
-                </div>
- 
-                <hr class="my-4">
- 
-                <!-- Estudiantes a cargo -->
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <h6 class="text-uppercase small fw-semibold TextoSuave mb-0">
-                        <i class="bi bi-mortarboard me-1"></i>Estudiantes a cargo
-                        <span class="badge rounded-pill text-bg-light border ms-1" id="DetalleCantidadEstudiantes">0</span>
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="TabDetalleEncargado" data-bs-toggle="tab"
+                                data-bs-target="#PanelDetalleEncargado" type="button" role="tab"
+                                aria-controls="PanelDetalleEncargado" aria-selected="true">
+                            <i class="bi bi-person me-1"></i>Encargado y estudiantes
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="TabPagosEncargado" data-bs-toggle="tab"
+                                data-bs-target="#PanelPagosEncargado" type="button" role="tab"
+                                aria-controls="PanelPagosEncargado" aria-selected="false">
+                            <i class="bi bi-cash-coin me-1"></i>Pagos
+                            <span class="badge rounded-pill ContadorPagosCliente ms-1 d-none" id="ContadorPagosCliente"></span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+
+                    <!-- ========== PESTANA 1: encargado y estudiantes ========== -->
+                    <div class="tab-pane fade show active" id="PanelDetalleEncargado" role="tabpanel"
+                         aria-labelledby="TabDetalleEncargado" tabindex="0">
+                    <!-- Datos del encargado -->
+                    <h6 class="text-uppercase small fw-semibold TextoSuave mb-3">
+                        <i class="bi bi-person me-1"></i>Datos del encargado
                     </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="BotonNuevoEstudianteCliente">
-                        <i class="bi bi-plus-lg me-1"></i>Agregar estudiante
-                    </button>
-                </div>
  
-                <p class="small text-warning-emphasis mb-2 d-none" id="AvisoClienteInactivo">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    El cliente está inactivo. Reactívelo para agregar o activar estudiantes.
-                </p>
- 
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0" id="TablaEstudiantesCliente">
-                        <thead>
-                            <tr>
-                                <th>Estudiante</th>
-                                <th>Parentesco</th>
-                                <th>Nivel educativo</th>
-                                <th>Edad</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
- 
-                <p class="TextoSuave text-center py-3 mb-0 d-none" id="SinEstudiantesCliente">
-                    Este cliente no tiene estudiantes registrados.
-                </p>
- 
-                <!-- Formulario en linea para agregar / editar un estudiante -->
-                <div class="border rounded-3 p-3 mt-3 d-none" id="PanelEstudianteCliente">
- 
-                    <form id="FormularioEstudianteCliente"
-                          asp-controller="Admin"
-                          asp-action="AgregarEstudianteCliente"
-                          method="post"
-                          novalidate>
- 
-                        <h6 class="fw-semibold mb-3" id="TituloPanelEstudiante">Agregar estudiante</h6>
- 
-                        <div class="alert d-none" id="EstudianteClienteError" role="alert"></div>
- 
-                        <div class="row g-2">
- 
-                            <div class="col-md-6">
-                                <label for="EstudianteNombre" class="form-label small CampoObligatorio">Nombre</label>
-                                <input type="text" class="form-control form-control-sm" id="EstudianteNombre" name="Nombre" maxlength="100" required>
-                                <div class="invalid-feedback">Obligatorio.</div>
-                            </div>
- 
-                            <div class="col-md-6">
-                                <label for="EstudianteApellido" class="form-label small CampoObligatorio">Apellido</label>
-                                <input type="text" class="form-control form-control-sm" id="EstudianteApellido" name="Apellido" maxlength="100" required>
-                                <div class="invalid-feedback">Obligatorio.</div>
-                            </div>
- 
-                            <div class="col-md-4">
-                                <label for="EstudianteParentesco" class="form-label small CampoObligatorio">Parentesco</label>
-                                <select class="form-select form-select-sm" id="EstudianteParentesco" name="IdParentesco" required>
-                                    <option value="">Seleccione</option>
-                                    @if (ViewBag.Parentescos != null)
-                                    {
-                                        foreach (var parentesco in ViewBag.Parentescos)
-                                        {
-                                            <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
-                                        }
-                                    }
-                                </select>
-                                <div class="invalid-feedback">Seleccione el parentesco.</div>
-                            </div>
- 
-                            <div class="col-md-4">
-                                <label for="EstudianteFechaNacimiento" class="form-label small">Fecha de nacimiento</label>
-                                <input type="date" class="form-control form-control-sm" id="EstudianteFechaNacimiento" name="FechaNacimiento">
-                                <div class="invalid-feedback">No puede ser una fecha futura.</div>
-                            </div>
- 
-                            <div class="col-md-4">
-                                <label for="EstudianteNivel" class="form-label small">Nivel educativo</label>
-                                <select class="form-select form-select-sm" id="EstudianteNivel" name="IdNivelEducativo">
-                                    <option value="">Sin especificar</option>
-                                    @if (ViewBag.NivelesEducativos != null)
-                                    {
-                                        foreach (var nivel in ViewBag.NivelesEducativos)
-                                        {
-                                            <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
-                                        }
-                                    }
-                                </select>
-                            </div>
- 
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="TextoSuave small">Teléfono</div>
+                            <div id="DetalleTelefono">-</div>
                         </div>
- 
-                        <div class="d-flex justify-content-end gap-2 mt-3">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="BotonCancelarEstudiante">Cancelar</button>
-                            <button type="submit" class="btn btn-sm btn-primary">Guardar estudiante</button>
+                        <div class="col-md-4">
+                            <div class="TextoSuave small">Correo</div>
+                            <div id="DetalleCorreo" class="text-break">-</div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="TextoSuave small">Servicio de interés</div>
+                            <div id="DetalleServicio">-</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="TextoSuave small">Observaciones</div>
+                            <div id="DetalleObservaciones" style="white-space:pre-line;">-</div>
+                        </div>
+                    </div>
  
-                    </form>
+                    <hr class="my-4">
  
+                    <!-- Estudiantes a cargo -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="text-uppercase small fw-semibold TextoSuave mb-0">
+                            <i class="bi bi-mortarboard me-1"></i>Estudiantes a cargo
+                            <span class="badge rounded-pill text-bg-light border ms-1" id="DetalleCantidadEstudiantes">0</span>
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="BotonNuevoEstudianteCliente">
+                            <i class="bi bi-plus-lg me-1"></i>Agregar estudiante
+                        </button>
+                    </div>
+ 
+                    <p class="small text-warning-emphasis mb-2 d-none" id="AvisoClienteInactivo">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        El cliente está inactivo. Reactívelo para agregar o activar estudiantes.
+                    </p>
+ 
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0" id="TablaEstudiantesCliente">
+                            <thead>
+                                <tr>
+                                    <th>Estudiante</th>
+                                    <th>Parentesco</th>
+                                    <th>Nivel educativo</th>
+                                    <th>Edad</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+ 
+                    <p class="TextoSuave text-center py-3 mb-0 d-none" id="SinEstudiantesCliente">
+                        Este cliente no tiene estudiantes registrados.
+                    </p>
+
+                    <!-- Formulario en linea para agregar / editar un estudiante -->
+                    <div class="border rounded-3 p-3 mt-3 d-none" id="PanelEstudianteCliente">
+ 
+                        <form id="FormularioEstudianteCliente"
+                              asp-controller="Admin"
+                              asp-action="AgregarEstudianteCliente"
+                              method="post"
+                              novalidate>
+ 
+                            <h6 class="fw-semibold mb-3" id="TituloPanelEstudiante">Agregar estudiante</h6>
+ 
+                            <div class="alert d-none" id="EstudianteClienteError" role="alert"></div>
+ 
+                            <div class="row g-2">
+ 
+                                <div class="col-md-6">
+                                    <label for="EstudianteNombre" class="form-label small CampoObligatorio">Nombre</label>
+                                    <input type="text" class="form-control form-control-sm" id="EstudianteNombre" name="Nombre" maxlength="100" required>
+                                    <div class="invalid-feedback">Obligatorio.</div>
+                                </div>
+ 
+                                <div class="col-md-6">
+                                    <label for="EstudianteApellido" class="form-label small CampoObligatorio">Apellido</label>
+                                    <input type="text" class="form-control form-control-sm" id="EstudianteApellido" name="Apellido" maxlength="100" required>
+                                    <div class="invalid-feedback">Obligatorio.</div>
+                                </div>
+ 
+                                <div class="col-md-4">
+                                    <label for="EstudianteParentesco" class="form-label small CampoObligatorio">Parentesco</label>
+                                    <select class="form-select form-select-sm" id="EstudianteParentesco" name="IdParentesco" required>
+                                        <option value="">Seleccione</option>
+                                        @if (ViewBag.Parentescos != null)
+                                        {
+                                            foreach (var parentesco in ViewBag.Parentescos)
+                                            {
+                                                <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
+                                            }
+                                        }
+                                    </select>
+                                    <div class="invalid-feedback">Seleccione el parentesco.</div>
+                                </div>
+ 
+                                <div class="col-md-4">
+                                    <label for="EstudianteFechaNacimiento" class="form-label small">Fecha de nacimiento</label>
+                                    <input type="date" class="form-control form-control-sm" id="EstudianteFechaNacimiento" name="FechaNacimiento">
+                                    <div class="invalid-feedback">No puede ser una fecha futura.</div>
+                                </div>
+ 
+                                <div class="col-md-4">
+                                    <label for="EstudianteNivel" class="form-label small">Nivel educativo</label>
+                                    <select class="form-select form-select-sm" id="EstudianteNivel" name="IdNivelEducativo">
+                                        <option value="">Sin especificar</option>
+                                        @if (ViewBag.NivelesEducativos != null)
+                                        {
+                                            foreach (var nivel in ViewBag.NivelesEducativos)
+                                            {
+                                                <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+ 
+                            </div>
+ 
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="BotonCancelarEstudiante">Cancelar</button>
+                                <button type="submit" class="btn btn-sm btn-primary">Guardar estudiante</button>
+                            </div>
+ 
+                        </form>
+ 
+                    </div>
+                    </div>
+
+                    <!-- ========== PESTANA 2: historial de pagos de sus estudiantes ========== -->
+                    <div class="tab-pane fade" id="PanelPagosEncargado" role="tabpanel"
+                         aria-labelledby="TabPagosEncargado" tabindex="0">
+
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="FiltroEstudiantePagos" class="form-label small TextoSuave mb-0">Estudiante</label>
+                                <select class="form-select form-select-sm w-auto" id="FiltroEstudiantePagos">
+                                    <option value="">Todos los estudiantes</option>
+                                </select>
+                            </div>
+                            <a href="/Admin/Pagos" class="btn btn-sm btn-outline-secondary text-nowrap" id="EnlacePagosCliente">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Ir a Pagos
+                            </a>
+                        </div>
+
+                        <p class="small TextoSuave mb-2" id="ResumenPagosCliente" aria-live="polite"></p>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="TablaPagosCliente">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Estudiante</th>
+                                        <th>Concepto</th>
+                                        <th class="text-end">Monto</th>
+                                        <th class="text-end">Pagado</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
- 
+
             </div>
  
             <div class="modal-footer">

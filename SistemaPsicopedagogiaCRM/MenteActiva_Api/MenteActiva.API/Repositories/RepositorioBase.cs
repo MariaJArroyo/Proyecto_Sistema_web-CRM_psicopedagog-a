@@ -50,6 +50,20 @@ public abstract class RepositorioBase
             conexion.ExecuteScalarAsync<int>(Comando(procedimiento, parametros, cancelacion)));
     }
 
+    // Para SPs que devuelven varios resultados (encabezado + detalle...)
+    protected async Task<T> ConsultarVariosAsync<T>(
+        string procedimiento, DynamicParameters parametros,
+        Func<SqlMapper.GridReader, Task<T>> leer, CancellationToken cancelacion)
+    {
+        await using var conexion = new MySqlConnection(_cadenaConexion);
+
+        return await TraducirErroresAsync(async () =>
+        {
+            using var lector = await conexion.QueryMultipleAsync(Comando(procedimiento, parametros, cancelacion));
+            return await leer(lector);
+        });
+    }
+
     private static CommandDefinition Comando(
         string procedimiento, DynamicParameters? parametros, CancellationToken cancelacion)
         => new(procedimiento, parametros, commandType: CommandType.StoredProcedure, cancellationToken: cancelacion);

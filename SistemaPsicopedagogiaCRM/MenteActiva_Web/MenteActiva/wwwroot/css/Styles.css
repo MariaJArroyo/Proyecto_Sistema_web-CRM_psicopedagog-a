@@ -1597,3 +1597,146 @@ button.TopbarAdmin-Usuario {
     flex: 1 1 auto;
     min-height: 9.5rem;
 }
+
+/* ---------- Pagos: chips de estado del cobro ---------- */
+.chip-pago-pagado {           /* verde: completo */
+  background-color: #E1F5EA;
+  color: #256B47;
+  border-color: #BFE6D0;
+}
+
+.chip-pago-pendiente {        /* ambar: por cobrar */
+  background-color: #FBF1DC;
+  color: #7A5C12;
+  border-color: #F1DEB1;
+}
+
+.chip-pago-parcial {          /* azul: abonado en parte */
+  background-color: #E4EBFA;
+  color: #35528F;
+  border-color: #C9D6F3;
+}
+
+.chip-pago-vencido {          /* rojo: paso el plazo */
+  background-color: #FBE7E6;
+  color: #A3302C;
+  border-color: #F3C9C6;
+}
+
+.chip-pago-anulado {          /* gris: ya no cuenta */
+  background-color: #EAEDF1;
+  color: #556274;
+  border-color: #D5DBE3;
+}
+
+/* Origen del cobro: de una cita o manual */
+.ChipOrigen {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--color-texto-suave);
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  background-color: var(--color-fondo);
+}
+
+/* Fila de un cobro o pago anulado */
+.FilaAnulada td {
+  color: var(--color-texto-suave);
+}
+
+.FilaAnulada td .fw-semibold {
+  text-decoration: line-through;
+}
+
+/* Tarjetas de totales con el color de su estado */
+.TarjetaResumen .ValorCobrado { color: #256B47; }
+.TarjetaResumen .ValorPendiente { color: #7A5C12; }
+.TarjetaResumen .ValorVencido { color: #A3302C; }
+.TarjetaResumen .IconoCobrado { color: #256B47; background-color: #E1F5EA; }
+.TarjetaResumen .IconoPendiente { color: #7A5C12; background-color: #FBF1DC; }
+.TarjetaResumen .IconoVencido { color: #A3302C; background-color: #FBE7E6; }
+
+/* Detalle del cobro */
+.ResumenCobro {
+  border: 1px solid var(--color-borde);
+  border-radius: 10px;
+  padding: 0.5rem;
+  background-color: var(--color-fondo);
+}
+
+.ResumenCobro .ValorCobrado { color: #256B47; }
+.ResumenCobro .ValorPendiente { color: #7A5C12; }
+
+.BarraCobro {
+  background-color: var(--color-exito);
+}
+
+.PanelPago {
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-tarjeta);
+  background-color: var(--color-fondo);
+  padding: 1rem;
+}
+
+.PanelPago-Peligro {
+  border-color: #F3C9C6;
+  background-color: #FDF5F4;
+}
+
+/* Configuracion: columna de precio en tipos de sesion */
+.ColumnaPrecio {
+  width: 170px;
+}
+
+/* Columna derecha de los modales de pagos (mismo estilo que el panel de
+   estudiantes de Nuevo cliente) */
+.PanelPagoLateral {
+  height: 100%;
+  padding: 1rem;
+  background-color: var(--color-fondo);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-tarjeta);
+}
+
+.PanelPagoLateral.PanelPago-Peligro {
+  border-color: #F3C9C6;
+  background-color: #FDF5F4;
+}
+
+/* Historial de pagos en el detalle del encargado */
+.ValorPagadoCliente { color: #256B47; }
+.ValorSaldoCliente { color: #7A5C12; }
+
+/* Contador de cobros con saldo en la pestana Pagos del detalle */
+.ContadorPagosCliente {
+  background-color: #FBF1DC;
+  color: #7A5C12;
+  border: 1px solid #F1DEB1;
+}
+
+.ContadorPagosCliente-Vencido {
+  background-color: #FBE7E6;
+  color: #A3302C;
+  border-color: #F3C9C6;
+}
+
+/* Filtro activo que llega desde otra pantalla (se quita con la X) */
+.ChipFiltro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+  border-radius: 999px;
+  background-color: #E4EBFA;
+  color: #35528F;
+  border: 1px solid #C9D6F3;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.ChipFiltro .btn-close {
+  font-size: 0.6rem;
+}

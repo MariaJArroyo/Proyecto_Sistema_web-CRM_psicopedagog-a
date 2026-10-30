@@ -39,6 +39,10 @@ public sealed class GuardarTipoSesionViewModel
 
     [Range(15, 240, ErrorMessage = "La duración debe estar entre 15 y 240 minutos.")]
     public int DuracionMinutos { get; set; }
+
+    // Vacio = sin precio: las citas de este tipo no generan cobro automatico
+    [Range(typeof(decimal), "0", "10000000", ErrorMessage = "El precio debe estar entre 0 y 10 000 000.")]
+    public decimal? Precio { get; set; }
 }
 
 public sealed class DatosConsultorioViewModel
@@ -60,4 +64,7 @@ public sealed class DatosConsultorioViewModel
 
     [Range(1, 72, ErrorMessage = "El recordatorio debe enviarse entre 1 y 72 horas antes.")]
     public int HorasRecordatorioCita { get; set; }
+
+    [Range(0, 90, ErrorMessage = "El plazo de pago debe estar entre 0 y 90 días (0 = no vence).")]
+    public int? DiasVencimientoPago { get; set; }
 }

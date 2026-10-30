@@ -12,3 +12,4 @@ public class ClienteResponse
     public int IdEstadoCliente { get; set; }
     public int CantidadEstudiantes { get; set; }
 }
+

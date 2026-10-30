@@ -63,13 +63,6 @@ public sealed record EspacioDisponibleResponse
     public DateTime Fin { get; init; }
 }
 
-public sealed record TipoSesionResponse
-{
-    public int IdTipoSesion { get; init; }
-    public string Nombre { get; init; } = string.Empty;
-    public int DuracionMinutos { get; init; }
-}
-
 public sealed record ModalidadResponse
 {
     public int IdModalidad { get; init; }
@@ -100,4 +93,14 @@ public sealed record GrupoDisponibleResponse
     public string Modalidad { get; init; } = string.Empty;
     public int CupoMaximo { get; init; }
     public int Inscritos { get; init; }
+}
+
+public sealed record TipoSesionResponse
+{
+    public int IdTipoSesion { get; init; }
+    public string Nombre { get; init; } = string.Empty;
+    public int DuracionMinutos { get; init; }
+
+    // NULL = sin precio: las citas de este tipo no generan cobro automatico
+    public decimal? Precio { get; init; }
 }

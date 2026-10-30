@@ -308,6 +308,7 @@
         document.getElementById("AvisoClienteInactivo").classList.toggle("d-none", !inactivo);
  
         renderEstudiantes(cliente.estudiantes || []);
+        cargarPagosCliente(cliente);
     }
  
     function renderEstudiantes(estudiantes) {
@@ -353,11 +354,177 @@
         }).join("");
     }
  
+    // =====================================================
+    // HISTORIAL DE PAGOS DEL ENCARGADO
+    // =====================================================
+    // Cobros de todos sus estudiantes, de citas y manuales. Usa el mismo listado
+    // de la pantalla de Pagos y se queda con los de sus estudiantes.
+
+    const ESTADOS_PAGO = {
+        1: { nombre: "Pagado", clase: "chip-pago-pagado", icono: "bi-check-circle" },
+        2: { nombre: "Pendiente", clase: "chip-pago-pendiente", icono: "bi-hourglass-split" },
+        3: { nombre: "Vencido", clase: "chip-pago-vencido", icono: "bi-exclamation-circle" },
+        4: { nombre: "Parcial", clase: "chip-pago-parcial", icono: "bi-pie-chart" },
+        5: { nombre: "Anulado", clase: "chip-pago-anulado", icono: "bi-x-circle" }
+    };
+    const PAGO_ANULADO = 5;
+    const PAGOS_CON_SALDO = [2, 3, 4];
+
+    // Orden del historial: lo mas urgente primero.
+    // Vencido (3), Pendiente (2), Parcial (4), Pagado (1) y al final Anulado (5)
+    const ORDEN_ESTADO_PAGO = { 3: 0, 2: 1, 4: 2, 1: 3, 5: 4 };
+
+    const moneda = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 });
+    const filtroEstudiantePagos = document.getElementById("FiltroEstudiantePagos");
+    const cuerpoPagosCliente = document.querySelector("#TablaPagosCliente tbody");
+    const resumenPagosCliente = document.getElementById("ResumenPagosCliente");
+
+    let pagosCliente = [];
+    let numeroConsultaPagos = 0;     // descarta respuestas viejas si se abre otro encargado
+
+    function dinero(valor) {
+        return moneda.format(Number(valor) || 0);
+    }
+
+    // El API manda fechas sin hora como "2026-10-30T00:00:00"
+    function fechaCorta(texto) {
+        if (!texto) return "-";
+        const [anio, mes, dia] = String(texto).slice(0, 10).split("-").map(Number);
+        return new Date(anio, mes - 1, dia).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function chipPago(idEstado) {
+        const estado = ESTADOS_PAGO[idEstado] ?? { nombre: "-", clase: "chip-estado-otro", icono: "bi-circle" };
+        return `<span class="ChipEstado ${estado.clase}"><i class="bi ${estado.icono}" aria-hidden="true"></i>${estado.nombre}</span>`;
+    }
+
+    function mensajeTablaPagos(texto, clase = "TextoSuave") {
+        cuerpoPagosCliente.innerHTML = `<tr><td colspan="7" class="text-center ${clase} py-3">${escaparHtml(texto)}</td></tr>`;
+    }
+
+    async function cargarPagosCliente(cliente) {
+        const estudiantes = cliente.estudiantes || [];
+        const ids = new Set(estudiantes.map(e => e.idEstudiante));
+        const numero = ++numeroConsultaPagos;
+
+        // El filtro se llena con los estudiantes del encargado (conserva la eleccion al refrescar)
+        const anterior = filtroEstudiantePagos.value;
+        filtroEstudiantePagos.innerHTML = '<option value="">Todos los estudiantes</option>' +
+            estudiantes.map(e => `<option value="${e.idEstudiante}">${escaparHtml(`${e.nombre} ${e.apellido}`)}</option>`).join("");
+        filtroEstudiantePagos.value = [...filtroEstudiantePagos.options].some(o => o.value === anterior) ? anterior : "";
+        filtroEstudiantePagos.disabled = estudiantes.length < 2;
+
+        resumenPagosCliente.textContent = "";
+        mensajeTablaPagos("Cargando pagos…");
+
+        try {
+            const respuesta = await fetch("/Admin/ConsultarPagos", { headers: { "Accept": "application/json" } });
+            if (!respuesta.ok) throw new Error();
+
+            const datos = await respuesta.json();
+            if (numero !== numeroConsultaPagos) return;
+
+            pagosCliente = (datos?.pagos ?? []).filter(p => ids.has(p.idEstudiante));
+        } catch {
+            if (numero !== numeroConsultaPagos) return;
+
+            pagosCliente = [];
+            pintarContadorPagos();
+            mensajeTablaPagos("No se pudo cargar el historial de pagos.", "text-danger");
+            return;
+        }
+
+        pintarPagosCliente();
+    }
+
+    function pintarContadorPagos() {
+        const contador = document.getElementById("ContadorPagosCliente");
+        const conSaldo = pagosCliente.filter(p => PAGOS_CON_SALDO.includes(p.idEstadoPago));
+        const hayVencidos = conSaldo.some(p => p.idEstadoPago === 3);
+
+        contador.textContent = conSaldo.length;
+        contador.title = `${conSaldo.length} ${conSaldo.length === 1 ? "cobro con saldo" : "cobros con saldo"}`;
+        contador.classList.toggle("d-none", conSaldo.length === 0);
+        contador.classList.toggle("ContadorPagosCliente-Vencido", hayVencidos);
+    }
+
+    // "Ir a Pagos" abre la pantalla de Pagos filtrada por el estudiante elegido,
+    // o por todos los estudiantes del encargado si no hay uno elegido
+    function actualizarEnlacePagos() {
+        const enlace = document.getElementById("EnlacePagosCliente");
+        const estudiantes = clienteActual?.estudiantes || [];
+        const idElegido = filtroEstudiantePagos.value;
+        const elegido = estudiantes.find(e => String(e.idEstudiante) === idElegido);
+
+        if (!enlace || estudiantes.length === 0) {
+            if (enlace) enlace.href = "/Admin/Pagos";
+            return;
+        }
+
+        const ids = elegido ? [elegido.idEstudiante] : estudiantes.map(e => e.idEstudiante);
+        const etiqueta = elegido
+            ? `${elegido.nombre} ${elegido.apellido}`
+            : `Estudiantes de ${clienteActual.nombreEncargado ?? ""} ${clienteActual.apellidoEncargado ?? ""}`.trim();
+
+        enlace.href = `/Admin/Pagos?idEstudiantes=${ids.join(",")}&filtro=${encodeURIComponent(etiqueta)}`;
+    }
+
+    function pintarPagosCliente() {
+        pintarContadorPagos();
+        actualizarEnlacePagos();
+
+        const idEstudiante = filtroEstudiantePagos.value;
+        // Dentro de cada estado se conserva el orden del API: el mas reciente primero
+        const lista = pagosCliente
+            .filter(p => !idEstudiante || String(p.idEstudiante) === idEstudiante)
+            .map((p, posicion) => ({ p, posicion }))
+            .sort((a, b) => (ORDEN_ESTADO_PAGO[a.p.idEstadoPago] ?? 9) - (ORDEN_ESTADO_PAGO[b.p.idEstadoPago] ?? 9)
+                || a.posicion - b.posicion)
+            .map(x => x.p);
+
+        // Los anulados se listan pero no suman
+        const vigentes = lista.filter(p => p.idEstadoPago !== PAGO_ANULADO);
+        const facturado = vigentes.reduce((t, p) => t + Number(p.monto || 0), 0);
+        const pagado = vigentes.reduce((t, p) => t + Number(p.abonado || 0), 0);
+        const saldo = vigentes.filter(p => PAGOS_CON_SALDO.includes(p.idEstadoPago))
+            .reduce((t, p) => t + Number(p.saldo || 0), 0);
+
+        resumenPagosCliente.innerHTML = lista.length === 0 ? "" :
+            `Facturado <strong>${dinero(facturado)}</strong> · Pagado <strong class="ValorPagadoCliente">${dinero(pagado)}</strong> · ` +
+            `Saldo <strong class="${saldo > 0 ? "ValorSaldoCliente" : ""}">${dinero(saldo)}</strong>`;
+
+        if (lista.length === 0) {
+            mensajeTablaPagos(idEstudiante ? "Este estudiante no tiene pagos registrados." : "No hay pagos registrados.");
+            return;
+        }
+
+        cuerpoPagosCliente.innerHTML = lista.map(function (p) {
+            const origen = p.idCita
+                ? '<span class="ChipOrigen"><i class="bi bi-calendar-check" aria-hidden="true"></i>Cita</span>'
+                : '<span class="ChipOrigen"><i class="bi bi-pencil" aria-hidden="true"></i>Manual</span>';
+
+            return `
+                <tr class="${p.idEstadoPago === PAGO_ANULADO ? "FilaAnulada" : ""}">
+                    <td class="text-nowrap">${escaparHtml(fechaCorta(p.fechaEmision))}</td>
+                    <td>${escaparHtml(p.estudiante)}</td>
+                    <td>${escaparHtml(p.concepto)} ${origen}</td>
+                    <td class="text-end text-nowrap">${dinero(p.monto)}</td>
+                    <td class="text-end text-nowrap">${dinero(p.abonado)}</td>
+                    <td class="text-end text-nowrap">${PAGOS_CON_SALDO.includes(p.idEstadoPago) ? dinero(p.saldo) : "-"}</td>
+                    <td>${chipPago(p.idEstadoPago)}</td>
+                </tr>`;
+        }).join("");
+    }
+
+    filtroEstudiantePagos?.addEventListener("change", pintarPagosCliente);
+
+
     async function refrescarDetalle() {
         renderDetalle(await obtenerCliente(clienteActual.id));
     }
  
     function mostrarDetalle(cliente) {
+        bootstrap.Tab.getOrCreateInstance(document.getElementById("TabDetalleEncargado")).show();
         ocultarAlerta(mensajeDetalle);
         cerrarPanelEstudiante();
         renderDetalle(cliente);
@@ -391,12 +558,15 @@
         }
  
         panelEstudiante.classList.remove("d-none");
+        // Mientras se agrega o edita un estudiante, el unico "guardar" es el del formulario
+        document.getElementById("BotonEditarDesdeDetalle").classList.add("d-none");
         panelEstudiante.scrollIntoView({ behavior: "smooth", block: "nearest" });
         document.getElementById("EstudianteNombre").focus();
     }
  
     function cerrarPanelEstudiante() {
         panelEstudiante.classList.add("d-none");
+        document.getElementById("BotonEditarDesdeDetalle").classList.remove("d-none");
     }
  
     if (modalDetalle) {
