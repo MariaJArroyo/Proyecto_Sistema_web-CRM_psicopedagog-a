@@ -63,4 +63,6 @@ public sealed record DatosConsultorioResponse
     public string DireccionConsultorio { get; init; } = string.Empty;
     public string Moneda { get; init; } = string.Empty;
     public int HorasRecordatorioCita { get; init; }
+    public int DiasVencimientoPago { get; init; }
 }
+

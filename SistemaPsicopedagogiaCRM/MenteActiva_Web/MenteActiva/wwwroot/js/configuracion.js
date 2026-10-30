@@ -457,12 +457,13 @@
     const alertaTipos = document.getElementById("AlertaTipos");
     const campoNombreNuevo = document.getElementById("NombreTipoNuevo");
     const campoDuracionNuevo = document.getElementById("DuracionTipoNuevo");
+    const campoPrecioNuevo = document.getElementById("PrecioTipoNuevo");
     const botonAgregarTipo = document.getElementById("BotonAgregarTipo");
 
     function dibujarTipos(lista) {
         if (lista.length === 0) {
             tablaTipos.innerHTML =
-                '<tr><td colspan="3" class="text-center TextoSuave py-4">No hay tipos de sesión.</td></tr>';
+                '<tr><td colspan="4" class="text-center TextoSuave py-4">No hay tipos de sesión.</td></tr>';
             return;
         }
 
@@ -476,6 +477,10 @@
                     <input type="number" class="form-control form-control-sm" min="15" max="240" step="15"
                            value="${tipo.duracionMinutos}" data-duracion aria-label="Duración en minutos">
                 </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" min="0" step="1" placeholder="Sin precio"
+                           value="${tipo.precio ?? ""}" data-precio aria-label="Precio en colones">
+                </td>
                 <td class="text-end">
                     <button type="button" class="btn btn-sm btn-outline-primary" data-guardar-tipo>
                         <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar
@@ -485,7 +490,7 @@
     }
 
     async function cargarTipos() {
-        tablaTipos.innerHTML = `<tr><td colspan="3">${CARGANDO}</td></tr>`;
+        tablaTipos.innerHTML = `<tr><td colspan="4">${CARGANDO}</td></tr>`;
 
         try {
             dibujarTipos(await obtener("/Admin/ConfiguracionTiposSesion"));
@@ -495,14 +500,20 @@
         }
     }
 
-    function leerTipo(campoNombre, campoDuracion) {
+    // Precio vacio = sin precio (sus citas no generan cobro). En colones, sin decimales.
+    function leerTipo(campoNombre, campoDuracion, campoPrecio) {
         const nombre = campoNombre.value.trim();
         const duracion = Number(campoDuracion.value);
+        const textoPrecio = campoPrecio.value.trim();
+        const precio = Number(textoPrecio);
 
         const nombreValido = marcar(campoNombre, nombre !== "");
         const duracionValida = marcar(campoDuracion, Number.isInteger(duracion) && duracion >= 15 && duracion <= 240);
+        const precioValido = marcar(campoPrecio, textoPrecio === "" || (Number.isInteger(precio) && precio >= 0));
 
-        return nombreValido && duracionValida ? { nombre, duracionMinutos: duracion } : null;
+        return nombreValido && duracionValida && precioValido
+            ? { nombre, duracionMinutos: duracion, precio: textoPrecio === "" ? "" : precio }
+            : null;
     }
 
     async function guardarTipo(idTipoSesion, tipo, boton) {
@@ -526,19 +537,21 @@
         if (!boton) return;
 
         const fila = boton.closest("[data-tipo]");
-        const tipo = leerTipo(fila.querySelector("[data-nombre]"), fila.querySelector("[data-duracion]"));
+        const tipo = leerTipo(fila.querySelector("[data-nombre]"), fila.querySelector("[data-duracion]"),
+            fila.querySelector("[data-precio]"));
 
         if (tipo) await guardarTipo(Number(fila.dataset.tipo), tipo, boton);
     });
 
     botonAgregarTipo.addEventListener("click", async function () {
-        const tipo = leerTipo(campoNombreNuevo, campoDuracionNuevo);
+        const tipo = leerTipo(campoNombreNuevo, campoDuracionNuevo, campoPrecioNuevo);
         if (!tipo) return;
 
         // idTipoSesion vacio = crear
         if (await guardarTipo(null, tipo, botonAgregarTipo)) {
             campoNombreNuevo.value = "";
             campoDuracionNuevo.value = "60";
+            campoPrecioNuevo.value = "";
             cargarTipos();
         }
     });
@@ -559,6 +572,7 @@
         telefonoContacto: "TelefonoContacto",
         direccionConsultorio: "DireccionConsultorio",
         horasRecordatorioCita: "HorasRecordatorioCita",
+        diasVencimientoPago: "DiasVencimientoPago",
         moneda: "Moneda"
     };
 

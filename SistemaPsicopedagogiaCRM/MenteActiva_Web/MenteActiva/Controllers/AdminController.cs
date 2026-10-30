@@ -835,7 +835,90 @@ public class AdminController : Controller
     public IActionResult Dashboard() => View();
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
-    public IActionResult Pagos() => View(); 
+    #region Pagos
+
+    // Los 3 roles del panel: el Asistente tambien lleva los pagos
+    public IActionResult Pagos() => View();
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarPagos(CancellationToken cancelacion)
+        => ReenviarGetAsync("pagos", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> CatalogosPagos(CancellationToken cancelacion)
+        => ReenviarGetAsync("pagos/catalogos", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> ObtenerPago(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"pagos/{id}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> EncargadosPago(int idEstudiante, CancellationToken cancelacion)
+        => ReenviarGetAsync($"pagos/estudiantes/{idEstudiante}/encargados", cancelacion);
+
+    // ---------- acciones (por fetch, con token antifalsificacion en el FormData) ----------
+
+    [HttpPost]
+    public async Task<IActionResult> RegistrarPago(RegistrarPagoViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(UrlApi("pagos"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo registrar el pago.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RegistrarAbonoPago(int id, RegistrarAbonoViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(UrlApi($"pagos/{id}/abonos"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo registrar el pago.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AnularAbonoPago(int idAbono, string? motivo, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return BadRequest(new { mensaje = "Indique el motivo de la anulación." });
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"pagos/abonos/{idAbono}/anular"), new { motivo }, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo anular el pago.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AnularPago(int id, string? motivo, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return BadRequest(new { mensaje = "Indique el motivo de la anulación." });
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"pagos/{id}/anular"), new { motivo }, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo anular el cobro.", cancelacion);
+    }
+
+    #endregion
 
 
     #region Planes de Intervencion

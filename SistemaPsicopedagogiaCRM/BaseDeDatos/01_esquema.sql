@@ -95,10 +95,12 @@ CREATE TABLE IF NOT EXISTS TB_TIPO_SESION (
   IdTipoSesion INT NOT NULL AUTO_INCREMENT,
   Nombre VARCHAR(50) NOT NULL,
   DuracionMinutos INT NULL,
+  Precio DECIMAL(10,2) NULL,
   PRIMARY KEY (IdTipoSesion),
   UNIQUE KEY UX_TipoSesion_Nombre (Nombre),
   CONSTRAINT CK_TipoSesion_NombreNoVacio CHECK (TRIM(Nombre) <> ''),
-  CONSTRAINT CK_TipoSesion_Duracion CHECK (DuracionMinutos IS NULL OR DuracionMinutos > 0)
+  CONSTRAINT CK_TipoSesion_Duracion CHECK (DuracionMinutos IS NULL OR DuracionMinutos > 0),
+  CONSTRAINT CK_TipoSesion_Precio CHECK (Precio IS NULL OR Precio >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_TIPO_ATENCION (
@@ -734,6 +736,7 @@ CREATE TABLE IF NOT EXISTS TB_PAGO (
   IdEstudiante INT NOT NULL,
   IdEstadoPago INT NOT NULL,
   IdUsuarioRegistro INT NOT NULL,
+  IdCita INT NULL,
   Concepto VARCHAR(150) NOT NULL,
   Monto DECIMAL(10,2) NOT NULL,
   FechaEmision DATE NOT NULL,
@@ -742,6 +745,7 @@ CREATE TABLE IF NOT EXISTS TB_PAGO (
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (IdPago),
+  UNIQUE KEY UX_Pago_Cita (IdCita),
   KEY IX_Pago_Estudiante (IdEstudiante),
   KEY IX_Pago_EstadoPago (IdEstadoPago),
   KEY IX_Pago_UsuarioRegistro (IdUsuarioRegistro),
@@ -751,6 +755,8 @@ CREATE TABLE IF NOT EXISTS TB_PAGO (
     REFERENCES TB_ESTADO_PAGO (IdEstadoPago) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Pago_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
     REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Pago_Cita FOREIGN KEY (IdCita)
+    REFERENCES TB_CITA (IdCita) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT CK_Pago_ConceptoNoVacio CHECK (TRIM(Concepto) <> ''),
   CONSTRAINT CK_Pago_MontoPositivo CHECK (Monto > 0),
   CONSTRAINT CK_Pago_Vencimiento CHECK (FechaVencimiento IS NULL OR FechaVencimiento >= FechaEmision)

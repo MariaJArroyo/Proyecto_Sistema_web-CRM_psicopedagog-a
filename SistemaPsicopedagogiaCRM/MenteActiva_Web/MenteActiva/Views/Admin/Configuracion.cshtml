@@ -138,6 +138,7 @@
                             <tr>
                                 <th>Nombre</th>
                                 <th class="ColumnaDuracion">Duración (min)</th>
+                                <th class="ColumnaPrecio">Precio (₡)</th>
                                 <th class="text-end ColumnaAcciones"></th>
                             </tr>
                         </thead>
@@ -151,6 +152,10 @@
                                 <td>
                                     <input type="number" id="DuracionTipoNuevo" class="form-control form-control-sm"
                                            min="15" max="240" step="15" value="60" aria-label="Duración del nuevo tipo en minutos">
+                                </td>
+                                <td>
+                                    <input type="number" id="PrecioTipoNuevo" class="form-control form-control-sm"
+                                           min="0" step="1" placeholder="Sin precio" aria-label="Precio del nuevo tipo en colones">
                                 </td>
                                 <td class="text-end">
                                     <button type="button" class="btn btn-primary btn-sm" id="BotonAgregarTipo">
@@ -197,11 +202,18 @@
                         <div class="invalid-feedback">Entre 1 y 72 horas.</div>
                     </div>
                     <div class="col-md-4">
+                        <label for="DiasVencimientoPago" class="form-label">Plazo de pago (días)</label>
+                        <input type="number" id="DiasVencimientoPago" name="DiasVencimientoPago" class="form-control"
+                               min="0" max="90" step="1" required aria-describedby="AyudaDiasVencimiento">
+                        <div id="AyudaDiasVencimiento" class="form-text">Días para que un cobro pase a vencido. 0 = no vence.</div>
+                        <div class="invalid-feedback">Entre 0 y 90 días.</div>
+                    </div>
+                    <div class="col-md-4">
                         <label for="Moneda" class="form-label">Moneda</label>
                         <input type="text" id="Moneda" class="form-control" readonly aria-describedby="AyudaMoneda">
                         <div id="AyudaMoneda" class="form-text">No se edita aquí: afecta los montos ya registrados.</div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-8">
                         <label for="DireccionConsultorio" class="form-label">Dirección</label>
                         <input type="text" id="DireccionConsultorio" name="DireccionConsultorio" class="form-control" maxlength="255" required>
                         <div class="invalid-feedback">Indique la dirección.</div>

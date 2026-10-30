@@ -69,7 +69,7 @@ public sealed class RepositorioConfiguracion : RepositorioBase, IRepositorioConf
         => ConsultarAsync<TipoSesionResponse>("SP_ListarTiposSesion_CRM", null, cancelacion);
 
     public Task<int> GuardarTipoSesionAsync(
-        int idUsuarioAccion, int? idTipoSesion, string nombre, int duracionMinutos,
+        int idUsuarioAccion, int? idTipoSesion, string nombre, int duracionMinutos, decimal? precio,
         CancellationToken cancelacion)
     {
         var parametros = new DynamicParameters();
@@ -77,6 +77,7 @@ public sealed class RepositorioConfiguracion : RepositorioBase, IRepositorioConf
         parametros.Add("p_IdTipoSesion", idTipoSesion);
         parametros.Add("p_Nombre", nombre);
         parametros.Add("p_DuracionMinutos", duracionMinutos);
+        parametros.Add("p_Precio", precio);
 
         return EscalarAsync("SP_TipoSesion_Guardar_CRM", parametros, cancelacion);
     }

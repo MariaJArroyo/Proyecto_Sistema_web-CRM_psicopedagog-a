@@ -20,10 +20,12 @@ public interface IRepositorioConfiguracion
     Task<IReadOnlyList<TipoSesionResponse>> ListarTiposSesionAsync(CancellationToken cancelacion);
 
     Task<int> GuardarTipoSesionAsync(
-        int idUsuarioAccion, int? idTipoSesion, string nombre, int duracionMinutos,
-        CancellationToken cancelacion);
+    int idUsuarioAccion, int? idTipoSesion, string nombre, int duracionMinutos, decimal? precio,
+    CancellationToken cancelacion);
 
     Task<IReadOnlyList<ConfiguracionFila>> ListarConfiguracionAsync(CancellationToken cancelacion);
 
     Task GuardarConfiguracionAsync(int idUsuarioAccion, string valoresJson, CancellationToken cancelacion);
+
+
 }

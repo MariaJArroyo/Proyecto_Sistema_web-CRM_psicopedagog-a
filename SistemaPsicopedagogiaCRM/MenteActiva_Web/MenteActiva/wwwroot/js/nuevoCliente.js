@@ -109,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const esConversion = !!datos;
 
         campoIdSolicitud.value = esConversion ? datos.idSolicitud : "";
-        titulo.textContent = esConversion ? "Convertir solicitud en cliente" : "Nuevo cliente";
+        titulo.textContent = esConversion ? "Convertir solicitud en cliente" : "Nuevo encargado";
         alertaOrigen.classList.toggle("d-none", !esConversion);
 
         if (esConversion) {
@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            let mensaje = "No se pudo guardar el cliente.";
+            let mensaje = "No se pudo guardar el encargado.";
             try {
                 const json = await respuesta.json();
                 if (json && json.mensaje) mensaje = json.mensaje;

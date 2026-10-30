@@ -79,11 +79,11 @@ INSERT INTO TB_ESTADO_TAREA (IdEstadoTarea, Nombre) VALUES
 ON DUPLICATE KEY UPDATE IdEstadoTarea = IdEstadoTarea;
 
 -- GENERICO: duraciones por defecto en minutos
-INSERT INTO TB_TIPO_SESION (IdTipoSesion, Nombre, DuracionMinutos) VALUES
-  (1, 'Tutoría', 60),
-  (2, 'Sesión psicopedagógica', 60),
-  (3, 'Evaluación', 90),
-  (4, 'Reunión con padres', 45)
+INSERT INTO TB_TIPO_SESION (IdTipoSesion, Nombre, DuracionMinutos, Precio) VALUES
+  (1, 'Tutoría', 60, 15000.00),
+  (2, 'Sesión psicopedagógica', 60, 20000.00),
+  (3, 'Evaluación', 90, 45000.00),
+  (4, 'Reunión con padres', 45, 18000.00)
 ON DUPLICATE KEY UPDATE IdTipoSesion = IdTipoSesion;
 
 INSERT INTO TB_TIPO_ATENCION (IdTipoAtencion, Nombre) VALUES
@@ -173,7 +173,8 @@ INSERT INTO TB_CONFIGURACION (IdConfiguracion, Clave, Valor, Descripcion) VALUES
   (3, 'TelefonoContacto', '00000000', 'Teléfono de contacto, solo dígitos'),
   (4, 'Moneda', 'CRC', 'Código ISO de la moneda de los montos'),
   (5, 'HorasRecordatorioCita', '24', 'Horas de anticipación para el recordatorio de cita'),
-  (6, 'DireccionConsultorio', 'San José, Costa Rica', 'Dirección que se muestra en el sitio público')
+  (6, 'DireccionConsultorio', 'San José, Costa Rica', 'Dirección que se muestra en el sitio público'),
+  (7, 'DiasVencimientoPago', '8', 'Días de plazo de un cobro antes de marcarse como vencido (0 = no vence)')
 ON DUPLICATE KEY UPDATE IdConfiguracion = IdConfiguracion;
 
 -- GENERICO: sin al menos una franja no se puede agendar ninguna cita.

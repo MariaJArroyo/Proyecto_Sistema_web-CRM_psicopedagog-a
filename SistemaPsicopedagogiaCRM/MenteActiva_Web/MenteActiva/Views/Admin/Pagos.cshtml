@@ -2,333 +2,382 @@
     ViewData["Title"] = "Pagos";
 }
 
-      <main class="PrincipalAdmin">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-          <div>
+<main class="PrincipalAdmin" id="PaginaPagos" data-es-admin="@(User.IsInRole("Administrador") ? "true" : "false")">
+    @Html.AntiForgeryToken()
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <div>
             <h2 class="mb-1">Facturación y pagos</h2>
-            <p class="TextoSuave mb-0">Historial de pagos ordenado por fecha.</p>
-          </div>
-          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalRegistrarPago">
-            <i class="bi bi-plus-lg me-1"></i>Registrar pago
-          </button>
+            <p class="TextoSuave mb-0">
+                Los cobros de las citas completadas se crean automáticamente como pendientes. Los demás se registran con "Nuevo pago".
+            </p>
         </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ModalNuevoPago">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo pago
+        </button>
+    </div>
 
-        <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
-          <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-          <span>Hay <strong>2 pagos pendientes</strong> y <strong>1 pago vencido</strong> que requieren
-            seguimiento.</span>
-        </div>
+    <div class="alert d-none" id="AlertaPagos" role="alert"></div>
 
-        <div class="Tarjeta p-3 p-md-4">
+    <!-- Tipos de sesion sin precio: sus citas no generan cobro automatico -->
+    <div class="alert alert-warning d-none" id="AvisoSinPrecio" role="status"></div>
 
-          <div class="row g-2 mb-3" data-tabla-buscador="TablaPagos">
-            <div class="col-md-7">
-              <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input type="search" class="form-control" data-buscar-texto placeholder="Buscar por estudiante">
-              </div>
-            </div>
-            <div class="col-md-5">
-              <select class="form-select" data-buscar-estado aria-label="Filtrar por estado">
-                <option value="">Todos los estados</option>
-                <option value="Pagado">Pagado</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Vencido">Vencido</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Razor: reemplazar por @@foreach (var pago in Model.Pagos.OrderByDescending(p => p.Fecha)) -->
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="TablaPagos">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Estudiante</th>
-                  <th>Monto</th>
-                  <th>Método</th>
-                  <th>Estado</th>
-                  <th class="TablaAcciones">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr data-fila data-estado="Pagado" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="10 de julio, 2026" data-valor-estudiante="María Rodríguez"
-                  data-valor-encargado="Carlos Jiménez" data-valor-monto="₡15 000" data-valor-metodo="Sinpe Móvil"
-                  data-valor-concepto="Sesión individual" data-valor-estado="Pagado">
-                  <td>10 jul 2026</td>
-                  <td>María Rodríguez</td>
-                  <td>₡15 000</td>
-                  <td>Sinpe Móvil</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Pagado" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="8 de julio, 2026" data-valor-estudiante="Diego Vargas"
-                  data-valor-encargado="Rodolfo Vargas" data-valor-monto="₡15 000" data-valor-metodo="Efectivo"
-                  data-valor-concepto="Sesión individual" data-valor-estado="Pagado">
-                  <td>8 jul 2026</td>
-                  <td>Diego Vargas</td>
-                  <td>₡15 000</td>
-                  <td>Efectivo</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Pendiente" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="5 de julio, 2026" data-valor-estudiante="Ana Castro"
-                  data-valor-encargado="Marjorie Castro" data-valor-monto="₡60 000" data-valor-metodo="Transferencia"
-                  data-valor-concepto="Paquete de sesiones" data-valor-estado="Pendiente">
-                  <td>5 jul 2026</td>
-                  <td>Ana Castro</td>
-                  <td>₡60 000</td>
-                  <td>Transferencia</td>
-                  <td><span class="badge badge-pago-pendiente">Pendiente</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Pagado" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="1 de julio, 2026" data-valor-estudiante="Valeria Mora"
-                  data-valor-encargado="Marta Mora" data-valor-monto="₡15 000" data-valor-metodo="Tarjeta"
-                  data-valor-concepto="Sesión individual" data-valor-estado="Pagado">
-                  <td>1 jul 2026</td>
-                  <td>Valeria Mora</td>
-                  <td>₡15 000</td>
-                  <td>Tarjeta</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Vencido" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="28 de junio, 2026" data-valor-estudiante="Kevin Fernández"
-                  data-valor-encargado="José Fernández" data-valor-monto="₡15 000" data-valor-metodo="Efectivo"
-                  data-valor-concepto="Sesión individual" data-valor-estado="Vencido">
-                  <td>28 jun 2026</td>
-                  <td>Kevin Fernández</td>
-                  <td>₡15 000</td>
-                  <td>Efectivo</td>
-                  <td><span class="badge badge-pago-vencido">Vencido</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-                <tr data-fila data-estado="Pendiente" data-modal-detalle="ModalDetallePago"
-                  data-valor-fecha="20 de junio, 2026" data-valor-estudiante="Fabián Méndez"
-                  data-valor-encargado="Laura Méndez" data-valor-monto="₡15 000" data-valor-metodo="Sinpe Móvil"
-                  data-valor-concepto="Sesión individual" data-valor-estado="Pendiente">
-                  <td>20 jun 2026</td>
-                  <td>Fabián Méndez</td>
-                  <td>₡15 000</td>
-                  <td>Sinpe Móvil</td>
-                  <td><span class="badge badge-pago-pendiente">Pendiente</span></td>
-                  <td class="TablaAcciones">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="tooltip"
-                      title="Ver detalle"><i class="bi bi-eye"></i></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <!-- /Razor -->
-
-          <!-- Estado vacío: sin resultados de búsqueda -->
-          <div class="EstadoVacio d-none" data-tabla-vacio="TablaPagos">
-            <i class="bi bi-cash-coin"></i>
-            <p class="mb-3">No se encontraron pagos con ese criterio de búsqueda.</p>
-          </div>
-        </div>
-      </main>
-      <!-- Razor: /fin de contenido de la vista -->
-
-      <div class="modal fade" id="ModalRegistrarPago" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <!-- Razor: asp-controller="Pagos" asp-action="Crear" method="post" -->
-            <form id="FormularioRegistrarPago" novalidate>
-              <div class="modal-header">
-                <h5 class="modal-title">Registrar pago</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-              </div>
-              <div class="modal-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="EstudiantePago" class="form-label CampoObligatorio">Estudiante</label>
-                    <select class="form-select" id="EstudiantePago" name="EstudianteId">
-                      <option value="" selected>Seleccione un estudiante</option>
-                      <option value="MariaRodriguez">María Rodríguez</option>
-                      <option value="DiegoVargas">Diego Vargas</option>
-                      <option value="AnaCastro">Ana Castro</option>
-                      <option value="KevinFernandez">Kevin Fernández</option>
-                      <option value="FabianMendez">Fabián Méndez</option>
-                      <option value="ValeriaMora">Valeria Mora</option>
-                      <option value="EmilyAraya">Emily Araya</option>
-                      <option value="FabianSolis">Fabián Solís</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                    <div class="form-text" id="AsociacionEncargado"></div>
-                  </div>
-                  <div class="col-md-6">
-                    <label for="MontoPago" class="form-label CampoObligatorio">Monto (₡)</label>
-                    <input type="number" class="form-control" id="MontoPago" name="Monto" min="0" step="1000"
-                      placeholder="15000">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <label for="FechaPago" class="form-label CampoObligatorio">Fecha</label>
-                    <input type="date" class="form-control" id="FechaPago" name="Fecha" value="2026-07-12">
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <label for="MetodoPago" class="form-label CampoObligatorio">Método</label>
-                    <select class="form-select" id="MetodoPago" name="Metodo">
-                      <option value="" selected>Seleccione</option>
-                      <option value="Efectivo">Efectivo</option>
-                      <option value="Transferencia">Transferencia</option>
-                      <option value="Tarjeta">Tarjeta</option>
-                      <option value="SinpeMovil">Sinpe Móvil</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <label for="ConceptoPago" class="form-label CampoObligatorio">Concepto</label>
-                    <select class="form-select" id="ConceptoPago" name="Concepto">
-                      <option value="" selected>Seleccione</option>
-                      <option value="SesionIndividual">Sesión individual</option>
-                      <option value="PaqueteSesiones">Paquete de sesiones</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <label for="EstadoPago" class="form-label CampoObligatorio">Estado</label>
-                    <select class="form-select" id="EstadoPago" name="Estado">
-                      <option value="Pagado" selected>Pagado</option>
-                      <option value="Pendiente">Pendiente</option>
-                    </select>
-                    <div class="invalid-feedback"></div>
-                    <div class="form-text">Use "Pendiente" si aún no se ha recibido el pago.</div>
-                  </div>
+    <!-- Totales: se calculan sobre lo que muestra el filtro (sin anulados) -->
+    <div class="row g-3 mb-4" aria-live="polite">
+        <div class="col-sm-6 col-xl-3">
+            <div class="TarjetaResumen d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="TextoSuave small">Total facturado</div>
+                    <div class="TarjetaResumen-Valor" id="TotalFacturado">₡0</div>
+                    <div class="TextoSuave small" id="DetalleFacturado">&nbsp;</div>
                 </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar pago</button>
-              </div>
-            </form>
-          </div>
+                <div class="TarjetaResumen-Icono"><i class="bi bi-receipt" aria-hidden="true"></i></div>
+            </div>
         </div>
-      </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="TarjetaResumen d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="TextoSuave small">Cobrado</div>
+                    <div class="TarjetaResumen-Valor ValorCobrado" id="TotalCobrado">₡0</div>
+                    <div class="TextoSuave small" id="DetalleCobrado">&nbsp;</div>
+                </div>
+                <div class="TarjetaResumen-Icono IconoCobrado"><i class="bi bi-cash-coin" aria-hidden="true"></i></div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="TarjetaResumen d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="TextoSuave small">Por cobrar</div>
+                    <div class="TarjetaResumen-Valor ValorPendiente" id="TotalPendiente">₡0</div>
+                    <div class="TextoSuave small" id="DetallePendiente">&nbsp;</div>
+                </div>
+                <div class="TarjetaResumen-Icono IconoPendiente"><i class="bi bi-hourglass-split" aria-hidden="true"></i></div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="TarjetaResumen d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="TextoSuave small">Vencido</div>
+                    <div class="TarjetaResumen-Valor ValorVencido" id="TotalVencido">₡0</div>
+                    <div class="TextoSuave small" id="DetalleVencido">&nbsp;</div>
+                </div>
+                <div class="TarjetaResumen-Icono IconoVencido"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></div>
+            </div>
+        </div>
+    </div>
 
-      <div class="modal fade" id="ModalDetallePago" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
+    <div class="Tarjeta p-3 p-md-4">
+
+        <div class="row g-2 mb-3 align-items-end">
+            <div class="col-lg-3">
+                <label for="BuscarPago" class="form-label">Buscar</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search" aria-hidden="true"></i></span>
+                    <input type="search" class="form-control" id="BuscarPago"
+                           placeholder="Estudiante, encargado o concepto">
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-2">
+                <label for="FiltroEstadoPago" class="form-label">Estado</label>
+                <select class="form-select" id="FiltroEstadoPago">
+                    @* Ids de TB_ESTADO_PAGO: 1 Pagado, 2 Pendiente, 3 Vencido, 4 Parcial, 5 Anulado *@
+                    <option value="1,2,3,4" selected>Pagados y pendientes</option>
+                    <option value="2,3,4">Solo con saldo</option>
+                    <option value="1">Pagado</option>
+                    <option value="2">Pendiente</option>
+                    <option value="4">Parcial</option>
+                    <option value="3">Vencido</option>
+                    <option value="5">Anulado</option>
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="col-sm-6 col-lg-2">
+                <label for="FiltroOrigenPago" class="form-label">Origen</label>
+                <select class="form-select" id="FiltroOrigenPago">
+                    <option value="">Todos</option>
+                    <option value="Cita">De citas</option>
+                    <option value="Manual">Manuales</option>
+                </select>
+            </div>
+            <div class="col-sm-5 col-lg-2">
+                <label for="FiltroDesdePago" class="form-label">Desde</label>
+                <input type="date" class="form-control" id="FiltroDesdePago">
+            </div>
+            <div class="col-sm-5 col-lg-2">
+                <label for="FiltroHastaPago" class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="FiltroHastaPago">
+            </div>
+            <div class="col-sm-2 col-lg-1">
+                <button type="button" class="btn btn-outline-secondary w-100" id="BotonLimpiarFiltrosPago"
+                        title="Limpiar filtros" aria-label="Limpiar filtros">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtro por estudiante que llega desde el detalle del encargado -->
+        <div class="mb-3 d-none" id="FiltroEstudianteActivo">
+            <span class="ChipFiltro">
+                <i class="bi bi-funnel" aria-hidden="true"></i>
+                <span id="TextoFiltroEstudiante"></span>
+                <button type="button" class="btn-close" id="QuitarFiltroEstudiante" aria-label="Quitar filtro de estudiante"></button>
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="TablaPagos">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Estudiante</th>
+                        <th>Concepto</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-end">Saldo</th>
+                        <th>Estado</th>
+                        <th class="TablaAcciones">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="CuerpoTablaPagos"></tbody>
+            </table>
+        </div>
+
+        <div class="EstadoVacio d-none" id="VacioPagos">
+            <i class="bi bi-cash-coin"></i>
+            <p class="mb-0" id="TextoVacioPagos">No hay pagos registrados.</p>
+        </div>
+    </div>
+</main>
+
+
+<!-- ========================================================= -->
+<!-- MODAL NUEVO PAGO -->
+<!-- ========================================================= -->
+<div class="modal fade" id="ModalNuevoPago" tabindex="-1" aria-labelledby="TituloNuevoPago" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form id="FormularioNuevoPago" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="TituloNuevoPago">Nuevo pago</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert d-none" id="AlertaNuevoPago" role="alert"></div>
+
+                    <div class="row g-4">
+
+                        <!-- ========== IZQUIERDA: datos del cobro ========== -->
+                        <section class="col-lg-7" aria-labelledby="TituloDatosCobro">
+                            <h6 class="text-uppercase small fw-semibold TextoSuave mb-3" id="TituloDatosCobro">
+                                <i class="bi bi-receipt me-1"></i>Datos del cobro
+                            </h6>
+
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="BuscadorPago" class="form-label CampoObligatorio">Estudiante</label>
+                                    <div id="BuscadorEstudiantePago"></div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="TipoSesionPago" class="form-label">Servicio</label>
+                                    <select class="form-select" id="TipoSesionPago" aria-describedby="AyudaTipoSesionPago">
+                                        <option value="">Otro (escribir el concepto)</option>
+                                    </select>
+                                    <div class="form-text" id="AyudaTipoSesionPago">Llena el concepto y el monto con el precio del catálogo.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ConceptoPago" class="form-label CampoObligatorio">Concepto</label>
+                                    <input type="text" class="form-control" id="ConceptoPago" maxlength="150" required>
+                                    <div class="invalid-feedback">Indique el concepto.</div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label for="MontoPago" class="form-label CampoObligatorio">Monto (₡)</label>
+                                    <input type="number" class="form-control" id="MontoPago" min="1" step="1" required>
+                                    <div class="invalid-feedback">Indique un monto mayor que cero, sin decimales.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="FechaPago" class="form-label CampoObligatorio">Fecha</label>
+                                    <input type="date" class="form-control" id="FechaPago" required>
+                                    <div class="invalid-feedback">La fecha no puede ser futura.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="VencimientoPago" class="form-label">Vence</label>
+                                    <input type="date" class="form-control" id="VencimientoPago" aria-describedby="AyudaVencimientoPago">
+                                    <div class="form-text" id="AyudaVencimientoPago">Vacío = plazo de la configuración.</div>
+                                    <div class="invalid-feedback">No puede ser antes de la fecha del cobro.</div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="ObservacionesPago" class="form-label">Observaciones</label>
+                                    <textarea class="form-control" id="ObservacionesPago" rows="3" maxlength="500"></textarea>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- ========== DERECHA: pago recibido, con fondo propio ========== -->
+                        <section class="col-lg-5" aria-labelledby="TituloPagoRecibido">
+                            <div class="PanelPagoLateral">
+                                <h6 class="text-uppercase small fw-semibold TextoSuave mb-3" id="TituloPagoRecibido">
+                                    <i class="bi bi-cash-coin me-1"></i>Pago recibido
+                                </h6>
+
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="YaPagadoPago">
+                                    <label class="form-check-label fw-semibold" for="YaPagadoPago">Ya se recibió el pago</label>
+                                </div>
+                                <div class="form-text mb-3">Si no lo marca, queda como cobro pendiente.</div>
+
+                                <div class="row g-3 d-none" id="PanelYaPagado">
+                                    <div class="col-12">
+                                        <label for="PagadorPago" class="form-label CampoObligatorio">Encargado</label>
+                                        <select class="form-select" id="PagadorPago" disabled>
+                                            <option value="">Primero elija el estudiante</option>
+                                        </select>
+                                        <div class="invalid-feedback">Seleccione el encargado que pagó.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="MetodoPago" class="form-label CampoObligatorio">Método</label>
+                                        <select class="form-select" id="MetodoPago" data-metodos>
+                                            <option value="">Seleccione</option>
+                                        </select>
+                                        <div class="invalid-feedback">Seleccione el método de pago.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="ReferenciaPago" class="form-label">Referencia</label>
+                                        <input type="text" class="form-control" id="ReferenciaPago" maxlength="100"
+                                               placeholder="Comprobante SINPE, etc.">
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="BotonGuardarNuevoPago">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================================================= -->
+<!-- MODAL DETALLE DEL COBRO -->
+<!-- ========================================================= -->
+<div class="modal fade" id="ModalDetallePago" tabindex="-1" aria-labelledby="TituloDetallePago" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Detalle del pago</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <h5 class="modal-title" id="TituloDetallePago">
+                    Detalle del cobro <span class="ms-2 align-middle" id="DetalleEstadoPago"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-              <dl class="row mb-0">
-                <dt class="col-5 TextoSuave fw-normal">Fecha</dt>
-                <dd class="col-7" data-campo="fecha"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Estudiante</dt>
-                <dd class="col-7" data-campo="estudiante"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Encargado</dt>
-                <dd class="col-7" data-campo="encargado"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Monto</dt>
-                <dd class="col-7" data-campo="monto"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Método</dt>
-                <dd class="col-7" data-campo="metodo"></dd>
-                <dt class="col-5 TextoSuave fw-normal">Concepto</dt>
-                <dd class="col-7" data-campo="concepto"></dd>
-              </dl>
+                <div class="alert d-none" id="AlertaDetallePago" role="alert"></div>
 
-              <hr>
+                <div class="row g-4">
+                    <!-- Izquierda: el cobro y sus pagos. Ocupa todo el ancho si no hay panel abierto -->
+                    <div class="col-12" id="ColumnaDetallePago">
+                        <div id="ContenidoDetallePago"></div>
+                    </div>
 
-              <label for="EstadoPagoSeleccionado" class="form-label">Estado del pago</label>
-              <div class="input-group">
-                <select class="form-select" id="EstadoPagoSeleccionado">
-                  <option value="Pagado">Pagado</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="Vencido">Vencido</option>
-                </select>
-                <button type="button" class="btn btn-outline-primary" id="BotonGuardarEstadoPago">Guardar</button>
-              </div>
+                    <!-- Derecha: registrar o anular, con fondo propio -->
+                    <div class="col-lg-5 d-none" id="ColumnaPanelPago">
+
+                <!-- Registrar un pago (total o parcial) -->
+                <div class="PanelPagoLateral d-none" id="PanelAbono">
+                    <h6 class="mb-3"><i class="bi bi-cash-coin me-1"></i>Registrar pago</h6>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="PagadorAbono" class="form-label CampoObligatorio">Encargado</label>
+                            <select class="form-select" id="PagadorAbono"></select>
+                            <div class="invalid-feedback">Seleccione el encargado que pagó.</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="MetodoAbono" class="form-label CampoObligatorio">Método</label>
+                            <select class="form-select" id="MetodoAbono" data-metodos>
+                                <option value="">Seleccione</option>
+                            </select>
+                            <div class="invalid-feedback">Seleccione el método de pago.</div>
+                        </div>
+                        <div class="col-6">
+                            <label for="MontoAbono" class="form-label CampoObligatorio">Monto (₡)</label>
+                            <input type="number" class="form-control" id="MontoAbono" min="1" step="1">
+                            <div class="invalid-feedback" id="ErrorMontoAbono">Indique un monto válido.</div>
+                        </div>
+                        <div class="col-6">
+                            <label for="FechaAbono" class="form-label CampoObligatorio">Fecha</label>
+                            <input type="date" class="form-control" id="FechaAbono">
+                            <div class="invalid-feedback">La fecha no puede ser futura.</div>
+                        </div>
+                        <div class="col-12">
+                            <label for="ReferenciaAbono" class="form-label">Referencia</label>
+                            <input type="text" class="form-control" id="ReferenciaAbono" maxlength="100"
+                                   placeholder="Comprobante SINPE, etc.">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" data-cerrar-panel>Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="BotonGuardarAbono">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar pago
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Anular un pago ya registrado -->
+                <div class="PanelPagoLateral PanelPago-Peligro d-none" id="PanelAnularAbono">
+                    <h6 class="mb-2"><i class="bi bi-arrow-counterclockwise me-1"></i>Anular el pago de <strong id="TextoAbonoAnular"></strong></h6>
+                    <p class="small TextoSuave mb-2">El pago queda en el historial como anulado y el saldo del cobro se recalcula.</p>
+                    <label for="MotivoAnularAbono" class="form-label CampoObligatorio">Motivo</label>
+                    <textarea class="form-control" id="MotivoAnularAbono" rows="2" maxlength="300"></textarea>
+                    <div class="invalid-feedback">Indique el motivo.</div>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" data-cerrar-panel>Cancelar</button>
+                        <button type="button" class="btn btn-danger" id="BotonConfirmarAnularAbono">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Anular pago
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Anular el cobro completo -->
+                <div class="PanelPagoLateral PanelPago-Peligro d-none" id="PanelAnularCobro">
+                    <h6 class="mb-2"><i class="bi bi-x-circle me-1"></i>Anular el cobro</h6>
+                    <p class="small TextoSuave mb-2">El cobro deja de contar como deuda. Se conserva en el historial.</p>
+                    <label for="MotivoAnularCobro" class="form-label CampoObligatorio">Motivo</label>
+                    <textarea class="form-control" id="MotivoAnularCobro" rows="2" maxlength="300"></textarea>
+                    <div class="invalid-feedback">Indique el motivo.</div>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" data-cerrar-panel>Cancelar</button>
+                        <button type="button" class="btn btn-danger" id="BotonConfirmarAnularCobro">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Anular cobro
+                        </button>
+                    </div>
+                </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-outline-danger d-none" id="BotonAnularCobro">
+                    <i class="bi bi-x-circle me-1"></i>Anular cobro
+                </button>
+                <div class="d-flex gap-2 ms-auto">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary d-none" id="BotonRegistrarAbono">
+                        <i class="bi bi-cash-coin me-1"></i>Registrar pago
+                    </button>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
+    </div>
+</div>
+
 
 @section Scripts {
-  <script src="~/js/Validaciones.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var nombresEncargados = {
-        MariaRodriguez: "Carlos Jiménez", DiegoVargas: "Rodolfo Vargas", AnaCastro: "Marjorie Castro",
-        KevinFernandez: "José Fernández", FabianMendez: "Laura Méndez", ValeriaMora: "Marta Mora",
-        EmilyAraya: "Patricia Araya", FabianSolis: "Óscar Solís"
-      };
-      document.getElementById("EstudiantePago").addEventListener("change", function () {
-        var encargado = nombresEncargados[this.value];
-        document.getElementById("AsociacionEncargado").textContent = encargado ? "Encargado asociado: " + encargado : "";
-      });
-      var mapaBadgePago = {
-        Pagado: "badge-pago-pagado",
-        Pendiente: "badge-pago-pendiente",
-        Vencido: "badge-pago-vencido"
-      };
-      var tablaPagos = document.getElementById("TablaPagos");
-      var filaPagoSeleccionada = null;
-      tablaPagos.addEventListener("click", function (evento) {
-        var fila = evento.target.closest("[data-modal-detalle]");
-        if (!fila) {
-          return;
-        }
-        filaPagoSeleccionada = fila;
-        document.getElementById("EstadoPagoSeleccionado").value = fila.getAttribute("data-estado");
-      });
-      document.getElementById("BotonGuardarEstadoPago").addEventListener("click", function () {
-        if (!filaPagoSeleccionada) {
-          return;
-        }
-        var nuevoEstado = document.getElementById("EstadoPagoSeleccionado").value;
-        var insignia = filaPagoSeleccionada.querySelector(".badge");
-        insignia.className = "badge " + mapaBadgePago[nuevoEstado];
-        insignia.textContent = nuevoEstado;
-        filaPagoSeleccionada.setAttribute("data-estado", nuevoEstado);
-        filaPagoSeleccionada.setAttribute("data-valor-estado", nuevoEstado);
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalDetallePago")).hide();
-        MostrarToast("Estado del pago actualizado a \"" + nuevoEstado + "\".");
-      });
-      document.getElementById("FormularioRegistrarPago").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("EstudiantePago"), "Seleccione un estudiante.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("MontoPago"), "Ingrese el monto.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("FechaPago"), "Seleccione la fecha.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("MetodoPago"), "Seleccione el método de pago.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("ConceptoPago"), "Seleccione el concepto.") && esValido;
-        if (!esValido) {
-          return;
-        }
-        evento.target.reset();
-        document.getElementById("FechaPago").value = "2026-07-12";
-        document.getElementById("AsociacionEncargado").textContent = "";
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("ModalRegistrarPago")).hide();
-        MostrarToast("Pago registrado correctamente.");
-      });
-    });
-  </script>
+    <script src="~/js/buscadorEstudiantes.js" asp-append-version="true"></script>
+    <script src="~/js/pagos.js" asp-append-version="true"></script>
 }

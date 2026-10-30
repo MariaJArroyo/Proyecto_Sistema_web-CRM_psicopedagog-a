@@ -42,10 +42,11 @@ public sealed record GuardarTipoSesionRequest
 
     [Range(15, 240, ErrorMessage = "La duración debe estar entre 15 y 240 minutos.")]
     public int DuracionMinutos { get; init; }
-}
 
-// Campos fijos en vez de clave/valor libre: el API decide que se puede editar.
-// Moneda queda fuera a proposito: cambiarla alteraria el sentido de los montos ya registrados.
+    // Vacio = sin precio (no se generan cobros automaticos de este tipo)
+    [Range(typeof(decimal), "0", "10000000", ErrorMessage = "El precio debe estar entre 0 y 10 000 000.")]
+    public decimal? Precio { get; init; }
+}
 public sealed record GuardarDatosConsultorioRequest
 {
     [Required(ErrorMessage = "Indique el nombre del consultorio.")]
@@ -66,4 +67,8 @@ public sealed record GuardarDatosConsultorioRequest
 
     [Range(1, 72, ErrorMessage = "El recordatorio debe enviarse entre 1 y 72 horas antes.")]
     public int HorasRecordatorioCita { get; init; }
+
+    // Nullable: si la pantalla no lo manda, se conserva el valor guardado
+    [Range(0, 90, ErrorMessage = "El plazo de pago debe estar entre 0 y 90 días (0 = no vence).")]
+    public int? DiasVencimientoPago { get; init; }
 }

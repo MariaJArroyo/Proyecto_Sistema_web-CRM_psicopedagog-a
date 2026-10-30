@@ -48,6 +48,8 @@ builder.Services.AddScoped<IServicioCitas, ServicioCitas>();
 builder.Services.AddHostedService<ServicioCompletarCitasVencidas>();
 builder.Services.AddScoped<IRepositorioConfiguracion, RepositorioConfiguracion>();
 builder.Services.AddScoped<IServicioConfiguracion, ServicioConfiguracion>();
+builder.Services.AddScoped<IRepositorioPago, RepositorioPago>();
+builder.Services.AddScoped<IServicioPagos, ServicioPagos>();
 
 // ---------- Sesiones ----------
 builder.Services.AddScoped<IRepositorioSesion, RepositorioSesion>();

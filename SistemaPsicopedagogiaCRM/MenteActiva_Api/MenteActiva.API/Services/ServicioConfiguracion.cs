@@ -18,6 +18,7 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
     private const int MaximoAniosDiaNoLaboral = 2;
     private const int DigitosTelefono = 8;
     private const int HorasRecordatorioPorDefecto = 24;
+    private const int DiasVencimientoPagoPorDefecto = 8;
 
     private const string ClaveNombre = "NombreConsultorio";
     private const string ClaveCorreo = "CorreoContacto";
@@ -25,6 +26,7 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
     private const string ClaveDireccion = "DireccionConsultorio";
     private const string ClaveMoneda = "Moneda";
     private const string ClaveHorasRecordatorio = "HorasRecordatorioCita";
+    private const string ClaveDiasVencimientoPago = "DiasVencimientoPago";
 
     private static readonly string[] NombresDias =
         ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
@@ -202,13 +204,12 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
     public Task<int> CrearTipoSesionAsync(
         int idUsuarioAccion, GuardarTipoSesionRequest peticion, CancellationToken cancelacion)
         => _repositorio.GuardarTipoSesionAsync(
-            idUsuarioAccion, null, peticion.Nombre.Trim(), peticion.DuracionMinutos, cancelacion);
+            idUsuarioAccion, null, peticion.Nombre.Trim(), peticion.DuracionMinutos, peticion.Precio, cancelacion);
 
     public async Task EditarTipoSesionAsync(
         int idUsuarioAccion, int idTipoSesion, GuardarTipoSesionRequest peticion, CancellationToken cancelacion)
         => await _repositorio.GuardarTipoSesionAsync(
-            idUsuarioAccion, idTipoSesion, peticion.Nombre.Trim(), peticion.DuracionMinutos, cancelacion);
-
+            idUsuarioAccion, idTipoSesion, peticion.Nombre.Trim(), peticion.DuracionMinutos, peticion.Precio, cancelacion);
     // =====================================================
     // DATOS DEL CONSULTORIO
     // =====================================================
@@ -227,7 +228,10 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
             Moneda = Valor(valores, ClaveMoneda),
             HorasRecordatorioCita = int.TryParse(Valor(valores, ClaveHorasRecordatorio), out var horas)
                 ? horas
-                : HorasRecordatorioPorDefecto
+                : HorasRecordatorioPorDefecto,
+            DiasVencimientoPago = int.TryParse(Valor(valores, ClaveDiasVencimientoPago), out var dias)
+                ? dias
+                : DiasVencimientoPagoPorDefecto
         };
     }
 
@@ -248,7 +252,7 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
             throw new ReglaNegocioException($"El teléfono debe tener {DigitosTelefono} dígitos.");
         }
 
-        var cambios = new[]
+        var cambios = new List<object>
         {
             new { Clave = ClaveNombre, Valor = peticion.NombreConsultorio.Trim() },
             new { Clave = ClaveCorreo, Valor = correo },
@@ -256,6 +260,12 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
             new { Clave = ClaveDireccion, Valor = peticion.DireccionConsultorio.Trim() },
             new { Clave = ClaveHorasRecordatorio, Valor = peticion.HorasRecordatorioCita.ToString(CultureInfo.InvariantCulture) }
         };
+
+        // Solo se guarda si la pantalla lo mando (asi una version vieja no lo borra)
+        if (peticion.DiasVencimientoPago is int dias)
+        {
+            cambios.Add(new { Clave = ClaveDiasVencimientoPago, Valor = dias.ToString(CultureInfo.InvariantCulture) });
+        }
 
         return _repositorio.GuardarConfiguracionAsync(idUsuarioAccion, JsonSerializer.Serialize(cambios), cancelacion);
     }
