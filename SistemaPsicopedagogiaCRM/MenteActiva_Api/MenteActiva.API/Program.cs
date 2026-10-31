@@ -66,6 +66,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddScoped<IRepositorioReporte, RepositorioReporte>();
 builder.Services.AddScoped<IServicioReportes, ServicioReportes>();
 
+// ---------- Portal de padres ----------
+builder.Services.AddScoped<IRepositorioPortal, RepositorioPortal>();
+builder.Services.AddScoped<IServicioPortal, ServicioPortal>();
+
+
 // El envio de correo se cambia desde la configuracion, sin tocar codigo.
 // "Registro" escribe el enlace en la consola; "Gmail" lo manda de verdad.
 if (string.Equals(builder.Configuration["Correo:Proveedor"], "Gmail", StringComparison.OrdinalIgnoreCase))
