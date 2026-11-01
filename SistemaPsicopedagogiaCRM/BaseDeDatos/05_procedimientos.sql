@@ -4959,8 +4959,14 @@ DELIMITER ;
 
 -- Resumen del estudiante seleccionado, mas la lista de estudiantes a cargo
 -- para el selector de la barra superior.
+
+-- =====================================================
+-- INICIO DEL PORTAL
+-- =====================================================
+
 DROP PROCEDURE IF EXISTS SP_Portal_ObtenerInicio;
 DELIMITER $$
+
 CREATE PROCEDURE SP_Portal_ObtenerInicio(
   IN p_IdUsuario INT,
   IN p_IdEstudiante INT
@@ -4968,57 +4974,122 @@ CREATE PROCEDURE SP_Portal_ObtenerInicio(
 BEGIN
   DECLARE v_IdEstudiante INT DEFAULT NULL;
 
-  -- Si no se pide uno en concreto, se toma el primero a cargo
   SELECT ee.IdEstudiante INTO v_IdEstudiante
   FROM TB_ESTUDIANTE_ENCARGADO ee
   JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante AND e.Activo = 1
+  JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
   WHERE u.IdUsuario = p_IdUsuario
+    AND en.Activo = 1
+    AND e.Activo = 1
     AND (p_IdEstudiante IS NULL OR ee.IdEstudiante = p_IdEstudiante)
   ORDER BY ee.EsPrincipal DESC, ee.IdEstudiante
   LIMIT 1;
 
   IF v_IdEstudiante IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No tiene estudiantes a su cargo o ese estudiante no le corresponde.';
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'No tiene estudiantes activos a su cargo o el estudiante no le corresponde.';
   END IF;
 
+  -- Primer resultado: estudiantes vinculados al encargado.
   SELECT ee.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido,
+              NULLIF(e.SegundoApellido, ''))) AS Estudiante,
          ee.EsPrincipal
   FROM TB_ESTUDIANTE_ENCARGADO ee
   JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante AND e.Activo = 1
+  JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
   WHERE u.IdUsuario = p_IdUsuario
-  ORDER BY ee.EsPrincipal DESC, e.Nombre;
+    AND en.Activo = 1
+    AND e.Activo = 1
+  ORDER BY ee.EsPrincipal DESC, e.Nombre, e.PrimerApellido, e.IdEstudiante;
 
+  -- Segundo resultado: resumen del estudiante seleccionado.
   SELECT v_IdEstudiante AS IdEstudiante,
-    (SELECT COUNT(*) FROM TB_CITA
-      WHERE IdEstudiante = v_IdEstudiante AND IdEstadoCita IN (1, 2)
-        AND FechaHoraInicio >= NOW()) AS CitasProximas,
-    (SELECT COUNT(*) FROM TB_TAREA_ASIGNACION
-      WHERE IdEstudiante = v_IdEstudiante AND IdEstadoTarea = 1) AS TareasPendientes,
-    (SELECT COUNT(*) FROM TB_REPORTE
-      WHERE IdEstudiante = v_IdEstudiante AND VisibleEnPortal = 1) AS ReportesDisponibles,
-    (SELECT IFNULL(SUM(p.Monto), 0) - IFNULL(SUM(
-       (SELECT IFNULL(SUM(a.Monto), 0) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1)
-     ), 0) FROM TB_PAGO p
-      WHERE p.IdEstudiante = v_IdEstudiante AND p.IdEstadoPago IN (2, 3, 4)) AS SaldoPendiente;
+
+         (SELECT COUNT(*)
+          FROM TB_CITA
+          WHERE IdEstudiante = v_IdEstudiante
+            AND IdEstadoCita IN (1, 2)
+            AND FechaHoraInicio >= NOW()) AS CitasProximas,
+
+         (SELECT COUNT(*)
+          FROM TB_TAREA_ASIGNACION
+          WHERE IdEstudiante = v_IdEstudiante
+            AND IdEstadoTarea IN (1, 4)) AS TareasPendientes,
+
+         (SELECT COUNT(*)
+          FROM TB_REPORTE
+          WHERE IdEstudiante = v_IdEstudiante
+            AND VisibleEnPortal = 1
+            AND Activo = 1) AS ReportesDisponibles,
+
+         (SELECT IFNULL(SUM(
+            GREATEST(
+              p.Monto - IFNULL(
+                (SELECT SUM(a.Monto)
+                 FROM TB_ABONO a
+                 WHERE a.IdPago = p.IdPago
+                   AND a.Activo = 1),
+                0
+              ),
+              0
+            )
+          ), 0)
+          FROM TB_PAGO p
+          WHERE p.IdEstudiante = v_IdEstudiante
+            AND p.IdEstadoPago IN (2, 3, 4)) AS SaldoPendiente;
 END$$
+
 DELIMITER ;
 
 
+-- =====================================================
+-- CITAS DEL ESTUDIANTE
+-- Filtros: proximas, futuras, pasadas,
+--          canceladas, completadas, todas.
+-- =====================================================
+
 DROP PROCEDURE IF EXISTS SP_Portal_ListarCitas;
 DELIMITER $$
+
 CREATE PROCEDURE SP_Portal_ListarCitas(
   IN p_IdUsuario INT,
-  IN p_IdEstudiante INT
+  IN p_IdEstudiante INT,
+  IN p_Filtro VARCHAR(20)
 )
 BEGIN
+  DECLARE v_Filtro VARCHAR(20);
+  DECLARE v_Ahora DATETIME;
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'proximas')
+  );
+
+  SET v_Ahora = NOW();
+
+  IF v_Filtro NOT IN (
+    'proximas', 'futuras', 'pasadas',
+    'canceladas', 'completadas', 'todas'
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de citas no es válido.';
+  END IF;
+
   IF NOT EXISTS (
-    SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO ee
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
     JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    WHERE u.IdUsuario = p_IdUsuario AND ee.IdEstudiante = p_IdEstudiante) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese estudiante no esta a su cargo.';
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
   END IF;
 
   SELECT c.IdCita,
@@ -5033,59 +5104,212 @@ BEGIN
   JOIN TB_MODALIDAD m ON m.IdModalidad = c.IdModalidad
   JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
   WHERE c.IdEstudiante = p_IdEstudiante
-    AND c.FechaHoraInicio >= CURDATE()
-  ORDER BY c.FechaHoraInicio;
+    AND (
+      v_Filtro = 'todas'
+
+      OR (v_Filtro = 'proximas'
+          AND c.FechaHoraInicio >= v_Ahora
+          AND c.IdEstadoCita IN (1, 2))
+
+      OR (v_Filtro = 'futuras'
+          AND c.FechaHoraInicio >= v_Ahora)
+
+      OR (v_Filtro = 'pasadas'
+          AND c.FechaHoraInicio < v_Ahora)
+
+      OR (v_Filtro = 'canceladas'
+          AND c.IdEstadoCita = 4)
+
+      OR (v_Filtro = 'completadas'
+          AND c.IdEstadoCita = 3)
+    )
+  ORDER BY
+    CASE
+      WHEN v_Filtro IN ('proximas', 'futuras')
+      THEN c.FechaHoraInicio
+    END ASC,
+
+    CASE
+      WHEN v_Filtro NOT IN ('proximas', 'futuras')
+      THEN c.FechaHoraInicio
+    END DESC,
+
+    c.IdCita DESC;
 END$$
+
 DELIMITER ;
 
 
--- Progreso: las sesiones ya realizadas y los reportes marcados como visibles.
--- Un reporte que no este publicado no sale, aunque exista.
+-- =====================================================
+-- PROGRESO Y RECOMENDACIONES
+-- Filtros de reportes: nuevos, viejos, todos.
+-- Nuevos: generados en los últimos 30 días.
+-- =====================================================
+
 DROP PROCEDURE IF EXISTS SP_Portal_ListarProgreso;
 DELIMITER $$
+
 CREATE PROCEDURE SP_Portal_ListarProgreso(
   IN p_IdUsuario INT,
-  IN p_IdEstudiante INT
+  IN p_IdEstudiante INT,
+  IN p_FiltroReportes VARCHAR(20)
 )
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO ee
-    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    WHERE u.IdUsuario = p_IdUsuario AND ee.IdEstudiante = p_IdEstudiante) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese estudiante no esta a su cargo.';
+  DECLARE v_Filtro VARCHAR(20);
+  DECLARE v_FechaLimite DATETIME;
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_FiltroReportes), ''), 'todos')
+  );
+
+  SET v_FechaLimite = DATE_SUB(NOW(), INTERVAL 30 DAY);
+
+  IF v_Filtro NOT IN ('nuevos', 'viejos', 'todos') THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de reportes no es válido.';
   END IF;
 
-  -- M5 renombro Fecha a FechaHoraInicio y agrego borrado logico (2026-10-07).
-  -- El alias Fecha se conserva para no cambiarle la columna a quien ya lo consume.
-  SELECT s.IdSesion, DATE(s.FechaHoraInicio) AS Fecha, ta.Nombre AS TipoAtencion,
-         s.TemaTrabajado, s.Avances, s.Recomendaciones
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  -- Primer resultado: sesiones activas, avances y recomendaciones.
+  SELECT s.IdSesion,
+         DATE(s.FechaHoraInicio) AS Fecha,
+         ta.Nombre AS TipoAtencion,
+         s.TemaTrabajado,
+         s.Avances,
+         s.Recomendaciones
   FROM TB_SESION s
   JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
   WHERE s.IdEstudiante = p_IdEstudiante
     AND s.Activo = 1
-  ORDER BY s.FechaHoraInicio DESC;
+  ORDER BY s.FechaHoraInicio DESC, s.IdSesion DESC;
 
-  SELECT r.IdReporte, r.Titulo, r.PeriodoInicio, r.PeriodoFin, r.FechaGeneracion
+  -- Segundo resultado: reportes activos y visibles en el portal.
+  SELECT r.IdReporte,
+         r.Titulo,
+         r.PeriodoInicio,
+         r.PeriodoFin,
+         r.FechaGeneracion
   FROM TB_REPORTE r
   WHERE r.IdEstudiante = p_IdEstudiante
     AND r.VisibleEnPortal = 1
-  ORDER BY r.FechaGeneracion DESC;
+    AND r.Activo = 1
+    AND (
+      v_Filtro = 'todos'
+
+      OR (v_Filtro = 'nuevos'
+          AND r.FechaGeneracion >= v_FechaLimite)
+
+      OR (v_Filtro = 'viejos'
+          AND r.FechaGeneracion < v_FechaLimite)
+    )
+  ORDER BY r.FechaGeneracion DESC, r.IdReporte DESC;
 END$$
+
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS SP_Portal_ListarTareas;
+-- =====================================================
+-- DETALLE DEL REPORTE
+-- Reutiliza SP_Reporte_ObtenerDetalle.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerReporte;
 DELIMITER $$
-CREATE PROCEDURE SP_Portal_ListarTareas(
+
+CREATE PROCEDURE SP_Portal_ObtenerReporte(
   IN p_IdUsuario INT,
-  IN p_IdEstudiante INT
+  IN p_IdEstudiante INT,
+  IN p_IdReporte INT
 )
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO ee
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
     JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    WHERE u.IdUsuario = p_IdUsuario AND ee.IdEstudiante = p_IdEstudiante) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese estudiante no esta a su cargo.';
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_REPORTE r
+    WHERE r.IdReporte = p_IdReporte
+      AND r.IdEstudiante = p_IdEstudiante
+      AND r.Activo = 1
+      AND r.VisibleEnPortal = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El reporte solicitado no está disponible en el portal.';
+  END IF;
+
+  CALL SP_Reporte_ObtenerDetalle(p_IdReporte);
+END$$
+
+DELIMITER ;
+
+
+-- =====================================================
+-- TAREAS DEL ESTUDIANTE
+-- Filtros: pendientes, asignadas, entregadas, todas.
+-- Pendientes: Asignada (1) y Vencida (4).
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ListarTareas;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ListarTareas(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_Filtro VARCHAR(20)
+)
+BEGIN
+  DECLARE v_Filtro VARCHAR(20);
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'pendientes')
+  );
+
+  IF v_Filtro NOT IN (
+    'pendientes', 'asignadas', 'entregadas', 'todas'
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de tareas no es válido.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
   END IF;
 
   SELECT ta.IdTareaAsignacion,
@@ -5098,46 +5322,270 @@ BEGIN
          ta.ComentarioEstudiante,
          ta.ComentarioRevision,
          m.Titulo AS Material,
-         m.Url AS MaterialUrl
+         m.Url AS MaterialUrl,
+         CASE
+           WHEN NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL THEN 1
+           ELSE 0
+         END AS TieneArchivo
   FROM TB_TAREA_ASIGNACION ta
   JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea
   JOIN TB_ESTADO_TAREA et ON et.IdEstadoTarea = ta.IdEstadoTarea
   LEFT JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
+                        AND m.Publicado = 1
   WHERE ta.IdEstudiante = p_IdEstudiante
-  ORDER BY t.FechaLimite;
+    AND (
+      v_Filtro = 'todas'
+
+      OR (v_Filtro = 'pendientes'
+          AND ta.IdEstadoTarea IN (1, 4))
+
+      OR (v_Filtro = 'asignadas'
+          AND ta.IdEstadoTarea = 1)
+
+      OR (v_Filtro = 'entregadas'
+          AND ta.IdEstadoTarea = 2)
+    )
+  ORDER BY
+    CASE
+      WHEN ta.IdEstadoTarea IN (1, 4) THEN 0
+      ELSE 1
+    END ASC,
+    t.FechaLimite ASC,
+    ta.IdTareaAsignacion ASC;
 END$$
+
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS SP_Portal_ListarPagos;
+-- =====================================================
+-- ARCHIVO ADJUNTO DE UNA TAREA
+-- Consulta los datos del archivo; la API realiza la descarga.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerArchivoTarea;
 DELIMITER $$
-CREATE PROCEDURE SP_Portal_ListarPagos(
+
+CREATE PROCEDURE SP_Portal_ObtenerArchivoTarea(
   IN p_IdUsuario INT,
-  IN p_IdEstudiante INT
+  IN p_IdEstudiante INT,
+  IN p_IdTareaAsignacion INT
 )
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO ee
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
     JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    WHERE u.IdUsuario = p_IdUsuario AND ee.IdEstudiante = p_IdEstudiante) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese estudiante no esta a su cargo.';
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_TAREA_ASIGNACION ta
+    WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+      AND ta.IdEstudiante = p_IdEstudiante
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'La tarea no está asignada al estudiante indicado.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_TAREA_ASIGNACION ta
+    JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea
+    JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
+    WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+      AND ta.IdEstudiante = p_IdEstudiante
+      AND m.Publicado = 1
+      AND NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'La tarea no tiene un archivo disponible para descargar.';
+  END IF;
+
+  SELECT ta.IdTareaAsignacion,
+         t.IdTarea,
+         t.Titulo AS Tarea,
+         m.IdMaterial,
+         m.Titulo AS Material,
+         m.RutaArchivo
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea
+  JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+    AND ta.IdEstudiante = p_IdEstudiante
+    AND m.Publicado = 1
+    AND NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL;
+END$$
+
+DELIMITER ;
+
+
+-- =====================================================
+-- ESTADO DE PAGOS
+-- Filtros: pendientes, pagados, todos.
+-- Solo consulta; no registra pagos ni actualiza estados.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ListarPagos;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ListarPagos(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_Filtro VARCHAR(20)
+)
+BEGIN
+  DECLARE v_Filtro VARCHAR(20);
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'pendientes')
+  );
+
+  IF v_Filtro NOT IN ('pendientes', 'pagados', 'todos') THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de pagos no es válido.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
   END IF;
 
   SELECT p.IdPago,
          p.Concepto,
          p.Monto,
-         IFNULL((SELECT SUM(a.Monto) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1), 0) AS Abonado,
-         p.Monto - IFNULL((SELECT SUM(a.Monto) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1), 0) AS Saldo,
+         IFNULL(ab.Abonado, 0) AS Abonado,
+         CASE
+           WHEN p.IdEstadoPago = 5 THEN 0
+           ELSE GREATEST(p.Monto - IFNULL(ab.Abonado, 0), 0)
+         END AS Saldo,
          p.FechaEmision,
          p.FechaVencimiento,
+         p.IdEstadoPago,
          ep.Nombre AS Estado
   FROM TB_PAGO p
   JOIN TB_ESTADO_PAGO ep ON ep.IdEstadoPago = p.IdEstadoPago
+  LEFT JOIN (
+    SELECT a.IdPago, SUM(a.Monto) AS Abonado
+    FROM TB_ABONO a
+    WHERE a.Activo = 1
+    GROUP BY a.IdPago
+  ) ab ON ab.IdPago = p.IdPago
   WHERE p.IdEstudiante = p_IdEstudiante
-    AND p.IdEstadoPago <> 5
-  ORDER BY p.FechaEmision DESC;
+    AND (
+      v_Filtro = 'todos'
+
+      OR (v_Filtro = 'pendientes'
+          AND p.IdEstadoPago IN (2, 3, 4))
+
+      OR (v_Filtro = 'pagados'
+          AND p.IdEstadoPago = 1)
+    )
+  ORDER BY p.FechaEmision DESC, p.IdPago DESC;
 END$$
+
 DELIMITER ;
+
+
+-- =====================================================
+-- DETALLE DE UN PAGO Y SUS ABONOS
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerPago;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ObtenerPago(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_IdPago INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_PAGO p
+    WHERE p.IdPago = p_IdPago
+      AND p.IdEstudiante = p_IdEstudiante
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El cargo no existe o no corresponde al estudiante.';
+  END IF;
+
+  -- Primer resultado: encabezado del cargo.
+  SELECT p.IdPago,
+         p.IdEstudiante,
+         p.Concepto,
+         p.Monto,
+         IFNULL(ab.Abonado, 0) AS Abonado,
+         CASE
+           WHEN p.IdEstadoPago = 5 THEN 0
+           ELSE GREATEST(p.Monto - IFNULL(ab.Abonado, 0), 0)
+         END AS Saldo,
+         p.FechaEmision,
+         p.FechaVencimiento,
+         p.IdEstadoPago,
+         ep.Nombre AS Estado
+  FROM TB_PAGO p
+  JOIN TB_ESTADO_PAGO ep ON ep.IdEstadoPago = p.IdEstadoPago
+  LEFT JOIN (
+    SELECT a.IdPago, SUM(a.Monto) AS Abonado
+    FROM TB_ABONO a
+    WHERE a.Activo = 1
+    GROUP BY a.IdPago
+  ) ab ON ab.IdPago = p.IdPago
+  WHERE p.IdPago = p_IdPago
+    AND p.IdEstudiante = p_IdEstudiante;
+
+  -- Segundo resultado: abonos activos.
+  SELECT a.IdAbono,
+         a.IdPago,
+         a.FechaAbono,
+         a.Monto,
+         mp.Nombre AS MetodoPago,
+         a.Referencia
+  FROM TB_ABONO a
+  JOIN TB_METODO_PAGO mp ON mp.IdMetodoPago = a.IdMetodoPago
+  JOIN TB_PAGO p ON p.IdPago = a.IdPago
+  WHERE a.IdPago = p_IdPago
+    AND p.IdEstudiante = p_IdEstudiante
+    AND a.Activo = 1
+  ORDER BY a.FechaAbono DESC, a.IdAbono DESC;
+END$$
+
+DELIMITER ;
+
 
 -- ============================================================
 -- 13. Sitio publico

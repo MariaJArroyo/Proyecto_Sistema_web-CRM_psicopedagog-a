@@ -1,87 +1,82 @@
+@model PortalPagosViewModel
+@using System.Globalization
 @{
-    ViewData["Title"] = "Mis pagos";
+    ViewData["Title"] = "Pagos";
+    var error = ViewBag.ErrorCarga as string;
+    var cultura = CultureInfo.GetCultureInfo("es-CR");
 }
-
-  <main class="PrincipalPortal">
+<main class="PrincipalPortal" id="PortalPagos" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-      <!-- Razor: el bloque visible depende de Model.EstudianteSeleccionado -->
-      <div data-bloque-estudiante="MariaRodriguez">
-        <div class="mb-4">
-          <h2 class="mb-1">Pagos</h2>
-          <p class="TextoSuave mb-0">Pagos pendientes e historial de pagos de María Rodríguez.</p>
-        </div>
-
-        <!-- Pagos pendientes (HU-MU9-05) -->
-        <h3 class="h5 mb-3">Pagos pendientes</h3>
-        <!-- Razor: reemplazar por @@foreach (var pago in Model.PagosPendientes) -->
-        <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-          <div>
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <strong>Paquete de sesiones — Agosto 2026</strong>
-            <div class="small">₡60 000 · Vence el 5 de agosto, 2026</div>
-          </div>
-          <span class="badge badge-pago-pendiente">Pendiente</span>
-        </div>
-        <!-- /Razor -->
-
-        <h3 class="h5 mb-3">Historial de pagos</h3>
-        <!-- Razor: reemplazar por @@foreach (var pago in Model.HistorialPagos.OrderByDescending(p => p.Fecha)) -->
-        <div class="Tarjeta p-3 p-md-4">
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Monto</th>
-                  <th>Método</th>
-                  <th>Concepto</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>5 ago 2026</td>
-                  <td>₡60 000</td>
-                  <td>—</td>
-                  <td>Paquete de sesiones</td>
-                  <td><span class="badge badge-pago-pendiente">Pendiente</span></td>
-                </tr>
-                <tr>
-                  <td>10 jul 2026</td>
-                  <td>₡15 000</td>
-                  <td>Sinpe Móvil</td>
-                  <td>Sesión individual</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                </tr>
-                <tr>
-                  <td>10 jun 2026</td>
-                  <td>₡15 000</td>
-                  <td>Efectivo</td>
-                  <td>Sesión individual</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                </tr>
-                <tr>
-                  <td>10 may 2026</td>
-                  <td>₡15 000</td>
-                  <td>Transferencia</td>
-                  <td>Sesión individual</td>
-                  <td><span class="badge badge-pago-pagado">Pagado</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div data-bloque-estudiante="AndresJimenez" class="d-none">
-        <div class="mb-4">
-          <h2 class="mb-1">Pagos</h2>
-          <p class="TextoSuave mb-0">Pagos pendientes e historial de pagos de Andrés Jiménez.</p>
-        </div>
-        <div class="EstadoVacio">
-          <i class="bi bi-cash-coin"></i>
-          <p class="mb-0">Aún no se han registrado pagos para Andrés.</p>
-        </div>
-      </div>
+        <h2 class="mb-2">Estado de pagos</h2>
+        <p class="TextoSuave mb-4">Consulte los cargos, saldos y abonos del estudiante.</p>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        else if (Model.Estudiantes.Count == 0)
+        {
+            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+        }
+        else
+        {
+            <form asp-controller="Portal" asp-action="Pagos" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
+                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                <div class="col-md-6 col-lg-4">
+                    <label asp-for="Filtro" class="form-label">Mostrar</label>
+                    <select asp-for="Filtro" class="form-select">
+                        <option value="pendientes">Pendientes, vencidos y parciales</option>
+                        <option value="pagados">Pagados</option>
+                        <option value="todos">Todos, incluidos anulados</option>
+                    </select>
+                </div>
+            </form>
+            <div id="AlertaPagosPortal" class="alert" role="status" aria-live="polite" hidden></div>
+            @if (Model.Pagos.Count == 0)
+            {
+                <div class="EstadoVacio"><p class="mb-0">No hay cargos para el filtro seleccionado.</p></div>
+            }
+            else
+            {
+                <p class="mb-3"><strong>Saldo de los cargos mostrados:</strong> @Model.Pagos.Sum(p => p.Saldo).ToString("C", cultura)</p>
+                <div class="Tarjeta p-3">
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <caption>Los abonos mostrados corresponden a registros activos.</caption>
+                            <thead><tr><th scope="col">Concepto</th><th scope="col">Emisión</th><th scope="col">Vencimiento</th><th scope="col">Monto</th><th scope="col">Abonado</th><th scope="col">Saldo</th><th scope="col">Estado</th><th scope="col">Detalle</th></tr></thead>
+                            <tbody>
+                                @foreach (var pago in Model.Pagos)
+                                {
+                                    <tr>
+                                        <th scope="row">@pago.Concepto</th>
+                                        <td>@pago.FechaEmision.ToString("dd/MM/yyyy")</td>
+                                        <td>@(pago.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimiento")</td>
+                                        <td>@pago.Monto.ToString("C", cultura)</td>
+                                        <td>@pago.Abonado.ToString("C", cultura)</td>
+                                        <td>@pago.Saldo.ToString("C", cultura)</td>
+                                        <td><span class="badge bg-secondary">@pago.Estado</span></td>
+                                        <td><button type="button" class="btn btn-sm btn-outline-primary" data-detalle-pago data-url="@Url.Action("DetallePago", "Portal", new { idEstudiante = Model.IdEstudiante, idPago = pago.IdPago })" aria-label="Ver detalle de @pago.Concepto">Ver detalle</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
     </div>
-  </main>
+</main>
+<div class="modal fade" id="ModalPagoPortal" tabindex="-1" aria-labelledby="TituloDetallePagoPortal" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="TituloDetallePagoPortal">Detalle del cargo</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="ContenidoDetallePagoPortal"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script src="~/js/pagosPortal.js" asp-append-version="true"></script>
+}
