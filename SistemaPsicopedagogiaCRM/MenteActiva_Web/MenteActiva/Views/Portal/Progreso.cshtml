@@ -1,161 +1,108 @@
+@model PortalProgresoViewModel
 @{
     ViewData["Title"] = "Progreso";
+    var error = ViewBag.ErrorCarga as string;
 }
-
-  <main class="PrincipalPortal">
+<main class="PrincipalPortal" id="PortalProgreso" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-      <!-- Razor: el bloque visible depende de Model.EstudianteSeleccionado -->
-      <div data-bloque-estudiante="MariaRodriguez">
-        <div class="mb-4">
-          <h2 class="mb-1">Progreso de María</h2>
-          <p class="TextoSuave mb-0">Informes de progreso y recomendaciones de la profesora.</p>
-        </div>
-
-        <h3 class="h5 mb-3">Informes de progreso</h3>
-        <!-- Razor: reemplazar por @@foreach (var informe in Model.InformesProgreso) -->
-        <div class="row g-3 mb-4">
-          <div class="col-md-6">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="d-flex justify-content-between align-items-start mb-2">
-                <h4 class="h6 mb-0">Informe de progreso — Junio 2026</h4>
-                <span class="TextoSuave small">30 jun 2026</span>
-              </div>
-              <p class="TextoSuave small flex-grow-1">
-                María mostró avances constantes en comprensión lectora durante el mes de junio.
-              </p>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-primary" data-modal-detalle="ModalDetalleInforme"
-                  data-valor-titulo="Informe de progreso — Junio 2026" data-valor-fecha="30 de junio, 2026"
-                  data-valor-resumen="María mostró avances constantes en comprensión lectora durante el mes de junio, con especial mejoría en la identificación de la idea principal de un texto."
-                  data-valor-recomendaciones="Continuar con lectura diaria en casa y reforzar vocabulario con juegos de palabras.">
-                  Ver detalle
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary BotonDescargarInforme">
-                  <i class="bi bi-download me-1"></i>Descargar PDF
-                </button>
-              </div>
+        <h2 class="mb-2">Progreso del estudiante</h2>
+        <p class="TextoSuave mb-4">Reportes, avances y recomendaciones de la profesora.</p>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        else if (Model.Estudiantes.Count == 0)
+        {
+            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+        }
+        else
+        {
+            <form asp-controller="Portal" asp-action="Progreso" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
+                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                <div class="col-md-6 col-lg-4">
+                    <label asp-for="FiltroReportes" class="form-label">Reportes</label>
+                    <select asp-for="FiltroReportes" class="form-select" aria-describedby="AyudaFiltroReportes">
+                        <option value="todos">Todos</option>
+                        <option value="nuevos">Nuevos: últimos 30 días</option>
+                        <option value="viejos">Anteriores a los últimos 30 días</option>
+                    </select>
+                </div>
+                <p id="AyudaFiltroReportes" class="TextoSuave small mb-0">El filtro usa la fecha de generación del reporte; no modifica las sesiones ni las recomendaciones.</p>
+            </form>
+            <div id="AlertaProgreso" class="alert" role="status" aria-live="polite" hidden></div>
+            <section aria-labelledby="TituloReportes" class="mb-5">
+                <h3 id="TituloReportes" class="h4 mb-3">Reportes disponibles</h3>
+                @if (Model.Reportes.Count == 0)
+                {
+                    <div class="EstadoVacio"><p class="mb-0">No hay reportes disponibles para el filtro seleccionado.</p></div>
+                }
+                else
+                {
+                    <div class="row g-3">
+                        @foreach (var reporte in Model.Reportes)
+                        {
+                            <div class="col-md-6">
+                                <article class="Tarjeta p-3 h-100">
+                                    <h4 class="h5">@reporte.Titulo</h4>
+                                    <p><strong>Período:</strong> @reporte.PeriodoInicio.ToString("dd/MM/yyyy") al @reporte.PeriodoFin.ToString("dd/MM/yyyy")</p>
+                                    <p class="TextoSuave">Generado: @reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-primary" data-reporte-accion="detalle" data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">Ver detalle</button>
+                                        <button type="button" class="btn btn-outline-secondary" data-reporte-accion="pdf" data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">Descargar PDF</button>
+                                    </div>
+                                </article>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+            <section aria-labelledby="TituloAvances" class="mb-5">
+                <h3 id="TituloAvances" class="h4 mb-3">Avances por sesión</h3>
+                @if (Model.Sesiones.Count == 0)
+                {
+                    <div class="EstadoVacio"><p class="mb-0">No hay sesiones disponibles.</p></div>
+                }
+                @foreach (var sesion in Model.Sesiones)
+                {
+                    <article class="Tarjeta p-3 mb-3">
+                        <h4 class="h5">@sesion.TemaTrabajado</h4>
+                        <p class="TextoSuave">@sesion.Fecha.ToString("dd/MM/yyyy") · @sesion.TipoAtencion</p>
+                        <p class="mb-0">@(string.IsNullOrWhiteSpace(sesion.Avances) ? "No hay avances registrados para esta sesión." : sesion.Avances)</p>
+                    </article>
+                }
+            </section>
+            <section id="Recomendaciones" aria-labelledby="TituloRecomendaciones">
+                <h3 id="TituloRecomendaciones" class="h4 mb-3">Recomendaciones para casa</h3>
+                @if (!Model.Sesiones.Any(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
+                {
+                    <div class="EstadoVacio"><p class="mb-0">No hay recomendaciones registradas.</p></div>
+                }
+                @foreach (var sesion in Model.Sesiones.Where(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
+                {
+                    <details class="Tarjeta p-3 mb-3">
+                        <summary>@sesion.TemaTrabajado · @sesion.Fecha.ToString("dd/MM/yyyy")</summary>
+                        <p class="mt-3 mb-0" style="white-space: pre-wrap">@sesion.Recomendaciones</p>
+                    </details>
+                }
+            </section>
+        }
+    </div>
+</main>
+<div class="modal fade" id="ModalReportePortal" tabindex="-1" aria-labelledby="TituloDetalleReportePortal" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="TituloDetalleReportePortal">Detalle del reporte</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="d-flex justify-content-between align-items-start mb-2">
-                <h4 class="h6 mb-0">Informe de progreso — Mayo 2026</h4>
-                <span class="TextoSuave small">31 may 2026</span>
-              </div>
-              <p class="TextoSuave small flex-grow-1">
-                Se inició el plan de refuerzo en comprensión lectora con buena disposición de la estudiante.
-              </p>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-primary" data-modal-detalle="ModalDetalleInforme"
-                  data-valor-titulo="Informe de progreso — Mayo 2026" data-valor-fecha="31 de mayo, 2026"
-                  data-valor-resumen="Se inició el plan de refuerzo en comprensión lectora. María mostró buena disposición y motivación durante las primeras sesiones."
-                  data-valor-recomendaciones="Establecer un espacio de lectura tranquilo en casa, sin distracciones, de al menos 15 minutos diarios.">
-                  Ver detalle
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary BotonDescargarInforme">
-                  <i class="bi bi-download me-1"></i>Descargar PDF
-                </button>
-              </div>
-            </div>
-          </div>
+            <div class="modal-body" id="ContenidoDetalleReportePortal"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
         </div>
-        <!-- /Razor -->
-
-        <h3 class="h5 mb-3">Recomendaciones de la profesora</h3>
-        <!-- Razor: reemplazar por @@foreach (var recomendacion in Model.Recomendaciones) -->
-        <div class="list-group">
-          <button type="button" class="list-group-item list-group-item-action"
-            data-modal-detalle="ModalDetalleRecomendacion" data-valor-titulo="Practicar lectura en voz alta"
-            data-valor-detalle="Practicar lectura en voz alta 10 minutos diarios ayuda a mejorar la fluidez y la comprensión lectora de María. Se recomienda hacerlo en un ambiente tranquilo, sin distracciones.">
-            <i class="bi bi-lightbulb me-2 text-primary"></i>Practicar lectura en voz alta 10 minutos diarios.
-          </button>
-          <button type="button" class="list-group-item list-group-item-action"
-            data-modal-detalle="ModalDetalleRecomendacion" data-valor-titulo="Reforzar tablas de multiplicar"
-            data-valor-detalle="Reforzar las tablas de multiplicar del 2 al 5 con juegos y material visual, en sesiones cortas de 10 a 15 minutos.">
-            <i class="bi bi-lightbulb me-2 text-primary"></i>Reforzar tablas de multiplicar del 2 al 5 con juegos.
-          </button>
-          <button type="button" class="list-group-item list-group-item-action"
-            data-modal-detalle="ModalDetalleRecomendacion" data-valor-titulo="Rutina de estudio"
-            data-valor-detalle="Establecer una rutina de estudio de 30 minutos después de la merienda, en un espacio fijo de la casa, ayuda a crear el hábito de estudio.">
-            <i class="bi bi-lightbulb me-2 text-primary"></i>Establecer una rutina de estudio después de la merienda.
-          </button>
-        </div>
-        <!-- /Razor -->
-      </div>
-
-      <div data-bloque-estudiante="AndresJimenez" class="d-none">
-        <div class="mb-4">
-          <h2 class="mb-1">Progreso de Andrés</h2>
-          <p class="TextoSuave mb-0">Informes de progreso y recomendaciones de la profesora.</p>
-        </div>
-
-        <h3 class="h5 mb-3">Informes de progreso</h3>
-        <div class="EstadoVacio">
-          <i class="bi bi-graph-up-arrow"></i>
-          <p class="mb-0">Aún no hay informes de progreso disponibles. Se generará el primero después de su evaluación
-            inicial.</p>
-        </div>
-
-        <h3 class="h5 mb-3 mt-4">Recomendaciones de la profesora</h3>
-        <div class="list-group">
-          <button type="button" class="list-group-item list-group-item-action"
-            data-modal-detalle="ModalDetalleRecomendacion" data-valor-titulo="Antes de la primera sesión"
-            data-valor-detalle="Se recomienda familiarizar a Andrés con el espacio de trabajo antes de su evaluación inicial, para que se sienta cómodo el día de la cita.">
-            <i class="bi bi-lightbulb me-2 text-primary"></i>Familiarizarse con el espacio de trabajo antes de la
-            primera sesión.
-          </button>
-        </div>
-      </div>
-      <!-- /Razor -->
     </div>
-  </main>
-  <!-- Razor: /fin de contenido de la vista -->
-
-  <div class="modal fade" id="ModalDetalleInforme" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" data-campo="titulo">Informe de progreso</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          <p class="TextoSuave small mb-2" data-campo="fecha"></p>
-          <p data-campo="resumen"></p>
-          <p class="fw-semibold mb-1">Recomendaciones</p>
-          <p class="mb-0" data-campo="recomendaciones"></p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="ModalDetalleRecomendacion" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" data-campo="titulo">Recomendación</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-0" data-campo="detalle"></p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
+</div>
 @section Scripts {
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      document.querySelectorAll(".BotonDescargarInforme").forEach(function (boton) {
-        boton.addEventListener("click", function () {
-          MostrarToast("Descarga simulada del informe en PDF.");
-        });
-      });
-    });
-  </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"></script>
+    <script src="~/js/reportesPdfPortal.js" asp-append-version="true"></script>
+    <script src="~/js/progresoPortal.js" asp-append-version="true"></script>
 }

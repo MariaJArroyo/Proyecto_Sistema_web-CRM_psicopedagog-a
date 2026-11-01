@@ -1,81 +1,87 @@
+@model PortalTareasViewModel
 @{
-    ViewData["Title"] = "Mis tareas";
+    ViewData["Title"] = "Tareas";
+    var error = ViewBag.ErrorCarga as string;
 }
-
-  <main class="PrincipalPortal">
+<main class="PrincipalPortal" id="PortalTareas" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-      <!-- Razor: el bloque visible depende de Model.EstudianteSeleccionado -->
-      <div data-bloque-estudiante="MariaRodriguez">
-        <div class="mb-4">
-          <h2 class="mb-1">Tareas de María</h2>
-          <p class="TextoSuave mb-0">Tareas pendientes asignadas por la profesora, con su fecha límite.</p>
-        </div>
-
-        <!-- Tareas pendientes con fecha límite y adjunto (HU-MU9-04) -->
-        <!-- Razor: reemplazar por @@foreach (var tarea in Model.TareasPendientes) -->
-        <div class="Tarjeta p-3 p-md-4">
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Tarea</th>
-                  <th>Fecha límite</th>
-                  <th>Adjunto</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Resolver hoja de ejercicios de fracciones</td>
-                  <td>18 jul 2026</td>
-                  <td>
-                    <button type="button" class="btn btn-sm btn-outline-primary BotonDescargarAdjunto">
-                      <i class="bi bi-download me-1"></i>hoja-fracciones.pdf
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Practicar lectura en voz alta 10 minutos diarios</td>
-                  <td>20 jul 2026</td>
-                  <td><span class="TextoSuave small">Sin adjunto</span></td>
-                </tr>
-                <tr>
-                  <td>Leer el capítulo 3 del libro de lectoescritura</td>
-                  <td>25 jul 2026</td>
-                  <td>
-                    <button type="button" class="btn btn-sm btn-outline-primary BotonDescargarAdjunto">
-                      <i class="bi bi-download me-1"></i>capitulo-3.pdf
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <!-- /Razor -->
-      </div>
-
-      <div data-bloque-estudiante="AndresJimenez" class="d-none">
-        <div class="mb-4">
-          <h2 class="mb-1">Tareas de Andrés</h2>
-          <p class="TextoSuave mb-0">Tareas pendientes asignadas por la profesora, con su fecha límite.</p>
-        </div>
-        <div class="EstadoVacio">
-          <i class="bi bi-list-check"></i>
-          <p class="mb-0">Sin tareas pendientes por el momento.</p>
-        </div>
-      </div>
-      <!-- /Razor -->
+        <h2 class="mb-2">Tareas del estudiante</h2>
+        <p class="TextoSuave mb-4">Consulte las actividades asignadas y sus materiales.</p>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        else if (Model.Estudiantes.Count == 0)
+        {
+            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+        }
+        else
+        {
+            <form asp-controller="Portal" asp-action="Tareas" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
+                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                <div class="col-md-6 col-lg-4">
+                    <label asp-for="Filtro" class="form-label">Mostrar</label>
+                    <select asp-for="Filtro" class="form-select">
+                        <option value="pendientes">Pendientes</option>
+                        <option value="asignadas">Asignadas</option>
+                        <option value="entregadas">Entregadas</option>
+                        <option value="todas">Todas</option>
+                    </select>
+                </div>
+            </form>
+            <div id="MensajeDescargaTarea" class="alert alert-danger" role="alert" hidden></div>
+            @if (Model.Tareas.Count == 0)
+            {
+                <div class="EstadoVacio"><p class="mb-0">No hay tareas para el filtro seleccionado.</p></div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    @foreach (var tarea in Model.Tareas)
+                    {
+                        <div class="col-md-6">
+                            <article class="Tarjeta p-3 h-100">
+                                <div class="d-flex justify-content-between gap-2 mb-3">
+                                    <h3 class="h5">@tarea.Titulo</h3>
+                                    <span class="badge bg-secondary align-self-start">@tarea.Estado</span>
+                                </div>
+                                <p style="white-space: pre-wrap">@tarea.Descripcion</p>
+                                <p><strong>Fecha límite:</strong> @tarea.FechaLimite.ToString("dd/MM/yyyy")</p>
+                                @if (tarea.FechaEntrega.HasValue)
+                                {
+                                    <p><strong>Entregada:</strong> @tarea.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante))
+                                {
+                                    <p><strong>Comentario del estudiante:</strong> @tarea.ComentarioEstudiante</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(tarea.ComentarioRevision))
+                                {
+                                    <p><strong>Comentario de revisión:</strong> @tarea.ComentarioRevision</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(tarea.Material))
+                                {
+                                    <p><strong>Material:</strong> @tarea.Material</p>
+                                }
+                                <div class="d-flex flex-wrap gap-2">
+                                    @if (tarea.TieneArchivo)
+                                    {
+                                        <button type="button" class="btn btn-outline-primary" data-descargar-tarea data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">Descargar archivo</button>
+                                    }
+                                    @if (Uri.TryCreate(tarea.MaterialUrl, UriKind.Absolute, out var enlaceMaterial)
+                                        && (enlaceMaterial.Scheme == Uri.UriSchemeHttps || enlaceMaterial.Scheme == Uri.UriSchemeHttp))
+                                    {
+                                        <a href="@enlaceMaterial.AbsoluteUri" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary">Abrir material</a>
+                                    }
+                                </div>
+                            </article>
+                        </div>
+                    }
+                </div>
+            }
+        }
     </div>
-  </main>
-
+</main>
 @section Scripts {
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      document.querySelectorAll(".BotonDescargarAdjunto").forEach(function (boton) {
-        boton.addEventListener("click", function () {
-          MostrarToast("Descarga simulada del adjunto.");
-        });
-      });
-    });
-  </script>
+    <script src="~/js/tareasPortal.js" asp-append-version="true"></script>
 }

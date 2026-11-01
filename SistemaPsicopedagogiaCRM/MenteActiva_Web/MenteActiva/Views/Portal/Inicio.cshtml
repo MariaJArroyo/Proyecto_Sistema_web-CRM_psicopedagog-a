@@ -1,94 +1,62 @@
+@model PortalInicioViewModel
+@using System.Globalization
 @{
-    ViewData["Title"] = "Portal de familias";
+    ViewData["Title"] = "Inicio del portal";
+    var error = ViewBag.ErrorCarga as string;
+    var cultura = CultureInfo.GetCultureInfo("es-CR");
 }
-
-  <main class="PrincipalPortal">
+<main class="PrincipalPortal" id="PortalInicio" data-portal-estudiante="@Model.Resumen.IdEstudiante">
     <div class="container">
-      <!-- Razor: el bloque visible depende de Model.EstudianteSeleccionado -->
-      <div data-bloque-estudiante="MariaRodriguez">
-        <div class="mb-4">
-          <h2 class="mb-1">Bienvenido, Carlos</h2>
-          <p class="TextoSuave mb-0">Aquí puede revisar la información de María Rodríguez.</p>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-calendar-check"></i></div>
-              <h3 class="h6">Próxima cita</h3>
-              <p class="TextoSuave small flex-grow-1">Lunes 13 de julio, 9:00 a. m. — Tutoría académica.</p>
-              <a href="/Portal/Citas" class="small">Ver citas<i class="bi bi-arrow-right ms-1"></i></a>
+        <h2 class="mb-2">Portal de familias</h2>
+        <p class="TextoSuave mb-4">Consulte la información del estudiante seleccionado en el menú superior.</p>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        else if (Model.Estudiantes.Count == 0)
+        {
+            <div class="alert alert-info">No hay estudiantes disponibles. Consulte con el centro.</div>
+        }
+        else
+        {
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-3">
+                    <article class="Tarjeta p-3 h-100">
+                        <h3 class="h6">Próximas citas</h3>
+                        <p class="fs-3 fw-semibold">@Model.Resumen.CitasProximas</p>
+                        <a asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">Consultar citas</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <article class="Tarjeta p-3 h-100">
+                        <h3 class="h6">Tareas pendientes</h3>
+                        <p class="fs-3 fw-semibold">@Model.Resumen.TareasPendientes</p>
+                        <a asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar tareas</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <article class="Tarjeta p-3 h-100">
+                        <h3 class="h6">Reportes disponibles</h3>
+                        <p class="fs-3 fw-semibold">@Model.Resumen.ReportesDisponibles</p>
+                        <a asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtroReportes="todos">Consultar progreso</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <article class="Tarjeta p-3 h-100">
+                        <h3 class="h6">Saldo pendiente</h3>
+                        <p class="fs-4 fw-semibold">@Model.Resumen.SaldoPendiente.ToString("C", cultura)</p>
+                        <a asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar pagos</a>
+                    </article>
+                </div>
             </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-graph-up-arrow"></i></div>
-              <h3 class="h6">Progreso reciente</h3>
-              <p class="TextoSuave small flex-grow-1">Última sesión: 10 de julio — Fracciones. ¡Buen avance!</p>
-              <a href="/Portal/Progreso" class="small">Ver progreso<i class="bi bi-arrow-right ms-1"></i></a>
+            <div class="Tarjeta p-3 mt-4">
+                <h3 class="h5">Recomendaciones para casa</h3>
+                <p>Consulte las recomendaciones que la profesora registra para apoyar al estudiante.</p>
+                <a asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-fragment="Recomendaciones">Ver recomendaciones</a>
             </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-list-check"></i></div>
-              <h3 class="h6">Tareas pendientes</h3>
-              <p class="TextoSuave small flex-grow-1">1 tarea pendiente: hoja de ejercicios de fracciones (vence 18
-                jul).</p>
-              <a href="/Portal/Tareas" class="small">Ver tareas<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-cash-coin"></i></div>
-              <h3 class="h6">Pagos</h3>
-              <p class="TextoSuave small flex-grow-1">Último pago: ₡15 000 el 10 de julio. Sin pagos pendientes.</p>
-              <a href="/Portal/Pagos" class="small">Ver pagos<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div data-bloque-estudiante="AndresJimenez" class="d-none">
-        <div class="mb-4">
-          <h2 class="mb-1">Bienvenido, Carlos</h2>
-          <p class="TextoSuave mb-0">Aquí puede revisar la información de Andrés Jiménez.</p>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-calendar-check"></i></div>
-              <h3 class="h6">Próxima cita</h3>
-              <p class="TextoSuave small flex-grow-1">Miércoles 15 de julio, 9:00 a. m. — Evaluación inicial.</p>
-              <a href="/Portal/Citas" class="small">Ver citas<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-graph-up-arrow"></i></div>
-              <h3 class="h6">Progreso reciente</h3>
-              <p class="TextoSuave small flex-grow-1">Aún no hay informes de progreso registrados.</p>
-              <a href="/Portal/Progreso" class="small">Ver progreso<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-list-check"></i></div>
-              <h3 class="h6">Tareas pendientes</h3>
-              <p class="TextoSuave small flex-grow-1">Sin tareas pendientes por el momento.</p>
-              <a href="/Portal/Tareas" class="small">Ver tareas<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="Tarjeta p-3 h-100 d-flex flex-column">
-              <div class="TarjetaResumen-Icono mb-2"><i class="bi bi-cash-coin"></i></div>
-              <h3 class="h6">Pagos</h3>
-              <p class="TextoSuave small flex-grow-1">Aún no se han registrado pagos.</p>
-              <a href="/Portal/Pagos" class="small">Ver pagos<i class="bi bi-arrow-right ms-1"></i></a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- /Razor -->
+        }
     </div>
-  </main>
+</main>
+@section Scripts {
+    <script src="~/js/inicioPortal.js" asp-append-version="true"></script>
+}

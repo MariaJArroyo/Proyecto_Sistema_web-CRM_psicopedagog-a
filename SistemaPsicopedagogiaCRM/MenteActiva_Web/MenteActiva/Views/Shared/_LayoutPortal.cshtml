@@ -34,8 +34,13 @@
   <!-- Contenedor de toasts de confirmacion -->
   <div class="ContenedorToasts"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script src="~/js/Main.js"></script>
+
+  <script src="~/js/portalComun.js"
+          asp-append-version="true"></script>
+
   @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
