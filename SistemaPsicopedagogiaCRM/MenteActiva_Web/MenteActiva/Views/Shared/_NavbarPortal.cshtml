@@ -12,6 +12,9 @@
         PortalProgresoViewModel progreso => (Estudiantes: progreso.Estudiantes, IdEstudiante: progreso.IdEstudiante),
         PortalTareasViewModel tareas => (Estudiantes: tareas.Estudiantes, IdEstudiante: tareas.IdEstudiante),
         PortalPagosViewModel pagos => (Estudiantes: pagos.Estudiantes, IdEstudiante: pagos.IdEstudiante),
+        // Los mensajes no son por estudiante, pero la pantalla carga igual los
+        // estudiantes para no perder el selector ni el enlace de las demas
+        PortalMensajesViewModel mensajes => (Estudiantes: mensajes.Estudiantes, IdEstudiante: mensajes.IdEstudiante),
         _ => (Estudiantes: new List<PortalEstudianteViewModel>(), IdEstudiante: 0)
     };
 
@@ -94,6 +97,14 @@
                 <li class="nav-item"><a class="nav-link@(accionPortal == "Progreso" ? " active" : "")" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@idActual">Progreso</a></li>
                 <li class="nav-item"><a class="nav-link@(accionPortal == "Tareas" ? " active" : "")" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@idActual">Tareas</a></li>
                 <li class="nav-item"><a class="nav-link@(accionPortal == "Pagos" ? " active" : "")" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@idActual">Pagos</a></li>
+                <li class="nav-item">
+                    <a class="nav-link@(accionPortal == "Mensajes" ? " active" : "")"
+                       asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@idActual">
+                        Mensajes
+                        <span class="badge badge-estado-nuevo ms-1 d-none" id="ContadorMensajesPortal"
+                              data-contador-mensajes="/Portal/MensajesSinLeer"></span>
+                    </a>
+                </li>
                 <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil">Mi perfil</a></li>
                 <li class="nav-item ms-xl-2">
                     <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="m-0">

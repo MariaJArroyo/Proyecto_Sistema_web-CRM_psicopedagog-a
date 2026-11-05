@@ -16,11 +16,20 @@ USE mente_activa;
 
 -- Encargados: 1 y 2 son los padres de Lucia; 3 y 4 no tienen cedula,
 -- para probar que el indice unico acepta varios NULL
+--
+-- Los correos de 1 y 4 son la cuenta del proyecto y existen de verdad, porque
+-- el modulo 10 manda correo y una direccion @example.com rebota. Cualquiera que
+-- corra las pruebas de envio deja rastro en esa bandeja. Los de 2 y 3 siguen
+-- siendo falsos a proposito: hacen falta para probar que un destinatario sin
+-- direccion valida se rechaza antes de intentar el envio.
+--
+-- 1 tiene usuario de portal activo y 4 no tiene ninguno: son los dos caminos de
+-- destinatario que admite TB_NOTIFICACION.
 INSERT INTO TB_ENCARGADO (IdEncargado, IdEstadoCliente, IdServicioInteres, Nombre, PrimerApellido, SegundoApellido, Identificacion, Correo) VALUES
-  (1, 4, 2, 'Andrea', 'Solís', 'Mora', '100000001', 'andrea.prueba@example.com'),
+  (1, 4, 2, 'Andrea', 'Solís', 'Mora', '100000001', 'menteactiva.dev@gmail.com'),
   (2, 4, 1, 'Marco', 'Vindas', 'Rojas', '100000002', 'marco.prueba@example.com'),
   (3, 1, 3, 'Paula', 'Jiménez', 'Arce', NULL, 'paula.prueba@example.com'),
-  (4, 4, 4, 'Diego', 'Campos', NULL, NULL, NULL)
+  (4, 4, 4, 'Diego', 'Campos', NULL, NULL, 'menteactiva.dev@gmail.com')
 ON DUPLICATE KEY UPDATE IdEncargado = IdEncargado;
 
 -- ------------------------------------------------------------
@@ -149,8 +158,10 @@ INSERT INTO TB_SESION (IdSesion, IdEstudiante, IdCita, IdTipoSesion, IdTipoAtenc
    'Sesion inactivada: existe solo para probar que los filtros la excluyen.', 0)
 ON DUPLICATE KEY UPDATE IdSesion = IdSesion;
 
-INSERT INTO TB_NOTIFICACION (IdNotificacion, IdCita, IdUsuarioDestinatario, IdCanalNotificacion, Asunto, Cuerpo, FechaProgramada) VALUES
-  (1, 1, 2, 1, 'Recordatorio de cita', 'Le recordamos la cita de Lucía el 5 de octubre a las 9:00.', '2026-10-04 09:00:00')
+-- Recordatorio ya programado y sin enviar. Lleva ClavePlantilla para que el
+-- historial lo muestre como automatico y no como correo escrito a mano.
+INSERT INTO TB_NOTIFICACION (IdNotificacion, IdCita, IdUsuarioDestinatario, IdCanalNotificacion, ClavePlantilla, CorreoDestino, Asunto, Cuerpo, FechaProgramada) VALUES
+  (1, 1, 2, 1, 'RecordatorioCita', 'menteactiva.dev@gmail.com', 'Recordatorio de cita', 'Le recordamos la cita de Lucía el 5 de octubre a las 9:00.', '2026-10-04 09:00:00')
 ON DUPLICATE KEY UPDATE IdNotificacion = IdNotificacion;
 
 INSERT INTO TB_PLAN_INTERVENCION (IdPlan, IdEstudiante, IdEstadoPlan, IdUsuarioRegistro, Titulo, ObjetivoGeneral, FechaInicio, FechaFin) VALUES

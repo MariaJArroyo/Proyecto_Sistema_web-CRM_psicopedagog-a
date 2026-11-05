@@ -70,6 +70,27 @@ builder.Services.AddScoped<IServicioReportes, ServicioReportes>();
 builder.Services.AddScoped<IRepositorioPortal, RepositorioPortal>();
 builder.Services.AddScoped<IServicioPortal, ServicioPortal>();
 
+// ---------- Solicitudes de contacto ----------
+builder.Services.AddScoped<IRepositorioSolicitud, RepositorioSolicitud>();
+builder.Services.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
+
+// ---------- Comunicacion ----------
+builder.Services.AddScoped<IRepositorioPlantilla, RepositorioPlantilla>();
+builder.Services.AddScoped<IServicioPlantillas, ServicioPlantillas>();
+builder.Services.AddScoped<IRepositorioComunicacion, RepositorioComunicacion>();
+builder.Services.AddScoped<IServicioComunicacion, ServicioComunicacion>();
+
+builder.Services.AddOptions<OpcionesNotificaciones>()
+    .Bind(builder.Configuration.GetSection(OpcionesNotificaciones.Seccion))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddScoped<IServicioNotificaciones, ServicioNotificaciones>();
+builder.Services.AddHostedService<ServicioEnviarNotificaciones>();
+
+builder.Services.AddScoped<IRepositorioMensaje, RepositorioMensaje>();
+builder.Services.AddScoped<IServicioMensajes, ServicioMensajes>();
+
 
 // El envio de correo se cambia desde la configuracion, sin tocar codigo.
 // "Registro" escribe el enlace en la consola; "Gmail" lo manda de verdad.

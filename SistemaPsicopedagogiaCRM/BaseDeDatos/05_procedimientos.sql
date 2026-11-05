@@ -2266,6 +2266,11 @@ BEGIN
                       'FechaHoraInicio', p_FechaHoraInicio,
                       'FechaHoraFin', p_FechaHoraFin));
 
+  -- HU-M10-3: confirmacion al encargado. Va aqui dentro y no en el API para
+  -- que ningun modulo que agende una cita pueda saltarse el aviso. No puede
+  -- fallar: inserta cero filas si el estudiante no tiene encargado con correo.
+  CALL SP_Notificacion_AvisarCitas(v_IdCita, NULL, 'ConfirmacionCita', 1);
+
   COMMIT;
 
   SELECT v_IdCita AS IdCita;
@@ -2353,6 +2358,9 @@ BEGIN
   VALUES (p_IdUsuarioAccion, 'TB_CITA', p_IdCita, 'Editar', v_Anterior,
           JSON_OBJECT('FechaHoraInicio', p_FechaHoraInicio, 'FechaHoraFin', p_FechaHoraFin));
 
+  -- HU-M10-3: la cita cambio de fecha, se avisa de nuevo.
+  CALL SP_Notificacion_AvisarCitas(p_IdCita, NULL, 'ActualizacionCita', 1);
+
   COMMIT;
 END$$
 DELIMITER ;
@@ -2401,6 +2409,10 @@ BEGIN
   VALUES (p_IdUsuarioAccion, 'TB_CITA', p_IdCita, 'CambiarEstado',
           JSON_OBJECT('IdEstadoCita', v_Estado),
           JSON_OBJECT('IdEstadoCita', 4, 'Motivo', p_Motivo));
+
+  -- HU-M10-3: aviso de cancelacion. Con 0 porque la cita que interesa es la
+  -- que acaba de quedar cancelada, no las vigentes.
+  CALL SP_Notificacion_AvisarCitas(p_IdCita, NULL, 'CancelacionCita', 0);
 
   COMMIT;
 END$$
@@ -2967,6 +2979,9 @@ BEGIN
             JSON_OBJECT('FechaHoraInicio', p_Inicio, 'CupoMaximo', p_CupoMaximo,
                         'Estudiantes', p_EstudiantesJson));
 
+    -- HU-M10-3: una confirmacion por cada estudiante del grupo.
+    CALL SP_Notificacion_AvisarCitas(NULL, v_IdGrupo, 'ConfirmacionCita', 1);
+
     COMMIT;
 
     SELECT v_IdGrupo AS IdGrupoCita;
@@ -3050,6 +3065,9 @@ BEGIN
     VALUES (p_IdUsuarioAccion, 'TB_CITA', v_IdCita, 'Crear',
             JSON_OBJECT('IdEstudiante', p_IdEstudiante, 'IdGrupoCita', p_IdGrupoCita));
 
+    -- HU-M10-3: confirmacion al encargado del estudiante que se acaba de agregar.
+    CALL SP_Notificacion_AvisarCitas(v_IdCita, NULL, 'ConfirmacionCita', 1);
+
     COMMIT;
 
     SELECT v_IdCita AS IdCita;
@@ -3123,6 +3141,10 @@ BEGIN
             JSON_OBJECT('FechaHoraInicio', v_InicioActual),
             JSON_OBJECT('FechaHoraInicio', p_Inicio));
 
+    -- HU-M10-3: aviso a los que siguen vigentes. Los que ya tenian su cita
+    -- cancelada quedan fuera, que es para lo que sirve el ultimo parametro.
+    CALL SP_Notificacion_AvisarCitas(NULL, p_IdGrupoCita, 'ActualizacionCita', 1);
+
     COMMIT;
 END$$
 DELIMITER ;
@@ -3180,6 +3202,9 @@ BEGIN
     INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
     VALUES (p_IdUsuarioAccion, 'TB_GRUPO_CITA', p_IdGrupoCita, 'CambiarEstado',
             JSON_OBJECT('Activo', 0, 'Motivo', TRIM(p_Motivo)));
+
+    -- HU-M10-3: aviso de cancelacion a todo el grupo.
+    CALL SP_Notificacion_AvisarCitas(NULL, p_IdGrupoCita, 'CancelacionCita', 0);
 
     COMMIT;
 END$$
@@ -4821,12 +4846,30 @@ DELIMITER ;
 -- Las horas de anticipacion salen de TB_CONFIGURACION, clave HorasRecordatorioCita.
 -- Provisional: se manda por el primer canal del catalogo y solo al encargado
 -- principal que tenga usuario. Falta confirmar canal y destinatarios.
+-- Programa los recordatorios de las citas que se acercan (HU-M10-2).
+--
+-- Dos cosas cambiaron respecto de la primera version:
+--
+--   El texto sale de la plantilla RecordatorioCita y ya no esta incrustado aqui.
+--   La semilla de 02_catalogos.sql repite palabra por palabra el texto que tenia
+--   antes, para que sacarlo de aqui no cambiara lo que recibe la familia.
+--
+--   El destinatario es el ENCARGADO y no su usuario de portal. Antes se exigia
+--   usuario activo, asi que a un encargado que nunca activo la cuenta no se le
+--   recordaba nada. Ahora alcanza con que tenga correo.
+--
+-- La regla antiduplicado mira la clave: sin eso, la confirmacion que ya se le
+-- mando por esa misma cita contaria como recordatorio y el recordatorio no se
+-- programaria nunca.
 DROP PROCEDURE IF EXISTS SP_Notificacion_ProgramarRecordatorios;
 DELIMITER $$
 CREATE PROCEDURE SP_Notificacion_ProgramarRecordatorios()
 BEGIN
-  DECLARE v_Horas INT DEFAULT 24;
-  DECLARE v_IdCanal INT DEFAULT NULL;
+  DECLARE v_Horas       INT DEFAULT 24;
+  DECLARE v_IdCanal     INT DEFAULT NULL;
+  DECLARE v_Asunto      VARCHAR(200) DEFAULT NULL;
+  DECLARE v_Cuerpo      VARCHAR(1000) DEFAULT NULL;
+  DECLARE v_Consultorio VARCHAR(200) DEFAULT NULL;
 
   SELECT CAST(Valor AS UNSIGNED) INTO v_Horas
   FROM TB_CONFIGURACION
@@ -4834,57 +4877,988 @@ BEGIN
 
   SET v_Horas = IFNULL(v_Horas, 24);
 
-  SELECT MIN(IdCanalNotificacion) INTO v_IdCanal FROM TB_CANAL_NOTIFICACION;
+  SELECT IdCanalNotificacion INTO v_IdCanal
+  FROM TB_CANAL_NOTIFICACION
+  WHERE Nombre = 'Correo';
 
   IF v_IdCanal IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No hay canales de notificacion configurados.';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No esta configurado el canal de correo.';
   END IF;
 
-  INSERT INTO TB_NOTIFICACION (IdCita, IdUsuarioDestinatario, IdCanalNotificacion,
-                               Asunto, Cuerpo, FechaProgramada)
+  SELECT Asunto, LEFT(Cuerpo, 1000) INTO v_Asunto, v_Cuerpo
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE Clave = 'RecordatorioCita';
+
+  IF v_Cuerpo IS NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Falta la plantilla RecordatorioCita.';
+  END IF;
+
+  SELECT LEFT(Valor, 200) INTO v_Consultorio
+  FROM TB_CONFIGURACION
+  WHERE Clave = 'NombreConsultorio';
+
+  INSERT INTO TB_NOTIFICACION (IdCita, IdEncargado, IdCanalNotificacion, ClavePlantilla,
+                               CorreoDestino, Asunto, Cuerpo, FechaProgramada)
   SELECT c.IdCita,
-         u.IdUsuario,
+         e.IdEncargado,
          v_IdCanal,
-         'Recordatorio de cita',
-         CONCAT('Le recordamos la cita de ',
-                TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)),
-                ' el ', DATE_FORMAT(c.FechaHoraInicio, '%d/%m/%Y a las %H:%i'), '.'),
+         'RecordatorioCita',
+         e.Correo,
+         LEFT(FN_Plantilla_Sustituir(v_Asunto,
+              TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido)),
+              TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido)),
+              DATE_FORMAT(c.FechaHoraInicio, '%d/%m/%Y'),
+              DATE_FORMAT(c.FechaHoraInicio, '%H:%i'),
+              v_Consultorio, NULL), 200),
+         LEFT(FN_Plantilla_Sustituir(v_Cuerpo,
+              TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido)),
+              TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido)),
+              DATE_FORMAT(c.FechaHoraInicio, '%d/%m/%Y'),
+              DATE_FORMAT(c.FechaHoraInicio, '%H:%i'),
+              v_Consultorio, NULL), 1000),
          c.FechaHoraInicio - INTERVAL v_Horas HOUR
   FROM TB_CITA c
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = c.IdEstudiante
-  JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = c.IdEstudiante AND ee.EsPrincipal = 1
-  JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado AND u.IdEstadoUsuario = 1
+  JOIN TB_ESTUDIANTE es ON es.IdEstudiante = c.IdEstudiante
+  JOIN TB_ESTUDIANTE_ENCARGADO ee
+    ON ee.IdEstudiante = c.IdEstudiante AND ee.EsPrincipal = 1
+  JOIN TB_ENCARGADO e
+    ON e.IdEncargado = ee.IdEncargado
+   AND e.Activo = 1
+   AND e.Correo IS NOT NULL
+   AND TRIM(e.Correo) <> ''
   WHERE c.IdEstadoCita IN (1, 2)
     AND c.FechaHoraInicio > NOW()
+    -- Se adelanta un dia a la hora de envio, para que el worker siempre
+    -- encuentre la fila ya creada cuando le toque mandarla
     AND c.FechaHoraInicio - INTERVAL v_Horas HOUR <= NOW() + INTERVAL 1 DAY
     AND NOT EXISTS (SELECT 1 FROM TB_NOTIFICACION n
-                    WHERE n.IdCita = c.IdCita AND n.IdUsuarioDestinatario = u.IdUsuario);
+                    WHERE n.IdCita = c.IdCita
+                      AND n.IdEncargado = e.IdEncargado
+                      AND n.ClavePlantilla = 'RecordatorioCita');
 
   SELECT ROW_COUNT() AS RecordatoriosProgramados;
 END$$
 DELIMITER ;
 
 
--- Lo que el envio tiene que despachar: ya le llego la hora y sigue sin enviarse.
+-- Lo que el worker tiene que despachar en esta vuelta.
+--
+-- Se reescribio en la fase 3 por dos razones. La primera es que hacia
+-- JOIN TB_USUARIO sobre IdUsuarioDestinatario, y desde que el destinatario
+-- puede ser un encargado sin portal esa fila tiene el usuario en nulo: el JOIN
+-- se las comia todas y el worker no habria mandado ni una. Ahora son LEFT JOIN y
+-- el nombre sale del que venga lleno.
+--
+-- La segunda es el tope de intentos: una notificacion que ya fallo p_MaxIntentos
+-- veces deja de aparecer, para que un correo imposible no se reintente para
+-- siempre en cada vuelta. Sigue visible en la pantalla, marcada como fallida.
+--
+-- Solo el canal Correo: Portal se muestra dentro del sistema y no se despacha.
 DROP PROCEDURE IF EXISTS SP_Notificacion_ObtenerPendientes;
 DELIMITER $$
-CREATE PROCEDURE SP_Notificacion_ObtenerPendientes()
+CREATE PROCEDURE SP_Notificacion_ObtenerPendientes(
+  IN p_MaxIntentos INT,
+  IN p_Limite      INT
+)
 BEGIN
+  DECLARE v_Max    INT DEFAULT 3;
+  DECLARE v_Limite INT DEFAULT 50;
+
+  IF p_MaxIntentos IS NOT NULL AND p_MaxIntentos BETWEEN 1 AND 20 THEN
+    SET v_Max = p_MaxIntentos;
+  END IF;
+
+  IF p_Limite IS NOT NULL AND p_Limite BETWEEN 1 AND 200 THEN
+    SET v_Limite = p_Limite;
+  END IF;
+
   SELECT n.IdNotificacion,
          n.IdCita,
-         n.IdUsuarioDestinatario,
-         u.NombreCompleto AS Destinatario,
-         u.Correo,
+         n.ClavePlantilla,
+         COALESCE(NULLIF(TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, e.SegundoApellido)), ''),
+                  ud.NombreCompleto) AS Destinatario,
+         COALESCE(NULLIF(TRIM(n.CorreoDestino), ''), ud.Correo) AS Correo,
          cn.Nombre AS Canal,
          n.Asunto,
          n.Cuerpo,
-         n.FechaProgramada
+         n.FechaProgramada,
+         n.Intentos
   FROM TB_NOTIFICACION n
-  JOIN TB_USUARIO u ON u.IdUsuario = n.IdUsuarioDestinatario
   JOIN TB_CANAL_NOTIFICACION cn ON cn.IdCanalNotificacion = n.IdCanalNotificacion
+  LEFT JOIN TB_ENCARGADO e ON e.IdEncargado = n.IdEncargado
+  LEFT JOIN TB_USUARIO ud ON ud.IdUsuario = n.IdUsuarioDestinatario
   WHERE n.Enviada = 0
     AND n.FechaProgramada <= NOW()
-  ORDER BY n.FechaProgramada;
+    AND n.Intentos < v_Max
+    AND cn.Nombre = 'Correo'
+    -- Sin direccion no hay nada que mandar; la fila se queda pendiente y se ve
+    AND COALESCE(NULLIF(TRIM(n.CorreoDestino), ''), ud.Correo) IS NOT NULL
+  ORDER BY n.FechaProgramada, n.IdNotificacion
+  LIMIT v_Limite;
+END$$
+DELIMITER ;
+
+-- ------------------------------------------------------------
+-- Mensajeria interna (HU-M10-4)
+--
+-- Solo existe entre un encargado y una persona del consultorio, en los dos
+-- sentidos. La historia dice "padres de familia y estudiantes", y es un error de
+-- redaccion del documento: el glosario del equipo es explicito en que los
+-- estudiantes son menores, no se autentican y no hay rol de estudiante.
+--
+-- Quien es quien se deduce de TB_USUARIO.IdEncargado: lleno significa encargado,
+-- nulo significa gente del consultorio. No hace falta mirar los roles.
+--
+-- Un hilo es el mensaje raiz (IdMensajePadre nulo) y las respuestas cuelgan
+-- directo de el, sin anidar mas. Alcanza para una conversacion y evita el arbol
+-- que nadie va a usar.
+--
+-- Estos procedimientos NO escriben bitacora, al contrario del correo manual: el
+-- mensaje es el registro. Una fila de auditoria diciendo "se mando un mensaje"
+-- al lado del mensaje mismo es el mismo hecho contado dos veces.
+-- ------------------------------------------------------------
+
+-- A quien le puede escribir el usuario que pregunta. Si es del consultorio, ve
+-- los encargados con portal; si es encargado, ve la gente del consultorio.
+-- Solo cuentas activas: a una cuenta bloqueada o pendiente no se le escribe
+-- porque no va a poder contestar.
+DROP PROCEDURE IF EXISTS SP_Mensaje_ListarDestinatarios;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensaje_ListarDestinatarios(
+  IN p_IdUsuario INT
+)
+BEGIN
+  DECLARE v_EsEncargado BOOLEAN DEFAULT NULL;
+
+  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuario;
+
+  IF v_EsEncargado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+  END IF;
+
+  SELECT u.IdUsuario,
+         u.NombreCompleto,
+         IFNULL(GROUP_CONCAT(DISTINCT r.Nombre ORDER BY r.Nombre SEPARATOR ', '), '') AS Roles
+  FROM TB_USUARIO u
+  LEFT JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+  LEFT JOIN TB_ROL r ON r.IdRol = ur.IdRol
+  WHERE u.IdUsuario <> p_IdUsuario
+    AND u.IdEstadoUsuario = 1
+    AND ((v_EsEncargado = 1 AND u.IdEncargado IS NULL)
+      OR (v_EsEncargado = 0 AND u.IdEncargado IS NOT NULL))
+  GROUP BY u.IdUsuario, u.NombreCompleto
+  ORDER BY u.NombreCompleto;
+END$$
+DELIMITER ;
+
+-- Abre un hilo: marca como leidos los mensajes que iban para quien pregunta y
+-- devuelve la conversacion completa en orden.
+--
+-- Hace las dos cosas en la misma llamada porque abrir un hilo ES leerlo. Si
+-- fueran dos llamadas, la pantalla podria mostrar la conversacion y dejarla
+-- marcada sin leer si la segunda falla.
+--
+-- Valida que quien pregunta sea parte del hilo: sin eso, cambiando el id en la
+-- URL un encargado leeria la conversacion de otra familia.
+DROP PROCEDURE IF EXISTS SP_Mensaje_AbrirHilo;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensaje_AbrirHilo(
+  IN p_IdUsuario INT,
+  IN p_IdHilo    INT
+)
+BEGIN
+  DECLARE v_Participa INT DEFAULT 0;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SELECT COUNT(*) INTO v_Participa
+  FROM TB_MENSAJE
+  WHERE IdMensaje = p_IdHilo
+    AND IdMensajePadre IS NULL
+    AND (IdUsuarioRemitente = p_IdUsuario OR IdUsuarioDestinatario = p_IdUsuario);
+
+  IF v_Participa = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La conversacion indicada no existe.';
+  END IF;
+
+  START TRANSACTION;
+
+  UPDATE TB_MENSAJE
+  SET Leido = 1,
+      FechaLectura = NOW()
+  WHERE (IdMensaje = p_IdHilo OR IdMensajePadre = p_IdHilo)
+    AND IdUsuarioDestinatario = p_IdUsuario
+    AND Leido = 0;
+
+  COMMIT;
+
+  SELECT m.IdMensaje,
+         m.IdUsuarioRemitente,
+         u.NombreCompleto AS Remitente,
+         u.IdEncargado IS NOT NULL AS RemitenteEsEncargado,
+         m.Asunto,
+         m.Cuerpo,
+         m.Leido,
+         m.FechaEnvio,
+         m.FechaLectura,
+         m.IdUsuarioRemitente = p_IdUsuario AS Mio
+  FROM TB_MENSAJE m
+  JOIN TB_USUARIO u ON u.IdUsuario = m.IdUsuarioRemitente
+  WHERE m.IdMensaje = p_IdHilo OR m.IdMensajePadre = p_IdHilo
+  ORDER BY m.FechaEnvio, m.IdMensaje;
+END$$
+DELIMITER ;
+
+-- Manda un mensaje. Con p_IdMensajePadre en nulo abre un hilo nuevo; con valor
+-- responde en ese hilo.
+--
+-- Al responder, el destinatario NO se recibe como parametro: se saca del hilo,
+-- para que no se pueda colar una respuesta a un tercero dentro de una
+-- conversacion ajena. Y el asunto se hereda con "Re: " adelante.
+DROP PROCEDURE IF EXISTS SP_Mensaje_Enviar;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensaje_Enviar(
+  IN p_IdUsuarioRemitente   INT,
+  IN p_IdUsuarioDestinatario INT,
+  IN p_IdMensajePadre       INT,
+  IN p_Asunto               VARCHAR(200),
+  IN p_Cuerpo               LONGTEXT
+)
+BEGIN
+  DECLARE v_SoyEncargado   BOOLEAN DEFAULT NULL;
+  DECLARE v_EsEncargado    BOOLEAN DEFAULT NULL;
+  DECLARE v_Destino        INT DEFAULT NULL;
+  DECLARE v_AsuntoHilo     VARCHAR(200) DEFAULT NULL;
+  DECLARE v_Id             INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  IF p_Cuerpo IS NULL OR TRIM(p_Cuerpo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Escriba el mensaje.';
+  END IF;
+
+  SELECT IdEncargado IS NOT NULL INTO v_SoyEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuarioRemitente AND IdEstadoUsuario = 1;
+
+  IF v_SoyEncargado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Su cuenta no esta activa.';
+  END IF;
+
+  IF p_IdMensajePadre IS NOT NULL THEN
+    -- Responder: el destinatario y el asunto salen del hilo
+    SELECT IF(IdUsuarioRemitente = p_IdUsuarioRemitente, IdUsuarioDestinatario, IdUsuarioRemitente),
+           Asunto
+      INTO v_Destino, v_AsuntoHilo
+    FROM TB_MENSAJE
+    WHERE IdMensaje = p_IdMensajePadre
+      AND IdMensajePadre IS NULL
+      AND (IdUsuarioRemitente = p_IdUsuarioRemitente
+        OR IdUsuarioDestinatario = p_IdUsuarioRemitente);
+
+    IF v_Destino IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La conversacion indicada no existe.';
+    END IF;
+
+    SET p_Asunto = LEFT(IF(v_AsuntoHilo LIKE 'Re: %', v_AsuntoHilo, CONCAT('Re: ', v_AsuntoHilo)), 200);
+  ELSE
+    -- Hilo nuevo: hace falta asunto y destinatario
+    IF p_Asunto IS NULL OR TRIM(p_Asunto) = '' THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el asunto del mensaje.';
+    END IF;
+
+    SET v_Destino = p_IdUsuarioDestinatario;
+    SET p_Asunto = TRIM(p_Asunto);
+  END IF;
+
+  IF v_Destino = p_IdUsuarioRemitente THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede escribir a uno mismo.';
+  END IF;
+
+  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = v_Destino AND IdEstadoUsuario = 1;
+
+  IF v_EsEncargado IS NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'El destinatario indicado no existe o su cuenta no esta activa.';
+  END IF;
+
+  -- La regla de D-E: encargado con consultorio, nunca encargado con encargado ni
+  -- consultorio con consultorio
+  IF v_SoyEncargado = v_EsEncargado THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'La mensajeria es solo entre un encargado y el consultorio.';
+  END IF;
+
+  START TRANSACTION;
+
+  INSERT INTO TB_MENSAJE (IdUsuarioRemitente, IdUsuarioDestinatario, IdMensajePadre, Asunto, Cuerpo)
+  VALUES (p_IdUsuarioRemitente, v_Destino, p_IdMensajePadre, p_Asunto, TRIM(p_Cuerpo));
+
+  SET v_Id = LAST_INSERT_ID();
+
+  COMMIT;
+
+  SELECT v_Id AS IdMensaje, IFNULL(p_IdMensajePadre, v_Id) AS IdHilo;
+END$$
+DELIMITER ;
+
+-- Cuantos mensajes sin leer tiene quien pregunta. Para el contador del menu.
+DROP PROCEDURE IF EXISTS SP_Mensaje_ContarSinLeer;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensaje_ContarSinLeer(
+  IN p_IdUsuario INT
+)
+BEGIN
+  SELECT COUNT(*) AS SinLeer
+  FROM TB_MENSAJE
+  WHERE IdUsuarioDestinatario = p_IdUsuario
+    AND Leido = 0;
+END$$
+DELIMITER ;
+
+-- ------------------------------------------------------------
+-- Avisos automaticos de cita (HU-M10-2 y HU-M10-3)
+--
+-- El aviso se inserta DENTRO de los procedimientos de la agenda, no desde el
+-- API: asi ningun modulo que agende una cita en el futuro puede saltarse el
+-- aviso por olvido. Son siete los procedimientos que crean o mueven citas,
+-- porque las de grupo tienen su propio camino.
+--
+-- Los siete llaman a SP_Notificacion_AvisarCitas, que es una sola linea en cada
+-- uno. Esta escrito para que NO PUEDA FALLAR, porque los siete tienen
+-- EXIT HANDLER con ROLLBACK y RESIGNAL: cualquier error de aqui se llevaria la
+-- cita por delante. De ahi las tres reglas que cumple:
+--
+--   1. inserta con INSERT ... SELECT, nunca con VALUES y subconsulta, para que
+--      cuando no haya a quien avisarle inserte cero filas en vez de violar un
+--      NOT NULL
+--   2. no tiene un solo SIGNAL
+--   3. si falta la plantilla o el canal, no avisa y se va en silencio: la cita
+--      es lo importante y no se puede caer por esto
+-- ------------------------------------------------------------
+
+-- Sustituye los marcadores de una plantilla. Es el gemelo en SQL de
+-- MarcadoresPlantilla del API, y existe porque el aviso de cita se arma dentro
+-- de la transaccion de la agenda, donde no hay forma de llamar al C#.
+--
+-- La lista de marcadores queda entonces en dos lugares, uno por lenguaje, y cada
+-- uno en un solo archivo. Si se agrega un marcador hay que tocar los dos.
+--
+-- Lo que viene NULL se deja con su marcador puesto, igual que en el API: un
+-- texto que diga "la cita de  el  a las " es peor que uno que se note incompleto.
+DROP FUNCTION IF EXISTS FN_Plantilla_Sustituir;
+DELIMITER $$
+CREATE FUNCTION FN_Plantilla_Sustituir(
+  p_Texto       VARCHAR(4000),
+  p_Encargado   VARCHAR(300),
+  p_Estudiante  VARCHAR(300),
+  p_Fecha       VARCHAR(20),
+  p_Hora        VARCHAR(10),
+  p_Consultorio VARCHAR(200),
+  p_Motivo      VARCHAR(500)
+)
+RETURNS VARCHAR(4000)
+DETERMINISTIC
+NO SQL
+BEGIN
+  IF p_Texto IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN REPLACE(
+           REPLACE(
+             REPLACE(
+               REPLACE(
+                 REPLACE(
+                   REPLACE(p_Texto, '[Encargado]', IFNULL(p_Encargado, '[Encargado]')),
+                 '[Estudiante]', IFNULL(p_Estudiante, '[Estudiante]')),
+               '[Fecha]', IFNULL(p_Fecha, '[Fecha]')),
+             '[Hora]', IFNULL(p_Hora, '[Hora]')),
+           '[Consultorio]', IFNULL(p_Consultorio, '[Consultorio]')),
+         '[Motivo]', IFNULL(p_Motivo, '[Motivo]'));
+END$$
+DELIMITER ;
+
+-- Deja listo el aviso de una cita, o de todas las de un grupo, con el texto de
+-- la plantilla que diga p_Clave y los marcadores ya sustituidos.
+--
+-- p_SoloVigentes separa los dos casos que existen: 1 para agendar, agregar al
+-- grupo y reprogramar, que miran las citas programadas o confirmadas; 0 para
+-- cancelar, que mira las que acaban de quedar canceladas. Sin esto, reprogramar
+-- un grupo le avisaria tambien a quien ya tenia su cita cancelada.
+--
+-- Se le avisa al encargado principal del estudiante, y solo si esta activo y
+-- tiene correo. Un estudiante sin encargado principal con correo no genera
+-- aviso, y eso NO detiene la cita: por eso el INSERT ... SELECT.
+DROP PROCEDURE IF EXISTS SP_Notificacion_AvisarCitas;
+DELIMITER $$
+CREATE PROCEDURE SP_Notificacion_AvisarCitas(
+  IN p_IdCita       INT,
+  IN p_IdGrupoCita  INT,
+  IN p_Clave        VARCHAR(50),
+  IN p_SoloVigentes BOOLEAN
+)
+BEGIN
+  DECLARE v_Asunto      VARCHAR(200) DEFAULT NULL;
+  DECLARE v_Cuerpo      VARCHAR(1000) DEFAULT NULL;
+  DECLARE v_IdCanal     INT DEFAULT NULL;
+  DECLARE v_Consultorio VARCHAR(200) DEFAULT NULL;
+
+  SELECT Asunto, LEFT(Cuerpo, 1000) INTO v_Asunto, v_Cuerpo
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE Clave = p_Clave;
+
+  SELECT IdCanalNotificacion INTO v_IdCanal
+  FROM TB_CANAL_NOTIFICACION
+  WHERE Nombre = 'Correo';
+
+  SELECT LEFT(Valor, 200) INTO v_Consultorio
+  FROM TB_CONFIGURACION
+  WHERE Clave = 'NombreConsultorio';
+
+  -- Si la cita se movio o se cancelo, el recordatorio que estaba esperando quedo
+  -- con la hora vieja. Se borra, y en el caso de reprogramar el worker lo vuelve
+  -- a programar con la hora nueva en su siguiente vuelta.
+  --
+  -- Solo se tocan los que NO salieron todavia: un recordatorio ya enviado es
+  -- historia y no se borra. Esto se encontro probando la fase 5: sin esto la
+  -- familia recibia el aviso de que la cita se movio y despues un recordatorio
+  -- con la hora anterior.
+  IF p_Clave IN ('ActualizacionCita', 'CancelacionCita') THEN
+    DELETE n FROM TB_NOTIFICACION n
+    JOIN TB_CITA c ON c.IdCita = n.IdCita
+    WHERE n.ClavePlantilla = 'RecordatorioCita'
+      AND n.Enviada = 0
+      AND ((p_IdCita IS NOT NULL AND c.IdCita = p_IdCita)
+        OR (p_IdGrupoCita IS NOT NULL AND c.IdGrupoCita = p_IdGrupoCita));
+  END IF;
+
+  IF v_Cuerpo IS NOT NULL AND v_IdCanal IS NOT NULL THEN
+    INSERT INTO TB_NOTIFICACION (IdCita, IdEncargado, IdCanalNotificacion, ClavePlantilla,
+                                 CorreoDestino, Asunto, Cuerpo, FechaProgramada)
+    SELECT c.IdCita,
+           e.IdEncargado,
+           v_IdCanal,
+           p_Clave,
+           e.Correo,
+           LEFT(FN_Plantilla_Sustituir(v_Asunto, d.Encargado, d.Estudiante,
+                                       d.Fecha, d.Hora, v_Consultorio, c.MotivoCancelacion), 200),
+           LEFT(FN_Plantilla_Sustituir(v_Cuerpo, d.Encargado, d.Estudiante,
+                                       d.Fecha, d.Hora, v_Consultorio, c.MotivoCancelacion), 1000),
+           NOW()
+    FROM TB_CITA c
+    JOIN TB_ESTUDIANTE_ENCARGADO ee
+      ON ee.IdEstudiante = c.IdEstudiante AND ee.EsPrincipal = 1
+    JOIN TB_ENCARGADO e
+      ON e.IdEncargado = ee.IdEncargado
+     AND e.Activo = 1
+     AND e.Correo IS NOT NULL
+     AND TRIM(e.Correo) <> ''
+    JOIN TB_ESTUDIANTE es
+      ON es.IdEstudiante = c.IdEstudiante
+    JOIN (SELECT c2.IdCita,
+                 TRIM(CONCAT_WS(' ', e2.Nombre, e2.PrimerApellido)) AS Encargado,
+                 TRIM(CONCAT_WS(' ', es2.Nombre, es2.PrimerApellido)) AS Estudiante,
+                 DATE_FORMAT(c2.FechaHoraInicio, '%d/%m/%Y') AS Fecha,
+                 DATE_FORMAT(c2.FechaHoraInicio, '%H:%i') AS Hora
+          FROM TB_CITA c2
+          JOIN TB_ESTUDIANTE_ENCARGADO ee2
+            ON ee2.IdEstudiante = c2.IdEstudiante AND ee2.EsPrincipal = 1
+          JOIN TB_ENCARGADO e2 ON e2.IdEncargado = ee2.IdEncargado
+          JOIN TB_ESTUDIANTE es2 ON es2.IdEstudiante = c2.IdEstudiante) AS d
+      ON d.IdCita = c.IdCita
+    WHERE ((p_IdCita IS NOT NULL AND c.IdCita = p_IdCita)
+        OR (p_IdGrupoCita IS NOT NULL AND c.IdGrupoCita = p_IdGrupoCita))
+      AND ((IFNULL(p_SoloVigentes, 1) = 1 AND c.IdEstadoCita IN (1, 2))
+        OR (IFNULL(p_SoloVigentes, 1) = 0 AND c.IdEstadoCita = 4));
+  END IF;
+END$$
+DELIMITER ;
+
+-- ------------------------------------------------------------
+-- Correo manual y estado de las notificaciones (HU-M10-1)
+--
+-- El envio se hace en tres pasos y no en uno: primero se registra la
+-- notificacion como pendiente, despues el API intenta mandarla, y al final se
+-- marca enviada o fallida. Asi, si el proceso se cae a mitad de camino, queda
+-- una fila pendiente que se puede ver, en vez de un correo que salio sin rastro
+-- o un rastro de un correo que nunca salio.
+--
+-- Los mismos dos procedimientos de marcar los usa el worker de recordatorios de
+-- la fase 3: el camino de salida es uno solo, venga de una persona o del reloj.
+-- ------------------------------------------------------------
+
+-- Los destinatarios que existen de verdad: encargado activo y con correo. Un
+-- encargado sin correo no sale en la lista, que es la mitad de lo que pide el
+-- escenario 2 de la historia; la otra mitad la valida el registro.
+--
+-- Devuelve dos resultados: los encargados y, aparte, sus estudiantes activos.
+-- Los estudiantes van en su propia lista porque un encargado puede tener varios
+-- y repetir sus datos en cada fila obliga a la pantalla a desarmar el cruce.
+DROP PROCEDURE IF EXISTS SP_Correo_ListarDestinatarios;
+DELIMITER $$
+CREATE PROCEDURE SP_Correo_ListarDestinatarios()
+BEGIN
+  SELECT e.IdEncargado,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, e.SegundoApellido)) AS Encargado,
+         e.Correo
+  FROM TB_ENCARGADO e
+  WHERE e.Activo = 1
+    AND e.Correo IS NOT NULL
+    AND TRIM(e.Correo) <> ''
+  ORDER BY e.Nombre, e.PrimerApellido;
+
+  SELECT ee.IdEncargado,
+         es.IdEstudiante,
+         TRIM(CONCAT_WS(' ', es.Nombre, es.PrimerApellido, es.SegundoApellido)) AS Estudiante
+  FROM TB_ESTUDIANTE_ENCARGADO ee
+  JOIN TB_ESTUDIANTE es ON es.IdEstudiante = ee.IdEstudiante AND es.Activo = 1
+  JOIN TB_ENCARGADO e ON e.IdEncargado = ee.IdEncargado
+  WHERE e.Activo = 1
+    AND e.Correo IS NOT NULL
+    AND TRIM(e.Correo) <> ''
+  ORDER BY ee.IdEncargado, es.Nombre, es.PrimerApellido;
+END$$
+DELIMITER ;
+
+-- Las citas del estudiante que se pueden mencionar en un correo escrito a mano.
+-- Es lo que le da de comer al selector de cita del formulario, y es lo que
+-- permite que [Fecha], [Hora] y [Motivo] se resuelvan tambien aqui y no solo en
+-- los avisos automaticos.
+--
+-- No reusa SP_Cita_Listar aunque se parezca: esa es de la agenda, ordena de la
+-- mas vieja a la mas nueva y no devuelve MotivoCancelacion, que es justo el dato
+-- que [Motivo] necesita. Agregarle la columna le cambiaria la salida a un modulo
+-- ajeno para servir a este.
+--
+-- El orden es el que sirve al redactar: primero las que vienen, de la mas
+-- proxima a la mas lejana, y despues las que ya pasaron, de la mas reciente
+-- hacia atras. Los 90 dias hacia atras evitan que el selector crezca sin fin
+-- con citas viejas de las que ya nadie escribe.
+DROP PROCEDURE IF EXISTS SP_Correo_ListarCitasEstudiante;
+DELIMITER $$
+CREATE PROCEDURE SP_Correo_ListarCitasEstudiante(
+  IN p_IdEstudiante INT
+)
+BEGIN
+  SELECT c.IdCita,
+         c.IdEstudiante,
+         c.FechaHoraInicio,
+         ts.Nombre AS TipoSesion,
+         ec.Nombre AS Estado,
+         c.MotivoCancelacion
+  FROM TB_CITA c
+  JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
+  JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
+  WHERE c.IdEstudiante = p_IdEstudiante
+    AND c.FechaHoraInicio >= NOW() - INTERVAL 90 DAY
+  ORDER BY (c.FechaHoraInicio < NOW()) ASC,
+           IF(c.FechaHoraInicio >= NOW(), c.FechaHoraInicio, NULL) ASC,
+           c.FechaHoraInicio DESC
+  LIMIT 50;
+END$$
+DELIMITER ;
+
+-- Registra el correo que una persona acaba de redactar, todavia sin enviar.
+-- El canal lo resuelve por nombre y no lo recibe como parametro: un correo
+-- manual siempre sale por correo, y pasarle el id abriria la puerta a guardarlo
+-- con el canal equivocado.
+--
+-- El texto que recibe ya viene con los marcadores sustituidos: eso lo hace el
+-- API, que es el unico que sabe los datos del estudiante y del consultorio.
+DROP PROCEDURE IF EXISTS SP_Correo_Registrar;
+DELIMITER $$
+CREATE PROCEDURE SP_Correo_Registrar(
+  IN p_IdUsuarioRegistro INT,
+  IN p_IdEncargado       INT,
+  IN p_IdCita            INT,
+  IN p_CorreoDestino     VARCHAR(150),
+  IN p_Asunto            VARCHAR(200),
+  IN p_Cuerpo            VARCHAR(1000)
+)
+BEGIN
+  DECLARE v_IdCanal INT DEFAULT NULL;
+  DECLARE v_Id      INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  IF p_Asunto IS NULL OR TRIM(p_Asunto) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el asunto del correo.';
+  END IF;
+
+  IF p_Cuerpo IS NULL OR TRIM(p_Cuerpo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el mensaje del correo.';
+  END IF;
+
+  IF p_CorreoDestino IS NULL OR TRIM(p_CorreoDestino) = '' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'El destinatario no tiene correo registrado.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM TB_ENCARGADO
+                 WHERE IdEncargado = p_IdEncargado AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'El destinatario indicado no existe o esta inactivo.';
+  END IF;
+
+  -- La cita es opcional y solo viene cuando el texto hablaba de una. Se valida
+  -- aqui aunque el API ya lo haya hecho, porque la llave foranea fallaria con un
+  -- error de MySQL que sale como 500 y no dice nada.
+  IF p_IdCita IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM TB_CITA WHERE IdCita = p_IdCita) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita indicada no existe.';
+  END IF;
+
+  SELECT IdCanalNotificacion INTO v_IdCanal
+  FROM TB_CANAL_NOTIFICACION
+  WHERE Nombre = 'Correo';
+
+  IF v_IdCanal IS NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'No esta configurado el canal de correo.';
+  END IF;
+
+  START TRANSACTION;
+
+  -- IdCita queda guardado cuando el correo hablaba de una cita. No choca con el
+  -- aviso automatico de esa misma cita: la regla antiduplicado de
+  -- SP_Notificacion_ProgramarRecordatorios y el borrado de
+  -- SP_Notificacion_AvisarCitas filtran por ClavePlantilla, y en el correo
+  -- manual esa columna va en nulo.
+  INSERT INTO TB_NOTIFICACION (IdEncargado, IdCita, IdUsuarioRegistro, IdCanalNotificacion,
+                               CorreoDestino, Asunto, Cuerpo, FechaProgramada)
+  VALUES (p_IdEncargado, p_IdCita, p_IdUsuarioRegistro, v_IdCanal,
+          TRIM(p_CorreoDestino), TRIM(p_Asunto), TRIM(p_Cuerpo), NOW());
+
+  SET v_Id = LAST_INSERT_ID();
+
+  -- Un correo a una familia se audita: deja dicho quien lo mando y a donde
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+  VALUES (p_IdUsuarioRegistro, 'TB_NOTIFICACION', v_Id, 'Crear',
+          JSON_OBJECT('IdEncargado', p_IdEncargado,
+                      'IdCita', p_IdCita,
+                      'CorreoDestino', TRIM(p_CorreoDestino),
+                      'Asunto', TRIM(p_Asunto)));
+
+  COMMIT;
+
+  SELECT v_Id AS IdNotificacion;
+END$$
+DELIMITER ;
+
+-- Solo toca las pendientes: volver a marcar una que ya salio no la duplica ni
+-- le mueve la fecha de envio.
+DROP PROCEDURE IF EXISTS SP_Notificacion_MarcarEnviada;
+DELIMITER $$
+CREATE PROCEDURE SP_Notificacion_MarcarEnviada(
+  IN p_IdNotificacion INT
+)
+BEGIN
+  UPDATE TB_NOTIFICACION
+  SET Enviada = 1,
+      FechaEnvio = NOW(),
+      Intentos = Intentos + 1,
+      MensajeError = NULL
+  WHERE IdNotificacion = p_IdNotificacion
+    AND Enviada = 0;
+
+  SELECT ROW_COUNT() AS Marcadas;
+END$$
+DELIMITER ;
+
+-- Suma el intento y guarda el motivo. No lanza error: se la llama justo cuando
+-- algo ya fallo, y que ademas reventara aqui taparia el error de verdad.
+DROP PROCEDURE IF EXISTS SP_Notificacion_MarcarFallida;
+DELIMITER $$
+CREATE PROCEDURE SP_Notificacion_MarcarFallida(
+  IN p_IdNotificacion INT,
+  IN p_MensajeError   VARCHAR(500)
+)
+BEGIN
+  UPDATE TB_NOTIFICACION
+  SET Intentos = Intentos + 1,
+      MensajeError = LEFT(IFNULL(NULLIF(TRIM(p_MensajeError), ''), 'Error no especificado.'), 500)
+  WHERE IdNotificacion = p_IdNotificacion
+    AND Enviada = 0;
+
+  SELECT ROW_COUNT() AS Marcadas;
+END$$
+DELIMITER ;
+
+-- Historial. p_SoloManuales separa lo que escribio una persona de lo que genero
+-- el sistema, y lo decide IdUsuarioRegistro: con valor es manual, en nulo es
+-- automatico. Es el dato, no una adivinanza por si la fila trae cita.
+--
+-- p_Limite acota la consulta; en nulo trae 50. El destinatario puede ser un
+-- encargado o un usuario interno, asi que el nombre sale del que venga lleno.
+DROP PROCEDURE IF EXISTS SP_Notificacion_Listar;
+DELIMITER $$
+CREATE PROCEDURE SP_Notificacion_Listar(
+  IN p_SoloManuales BOOLEAN,
+  IN p_Limite       INT
+)
+BEGIN
+  DECLARE v_Limite INT DEFAULT 50;
+
+  IF p_Limite IS NOT NULL AND p_Limite BETWEEN 1 AND 500 THEN
+    SET v_Limite = p_Limite;
+  END IF;
+
+  SELECT n.IdNotificacion,
+         n.IdCita,
+         n.IdEncargado,
+         n.IdUsuarioRegistro,
+         n.ClavePlantilla,
+         -- NULLIF porque CONCAT_WS sobre puros NULL devuelve cadena vacia, no
+         -- NULL, y sin esto COALESCE se queda con el vacio y nunca mira al usuario
+         COALESCE(NULLIF(TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, e.SegundoApellido)), ''),
+                  ud.NombreCompleto) AS Destinatario,
+         n.CorreoDestino,
+         cn.Nombre AS Canal,
+         ur.NombreCompleto AS Remitente,
+         n.Asunto,
+         n.Cuerpo,
+         n.FechaProgramada,
+         n.FechaEnvio,
+         n.Enviada,
+         n.Intentos,
+         n.MensajeError
+  FROM TB_NOTIFICACION n
+  JOIN TB_CANAL_NOTIFICACION cn ON cn.IdCanalNotificacion = n.IdCanalNotificacion
+  LEFT JOIN TB_ENCARGADO e ON e.IdEncargado = n.IdEncargado
+  LEFT JOIN TB_USUARIO ud ON ud.IdUsuario = n.IdUsuarioDestinatario
+  LEFT JOIN TB_USUARIO ur ON ur.IdUsuario = n.IdUsuarioRegistro
+  WHERE (IFNULL(p_SoloManuales, 0) = 0 OR n.IdUsuarioRegistro IS NOT NULL)
+  ORDER BY n.FechaProgramada DESC, n.IdNotificacion DESC
+  LIMIT v_Limite;
+END$$
+DELIMITER ;
+
+-- ------------------------------------------------------------
+-- Plantillas de mensajes (HU-M10-5)
+--
+-- Van por procedimiento y no por consulta suelta, aunque sea una tabla plana:
+-- tienen una regla que nadie debe poder saltarse, la de que una plantilla del
+-- sistema no se desactiva. Molde: SP_TipoSesion_Guardar_CRM.
+--
+-- Clave llena = plantilla que usa el sistema solo (el recordatorio la busca por
+-- ahi). Clave nula = plantilla de la usuaria. Nombre, asunto y cuerpo se editan
+-- en las dos; lo unico que cambia es que la del sistema no se puede apagar,
+-- porque el recordatorio automatico se quedaria sin texto.
+--
+-- Que los marcadores entre corchetes sean de la lista cerrada lo valida el
+-- servicio, no esto: en MySQL habria que sacar los corchetes con REGEXP uno por
+-- uno, y el guardia que de verdad importa esta en el envio, que se niega a
+-- mandar un texto con un marcador sin resolver.
+-- ------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS SP_Plantilla_Listar;
+DELIMITER $$
+CREATE PROCEDURE SP_Plantilla_Listar(
+  IN p_SoloActivas BOOLEAN
+)
+BEGIN
+  SELECT IdPlantilla,
+         Clave,
+         Nombre,
+         Asunto,
+         Cuerpo,
+         Activa,
+         FechaCreacion,
+         FechaModificacion
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE (IFNULL(p_SoloActivas, 0) = 0 OR Activa = 1)
+  -- Las del sistema primero: son las que la usuaria busca mas seguido
+  ORDER BY IF(Clave IS NULL, 1, 0), Nombre;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Plantilla_ObtenerDetalle;
+DELIMITER $$
+CREATE PROCEDURE SP_Plantilla_ObtenerDetalle(
+  IN p_IdPlantilla INT
+)
+BEGIN
+  SELECT IdPlantilla,
+         Clave,
+         Nombre,
+         Asunto,
+         Cuerpo,
+         Activa,
+         FechaCreacion,
+         FechaModificacion
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE IdPlantilla = p_IdPlantilla;
+END$$
+DELIMITER ;
+
+-- Asi la busca el recordatorio automatico y el envio de correo: por la clave,
+-- que es estable, y no por id ni por nombre, que la usuaria puede cambiar.
+-- Devuelve la plantilla aunque este inactiva: desactivar una del sistema no se
+-- permite, y si alguien lo logra por la base es mejor que el aviso salga que
+-- que se pierda en silencio.
+DROP PROCEDURE IF EXISTS SP_Plantilla_ObtenerPorClave;
+DELIMITER $$
+CREATE PROCEDURE SP_Plantilla_ObtenerPorClave(
+  IN p_Clave VARCHAR(50)
+)
+BEGIN
+  SELECT IdPlantilla,
+         Clave,
+         Nombre,
+         Asunto,
+         Cuerpo,
+         Activa,
+         FechaCreacion,
+         FechaModificacion
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE Clave = p_Clave;
+END$$
+DELIMITER ;
+
+-- Crea si p_IdPlantilla viene nulo y edita si trae valor, igual que
+-- SP_TipoSesion_Guardar_CRM. Nunca asigna Clave: las del sistema nacen de
+-- 02_catalogos.sql y no se crean desde la pantalla.
+DROP PROCEDURE IF EXISTS SP_Plantilla_Guardar;
+DELIMITER $$
+CREATE PROCEDURE SP_Plantilla_Guardar(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdPlantilla     INT,
+  IN p_Nombre          VARCHAR(100),
+  IN p_Asunto          VARCHAR(200),
+  IN p_Cuerpo          LONGTEXT
+)
+BEGIN
+  DECLARE v_Anterior JSON DEFAULT NULL;
+  DECLARE v_Id       INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  IF p_Nombre IS NULL OR TRIM(p_Nombre) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el nombre de la plantilla.';
+  END IF;
+
+  IF p_Cuerpo IS NULL OR TRIM(p_Cuerpo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el contenido de la plantilla.';
+  END IF;
+
+  -- Se adelanta al indice unico para dar un mensaje y no un 1062 crudo
+  IF EXISTS (SELECT 1 FROM TB_PLANTILLA_MENSAJE
+             WHERE Nombre = TRIM(p_Nombre)
+               AND (p_IdPlantilla IS NULL OR IdPlantilla <> p_IdPlantilla)) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ya existe una plantilla con ese nombre.';
+  END IF;
+
+  IF p_IdPlantilla IS NOT NULL THEN
+    SELECT JSON_OBJECT('Nombre', Nombre, 'Asunto', Asunto, 'Cuerpo', Cuerpo)
+      INTO v_Anterior
+    FROM TB_PLANTILLA_MENSAJE
+    WHERE IdPlantilla = p_IdPlantilla;
+
+    IF v_Anterior IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La plantilla indicada no existe.';
+    END IF;
+  END IF;
+
+  START TRANSACTION;
+
+  IF p_IdPlantilla IS NULL THEN
+    INSERT INTO TB_PLANTILLA_MENSAJE (Clave, Nombre, Asunto, Cuerpo)
+    VALUES (NULL, TRIM(p_Nombre), NULLIF(TRIM(IFNULL(p_Asunto, '')), ''), TRIM(p_Cuerpo));
+
+    SET v_Id = LAST_INSERT_ID();
+  ELSE
+    UPDATE TB_PLANTILLA_MENSAJE
+    SET Nombre = TRIM(p_Nombre),
+        Asunto = NULLIF(TRIM(IFNULL(p_Asunto, '')), ''),
+        Cuerpo = TRIM(p_Cuerpo)
+    WHERE IdPlantilla = p_IdPlantilla;
+
+    SET v_Id = p_IdPlantilla;
+  END IF;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_PLANTILLA_MENSAJE', v_Id,
+          IF(p_IdPlantilla IS NULL, 'Crear', 'Editar'), v_Anterior,
+          JSON_OBJECT('Nombre', TRIM(p_Nombre), 'Asunto', p_Asunto, 'Cuerpo', TRIM(p_Cuerpo)));
+
+  COMMIT;
+
+  SELECT v_Id AS IdPlantilla;
+END$$
+DELIMITER ;
+
+-- Baja logica. Apagar una plantilla del sistema se rechaza: el recordatorio
+-- automatico la lee por Clave y se quedaria sin texto que mandar.
+DROP PROCEDURE IF EXISTS SP_Plantilla_CambiarEstado;
+DELIMITER $$
+CREATE PROCEDURE SP_Plantilla_CambiarEstado(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdPlantilla     INT,
+  IN p_Activa          BOOLEAN
+)
+BEGIN
+  DECLARE v_Activa  TINYINT DEFAULT NULL;
+  DECLARE v_Clave   VARCHAR(50) DEFAULT NULL;
+  DECLARE v_Existe  INT DEFAULT 0;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SELECT COUNT(*), MAX(Activa), MAX(Clave)
+    INTO v_Existe, v_Activa, v_Clave
+  FROM TB_PLANTILLA_MENSAJE
+  WHERE IdPlantilla = p_IdPlantilla;
+
+  IF v_Existe = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La plantilla indicada no existe.';
+  END IF;
+
+  IF IFNULL(p_Activa, 0) = 0 AND v_Clave IS NOT NULL THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Esta plantilla la usa el sistema y no se puede desactivar.';
+  END IF;
+
+  IF v_Activa = IFNULL(p_Activa, 0) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La plantilla ya esta en ese estado.';
+  END IF;
+
+  START TRANSACTION;
+
+  UPDATE TB_PLANTILLA_MENSAJE
+  SET Activa = IFNULL(p_Activa, 0)
+  WHERE IdPlantilla = p_IdPlantilla;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_PLANTILLA_MENSAJE', p_IdPlantilla, 'CambiarEstado',
+          JSON_OBJECT('Activa', v_Activa),
+          JSON_OBJECT('Activa', IFNULL(p_Activa, 0)));
+
+  COMMIT;
 END$$
 DELIMITER ;
 

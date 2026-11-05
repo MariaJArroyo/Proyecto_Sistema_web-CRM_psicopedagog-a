@@ -1,0 +1,174 @@
+### Pruebas de la mensajeria interna (HU-M10-4)
+###
+### Como correrlo:
+###   1. Levantar el API, con la base de 01, 02, 03 y 05 recien corridos.
+###   2. Ejecutar los cuatro logins y pegar cada token en su variable.
+###   3. Ejecutar de arriba hacia abajo. Las pruebas 9 y 10 dejan mensajes.
+###
+### La mensajeria es solo encargado <-> consultorio, en los dos sentidos
+### (decision D-E). El Asistente SI participa (D-G). Los estudiantes no, porque
+### no se autentican.
+###
+### Usuarios sembrados:
+###   1  Psicopedagoga de prueba   consultorio
+###   2  Andrea Solis Mora         encargada, ya tiene el hilo 1 con la psico
+###   3  Administrador de prueba   consultorio
+###   4  Marco Vindas Rojas        encargado, sin hilos
+###   5  Paula Jimenez Arce        encargada PENDIENTE DE ACTIVACION
+###   6  Asistente de prueba       consultorio
+###
+### Hilo sembrado: el 1, abierto por Andrea, con una respuesta de la psico sin
+### leer.
+
+@host = https://localhost:7201
+@token = PEGAR_EL_TOKEN_DE_LA_PSICOPEDAGOGA
+@tokenAndrea = PEGAR_EL_TOKEN_DE_ANDREA
+@tokenMarco = PEGAR_EL_TOKEN_DE_MARCO
+@tokenAsistente = PEGAR_EL_TOKEN_DEL_ASISTENTE
+
+### 0a. Login de la psicopedagoga.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "psicopedagoga.prueba@example.com", "contrasena": "Psico123*" }
+
+### 0b. Login de Andrea (encargada).
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "andrea.prueba@example.com", "contrasena": "Andrea123*" }
+
+### 0c. Login de Marco (encargado).
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "marco.prueba@example.com", "contrasena": "Marco123*" }
+
+### 0d. Login del asistente.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "asistente.prueba@example.com", "contrasena": "Asis123*" }
+
+### 1. Bandeja de la psicopedagoga. Esperado 200 con el hilo 1, contraparte
+###    Andrea, sinLeer 0 (el mensaje sin leer es el que va para Andrea).
+GET {{host}}/api/mensajes
+Authorization: Bearer {{token}}
+
+### 2. Bandeja de Andrea. El mismo hilo, pero con sinLeer 1.
+GET {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+
+### 3. A quien le puede escribir Andrea. Esperado los TRES del consultorio con
+###    su rol. No sale el otro encargado.
+GET {{host}}/api/mensajes/destinatarios
+Authorization: Bearer {{tokenAndrea}}
+
+### 4. A quien le puede escribir la psicopedagoga. Esperado Andrea y Marco.
+###    Paula no sale: su cuenta esta pendiente de activacion.
+GET {{host}}/api/mensajes/destinatarios
+Authorization: Bearer {{token}}
+
+### 5. Contador de Andrea. Esperado { "sinLeer": 1 }.
+GET {{host}}/api/mensajes/sin-leer
+Authorization: Bearer {{tokenAndrea}}
+
+### 6. Andrea abre su hilo. Esperado 200 con los dos mensajes, "mio" en true
+###    solo en el que escribio ella. ABRIR MARCA COMO LEIDO.
+GET {{host}}/api/mensajes/1
+Authorization: Bearer {{tokenAndrea}}
+
+### 7. El contador de Andrea despues de abrir. Esperado { "sinLeer": 0 }.
+GET {{host}}/api/mensajes/sin-leer
+Authorization: Bearer {{tokenAndrea}}
+
+### 8. Marco intenta abrir el hilo de Andrea. Esperado 400 con "La conversacion
+###    indicada no existe." Es la prueba de que cambiando el id en la URL un
+###    encargado NO lee la conversacion de otra familia.
+GET {{host}}/api/mensajes/1
+Authorization: Bearer {{tokenMarco}}
+
+### 9. Marco abre una conversacion nueva con la psicopedagoga (D-H: el encargado
+###    puede empezar). Esperado 200 con idMensaje e idHilo iguales.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenMarco}}
+Content-Type: application/json
+
+{
+  "idUsuarioDestinatario": 1,
+  "asunto": "Consulta de Marco",
+  "cuerpo": "Buenas, queria preguntar algo."
+}
+
+### 10. La psicopedagoga responde. Cambiar el 3 por el idHilo del paso 9.
+###     NO se manda destinatario ni asunto: los dos salen del hilo, y el asunto
+###     queda como "Re: Consulta de Marco".
+POST {{host}}/api/mensajes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idHilo": 3, "cuerpo": "Con gusto, le cuento." }
+
+### 11. Marco ve la conversacion completa. El asunto de la respuesta lleva "Re: ",
+###     y responder otra vez no lo convierte en "Re: Re: ".
+GET {{host}}/api/mensajes/3
+Authorization: Bearer {{tokenMarco}}
+
+### 12. Andrea intenta responder en el hilo de Marco. Esperado 400: el
+###     destinatario de una respuesta sale del hilo, no del cuerpo de la
+###     peticion, asi que no se puede colar.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+Content-Type: application/json
+
+{ "idHilo": 3, "cuerpo": "Me cuelo." }
+
+### 13. Encargada a encargado. Esperado 400: lo prohibe D-E.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+Content-Type: application/json
+
+{ "idUsuarioDestinatario": 4, "asunto": "Hola", "cuerpo": "Texto." }
+
+### 14. Consultorio a consultorio. Esperado 400: tambien lo prohibe D-E.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idUsuarioDestinatario": 3, "asunto": "Hola", "cuerpo": "Texto." }
+
+### 15. A una cuenta pendiente de activacion (Paula). Esperado 400: no podria
+###     contestar.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "idUsuarioDestinatario": 5, "asunto": "Hola", "cuerpo": "Texto." }
+
+### 16. Hilo nuevo sin destinatario. Esperado 400.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+Content-Type: application/json
+
+{ "asunto": "Sin destinatario", "cuerpo": "Texto." }
+
+### 17. Hilo nuevo sin asunto. Esperado 400.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+Content-Type: application/json
+
+{ "idUsuarioDestinatario": 1, "cuerpo": "Texto." }
+
+### 18. Sin cuerpo. Esperado 400.
+POST {{host}}/api/mensajes
+Authorization: Bearer {{tokenAndrea}}
+Content-Type: application/json
+
+{ "idUsuarioDestinatario": 1, "asunto": "Hola", "cuerpo": "" }
+
+### 19. El asistente tiene bandeja propia (D-G). Esperado 200 con lista vacia.
+GET {{host}}/api/mensajes
+Authorization: Bearer {{tokenAsistente}}
+
+### 20. Sin token. Esperado 401.
+GET {{host}}/api/mensajes

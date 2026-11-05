@@ -831,7 +831,211 @@ public class AdminController : Controller
     #endregion
 
 
-    public IActionResult Comunicacion() => View();
+    #region Comunicacion
+
+    // Los tres roles entran a la pantalla: el Asistente tambien escribe a los
+    // encargados. Administrar plantillas si exige Administrador o Psicopedagoga,
+    // y eso se marca accion por accion mas abajo.
+    public async Task<IActionResult> Comunicacion(CancellationToken cancelacion)
+    {
+        var catalogos = new CatalogosComunicacionViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            // Una sola llamada trae destinatarios, plantillas activas y marcadores
+            catalogos = await client.GetFromJsonAsync<CatalogosComunicacionViewModel>(
+                UrlApi("comunicacion/catalogos"), cancelacion) ?? catalogos;
+        }
+        catch (HttpRequestException)
+        {
+            // Sin catalogos la pantalla igual se ve, pero no se puede redactar:
+            // el formulario queda deshabilitado y la vista avisa por que
+            ViewBag.ErrorCarga = "No se pudieron cargar los datos de comunicación.";
+        }
+
+        return View(catalogos);
+    }
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarPlantillas(bool soloActivas, CancellationToken cancelacion)
+        => ReenviarGetAsync($"plantillas?soloActivas={(soloActivas ? "true" : "false")}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> DetallePlantilla(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"plantillas/{id}", cancelacion);
+
+    // Las citas del estudiante, para el selector del formulario de correo
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> CitasCorreo(int idEstudiante, CancellationToken cancelacion)
+        => ReenviarGetAsync($"comunicacion/citas?idEstudiante={idEstudiante}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarNotificaciones(
+            bool soloManuales, int? limite, CancellationToken cancelacion)
+    {
+        var ruta = $"comunicacion/notificaciones?soloManuales={(soloManuales ? "true" : "false")}";
+
+        if (limite is > 0)
+        {
+            ruta += $"&limite={limite}";
+        }
+
+        return ReenviarGetAsync(ruta, cancelacion);
+    }
+
+    // ---------- escrituras ----------
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CrearPlantilla(
+        GuardarPlantillaViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PostAsJsonAsync(UrlApi("plantillas"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo crear la plantilla.");
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarPlantilla(
+        int id, GuardarPlantillaViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(UrlApi($"plantillas/{id}"), modelo, cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo actualizar la plantilla.");
+    }
+
+    // Baja logica: la plantilla no se borra nunca, y la del sistema ni se apaga
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarEstadoPlantilla(
+        int id, bool activa, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"plantillas/{id}/estado"), new CambiarEstadoPlantillaViewModel { Activa = activa },
+            cancelacion);
+
+        return await ResponderSegunApi(respuesta, "No se pudo cambiar el estado de la plantilla.");
+    }
+
+    // ---------- correo (HU-M10-1) ----------
+
+    // Estos dos reenvian el cuerpo tal cual, no solo el codigo: la pantalla
+    // necesita el texto ya sustituido y la lista de marcadores sin resolver.
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> VistaPreviaCorreo(
+        EnviarCorreoViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        return await ReenviarPostAsync("comunicacion/correo/vista-previa", modelo,
+            "No se pudo armar la vista previa.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EnviarCorreo(
+        EnviarCorreoViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        return await ReenviarPostAsync("comunicacion/correo", modelo,
+            "No se pudo enviar el correo.", cancelacion);
+    }
+
+    // ---------- mensajeria interna (HU-M10-4) ----------
+
+    // Los tres roles del panel entran, incluido el Asistente (decision D-G).
+    // Todo va con el usuario autenticado: el API devuelve solo sus hilos.
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarHilos(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes", cancelacion);
+
+    // Abrir el hilo lo marca como leido en el API; es GET y escribe, a proposito
+    [HttpGet]
+    public Task<IActionResult> AbrirHilo(int idHilo, CancellationToken cancelacion)
+        => ReenviarGetAsync($"mensajes/{idHilo}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> DestinatariosMensaje(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes/destinatarios", cancelacion);
+
+    // Lo consulta la burbuja del menu en todas las pantallas del panel. El API
+    // cuenta los del usuario autenticado, asi que no recibe ningun id.
+    [HttpGet]
+    public Task<IActionResult> MensajesSinLeer(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes/sin-leer", cancelacion);
+
+    [HttpPost]
+    public async Task<IActionResult> EnviarMensaje(
+        EnviarMensajeViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        return await ReenviarPostAsync("mensajes", modelo,
+            "No se pudo enviar el mensaje.", cancelacion);
+    }
+
+    // Como ReenviarGetAsync pero para POST con cuerpo: devuelve el JSON del API
+    // y su codigo, en vez de solo decir si salio bien.
+    private async Task<IActionResult> ReenviarPostAsync(
+        string ruta, object modelo, string mensajePorDefecto, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(UrlApi(ruta), modelo, cancelacion);
+
+        var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (string.IsNullOrWhiteSpace(contenido))
+        {
+            contenido = respuesta.IsSuccessStatusCode
+                ? "{}"
+                : JsonSerializer.Serialize(new { mensaje = mensajePorDefecto });
+        }
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
     public IActionResult Dashboard() => View();
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
