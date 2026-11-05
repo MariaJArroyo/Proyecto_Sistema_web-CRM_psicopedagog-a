@@ -1,0 +1,51 @@
+@model MenteActiva.Models.PortalMensajesViewModel
+@{
+    ViewData["Title"] = "Mensajes";
+}
+
+<main class="container py-4">
+    @Html.AntiForgeryToken()
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">Mensajes</h1>
+        <p class="TextoSuave mb-0">
+            Escríbale al consultorio y vea sus respuestas. Los mensajes no son por
+            estudiante: la conversación es con la persona que le atiende.
+        </p>
+    </div>
+
+    @if (ViewBag.ErrorCarga is string errorCarga)
+    {
+        <div class="alert alert-warning" role="alert">@errorCarga</div>
+    }
+
+    <div class="Tarjeta p-3 p-md-4">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <h2 class="h5 mb-1">Sus conversaciones</h2>
+                <p class="TextoSuave mb-0">
+                    Al abrir una conversación sus mensajes quedan marcados como leídos.
+                </p>
+            </div>
+            <button type="button" class="btn btn-primary" id="BotonNuevoHilo">
+                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva consulta
+            </button>
+        </div>
+
+        @* La misma parcial que usa el panel: la pantalla es la misma de los dos lados *@
+        <partial name="_Mensajeria" model="@("Consultorio")" />
+    </div>
+</main>
+
+@section Scripts {
+    <script>
+        window.MENSAJERIA_RUTAS = {
+            hilos: "/Portal/ConsultarHilos",
+            hilo: "/Portal/AbrirHilo",
+            destinatarios: "/Portal/DestinatariosMensaje",
+            enviar: "/Portal/EnviarMensaje"
+        };
+    </script>
+    <script src="~/js/mensajeria.js" asp-append-version="true"></script>
+}

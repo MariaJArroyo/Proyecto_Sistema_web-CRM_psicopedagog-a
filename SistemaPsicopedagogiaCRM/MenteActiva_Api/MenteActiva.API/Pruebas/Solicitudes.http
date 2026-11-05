@@ -1,0 +1,235 @@
+### Pruebas de los endpoints de solicitudes de contacto (M13 / pestania Solicitudes)
+###
+### Esta tanda se escribio al sacar el SQL de SolicitudesController y pasarlo a
+### servicio y repositorio (RG-92 y RG-117). No cambio ningun procedimiento ni
+### ninguna respuesta: sirve para comprobar que sigue respondiendo igual, y de
+### paso cubre la autorizacion por rol que antes faltaba.
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos.
+###   2. Ejecutar los tres logins y pegar cada token donde corresponde.
+###   3. Sembrar la solicitud de prueba con el bloque de SQL de abajo, porque
+###      la unica que traen los datos de prueba puede estar ya convertida y a
+###      esa el procedimiento no la deja cambiar.
+###   4. Ejecutar de arriba hacia abajo.
+###
+### La solicitud de prueba lleva a proposito el telefono y el correo de Paula
+### (encargado 3), para que el detalle devuelva coincidencias:
+###
+###   INSERT INTO TB_SOLICITUD_CONTACTO
+###     (Nombre, Apellido, Telefono, Correo, Mensaje, IdServicioInteres)
+###   VALUES ('Prueba', 'Refactor', '88880003', 'paula.prueba@example.com',
+###           'Mensaje de prueba.', 1);
+###
+### Las pruebas 7 y 13 ESCRIBEN: cambian el estado de esa solicitud y la 13 le
+### pega el mensaje a las observaciones de Paula. Para dejar el entorno como
+### estaba hay que borrar la solicitud sembrada, sus filas de TB_BITACORA y
+### devolver Observaciones de Paula a NULL, o volver a correr los scripts.
+
+@host = https://localhost:7301
+@idSolicitud = 2
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@correoEncargado = andrea.prueba@example.com
+@claveEncargado = Andrea123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+@tokenEncargado = PEGAR_AQUI_EL_TOKEN_DEL_ENCARGADO
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del asistente.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+### 0c. Login de un encargado del portal. Sirve para la prueba 17, que es la que
+###     cubre el hueco que tenia este controlador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoEncargado}}",
+  "contrasena": "{{claveEncargado}}"
+}
+
+### ----------------------------------------------------------
+### Consultas
+### ----------------------------------------------------------
+
+### 1. Listado. Esperado 200 con una fila por solicitud, cada una con su estado
+###    ya resuelto por nombre y con atendidaPor en nulo mientras nadie la toque.
+GET {{host}}/api/solicitudes
+Authorization: Bearer {{token}}
+
+### 2. Catalogo de estados. Esperado 200 con los cuatro: Pendiente, Contactada,
+###    Convertida y Descartada, en ese orden.
+GET {{host}}/api/solicitudes/estados
+Authorization: Bearer {{token}}
+
+### 3. Contador del menu. Esperado 200 con { "pendientes": n }, donde n son las
+###    que estan en estado 1.
+GET {{host}}/api/solicitudes/pendientes
+Authorization: Bearer {{token}}
+
+### 4. Detalle. Esperado 200 con el mensaje completo, la nota interna y el
+###    arreglo "coincidencias": la solicitud sembrada trae el telefono de Paula,
+###    asi que tiene que venir ella con su estado.
+GET {{host}}/api/solicitudes/{{idSolicitud}}
+Authorization: Bearer {{token}}
+
+### 5. Detalle de una que no existe. Esperado 404 con
+###    { "mensaje": "La solicitud no existe." }. Es 404 y no 400 a proposito: la
+###    peticion estaba bien armada, lo que no hay es la solicitud.
+GET {{host}}/api/solicitudes/999
+Authorization: Bearer {{token}}
+
+### 6. Detalle con id 0. Esperado 404, el mismo caso: el servicio ni va a la base.
+GET {{host}}/api/solicitudes/0
+Authorization: Bearer {{token}}
+
+### ----------------------------------------------------------
+### Cambiar estado
+### ----------------------------------------------------------
+
+### 7. Marcar contactada con nota. Esperado 200 con el mensaje de confirmacion.
+###    Despues de esto la fila queda en estado 2, con IdUsuarioAtiende y
+###    FechaAtencion puestos, y hay una fila nueva en TB_BITACORA con el valor
+###    anterior y el nuevo. Los espacios de la nota se recortan.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 2,
+  "notaInterna": "  Se le llamo y quedo a la espera.  "
+}
+
+### 8. Intentar poner "Convertida" (3) a mano. Esperado 400 con "Estado no
+###    permitido para esta accion.": a ese estado solo se llega convirtiendo o
+###    vinculando, y la regla vive en el procedimiento.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 3
+}
+
+### 9. Estado fuera del rango del modelo. Esperado 400 con "Seleccione un estado
+###    valido para la solicitud.", que es el mensaje de la anotacion: lo rechaza
+###    [ApiController] antes de entrar al controlador, sin tocar la base.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 9
+}
+
+### 10. Solicitud que no existe. Esperado 400 con "La solicitud indicada no
+###     existe.", que sale del procedimiento como SIGNAL 45000.
+PUT {{host}}/api/solicitudes/999/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 2
+}
+
+### ----------------------------------------------------------
+### Vincular a un cliente que ya existe
+### ----------------------------------------------------------
+
+### 11. Sin cliente. Esperado 400 con "Debe indicar el cliente al que se
+###     vincula.", del modelo.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/vincular
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 0
+}
+
+### 12. Cliente que no existe. Esperado 400 con "El cliente indicado no existe."
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/vincular
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 999
+}
+
+### 13. Vincular a Paula. Esperado 200. La solicitud queda en estado 3 y el
+###     mensaje se le agrega a las observaciones de Paula, con la fecha.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/vincular
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3
+}
+
+### 14. Cambiarle el estado despues de vincularla. Esperado 400 con "La solicitud
+###     ya fue convertida en cliente."
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 2
+}
+
+### ----------------------------------------------------------
+### Permisos
+### ----------------------------------------------------------
+
+### 15. Sin token. Esperado 401.
+GET {{host}}/api/solicitudes
+
+### 16. El asistente SI entra: atiende la comunicacion con los encargados y es
+###     quien contesta estas solicitudes. Esperado 200.
+GET {{host}}/api/solicitudes
+Authorization: Bearer {{tokenAsistente}}
+
+### 17. Un encargado del portal NO entra. Esperado 403.
+###
+###     Esta es la prueba que importa del arreglo: antes el controlador no
+###     declaraba roles y solo heredaba la politica global, que pide sesion pero
+###     no mira el rol. Con eso cualquier encargado con portal podia leer el
+###     nombre, el telefono y el correo de las familias que escribieron por el
+###     formulario del sitio.
+GET {{host}}/api/solicitudes
+Authorization: Bearer {{tokenEncargado}}
+
+### 18. Y tampoco puede escribir. Esperado 403 en los dos.
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/estado
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: application/json
+
+{
+  "idEstadoSolicitud": 2
+}
+
+###
+PUT {{host}}/api/solicitudes/{{idSolicitud}}/vincular
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3
+}

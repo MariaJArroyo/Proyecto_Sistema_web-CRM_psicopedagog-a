@@ -187,4 +187,37 @@ INSERT INTO TB_HORARIO_ATENCION (IdHorarioAtencion, DiaSemana, HoraInicio, HoraF
   (5, 5, '08:00:00', '17:00:00')
 ON DUPLICATE KEY UPDATE IdHorarioAtencion = IdHorarioAtencion;
 
-
+-- ------------------------------------------------------------
+-- Plantillas de mensajes (M10)
+--
+-- Las cuatro primeras tienen Clave: el sistema las usa solo y no se
+-- desactivan desde el panel. Las dos ultimas nacen para la usuaria y
+-- puede cambiarlas o apagarlas sin romper nada.
+--
+-- Marcadores que el servidor sustituye. La lista es cerrada: cualquier
+-- otra cosa entre corchetes bloquea el envio en vez de salir en el correo.
+--   [Encargado]   nombre del encargado que recibe
+--   [Estudiante]  nombre del estudiante
+--   [Fecha]       fecha de la cita, dd/mm/aaaa
+--   [Hora]        hora de la cita, HH:MM
+--   [Consultorio] valor de la clave NombreConsultorio
+--   [Motivo]      motivo de la cancelacion, solo en CancelacionCita
+--
+-- El cuerpo de RecordatorioCita repite palabra por palabra el texto que
+-- hasta ahora estaba incrustado en SP_Notificacion_ProgramarRecordatorios,
+-- para que sacarlo de ahi no cambie lo que recibe la familia.
+-- ------------------------------------------------------------
+INSERT INTO TB_PLANTILLA_MENSAJE (IdPlantilla, Clave, Nombre, Asunto, Cuerpo) VALUES
+  (1, 'RecordatorioCita', 'Recordatorio de cita', 'Recordatorio de cita',
+   'Le recordamos la cita de [Estudiante] el [Fecha] a las [Hora].'),
+  (2, 'ConfirmacionCita', 'Confirmación de cita agendada', 'Cita agendada',
+   'Hola [Encargado], la cita de [Estudiante] quedó agendada para el [Fecha] a las [Hora]. Le esperamos.'),
+  (3, 'ActualizacionCita', 'Cita reprogramada', 'Su cita cambió de fecha',
+   'Hola [Encargado], la cita de [Estudiante] se movió al [Fecha] a las [Hora].'),
+  (4, 'CancelacionCita', 'Cita cancelada', 'Cita cancelada',
+   'Hola [Encargado], la cita de [Estudiante] del [Fecha] a las [Hora] quedó cancelada. Motivo: [Motivo].'),
+  (5, NULL, 'Bienvenida a nuevo cliente', 'Bienvenido a [Consultorio]',
+   'Bienvenido a [Consultorio]. Estamos para acompañar el proceso de aprendizaje de [Estudiante].'),
+  (6, NULL, 'Seguimiento de pago pendiente', 'Pago pendiente',
+   'Hola [Encargado], le recordamos que el pago de [Estudiante] se encuentra pendiente. Cualquier consulta, escríbanos.')
+ON DUPLICATE KEY UPDATE IdPlantilla = IdPlantilla;

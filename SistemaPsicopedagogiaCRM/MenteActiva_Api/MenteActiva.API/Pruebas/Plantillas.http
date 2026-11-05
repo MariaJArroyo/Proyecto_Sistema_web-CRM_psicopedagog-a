@@ -1,0 +1,222 @@
+### Pruebas de los endpoints de plantillas de mensajes (HU-M10-5)
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos: las plantillas 1 a 6 son semillas de 02_catalogos.sql.
+###   2. Ejecutar "0. Login" y copiar el token a la variable @token de abajo.
+###      Para las pruebas de permisos del final hacen falta los otros dos.
+###   3. Ejecutar de arriba hacia abajo. Las pruebas 6 a 11 crean y editan una
+###      plantilla de prueba, y la 12 la deja desactivada: para repetir la tanda
+###      limpia hay que volver a correr los scripts.
+###
+### Plantillas sembradas:
+###   1  RecordatorioCita    del sistema, la usa el recordatorio automatico
+###   2  ConfirmacionCita    del sistema
+###   3  ActualizacionCita   del sistema
+###   4  CancelacionCita     del sistema
+###   5  (sin clave)         Bienvenida a nuevo cliente, de la usuaria
+###   6  (sin clave)         Seguimiento de pago pendiente, de la usuaria
+###
+### Marcadores permitidos: [Encargado] [Estudiante] [Fecha] [Hora]
+###                        [Consultorio] [Motivo]
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoPsico = psicopedagoga.prueba@example.com
+@clavePsico = Psico123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+
+### 0. Login del administrador. Devuelve 200 con el token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del asistente. Sirve para las pruebas de permisos del final.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+### 1. Listar todas. Esperado 200 con 6 plantillas, las 4 del sistema primero
+###    (esSistema = true) y despues las de la usuaria, ordenadas por nombre.
+GET {{host}}/api/plantillas
+Authorization: Bearer {{token}}
+
+### 2. Listar solo las activas. Esperado 200 con las mismas 6, porque ninguna
+###    semilla nace desactivada. Es lo que pide el selector al redactar.
+GET {{host}}/api/plantillas?soloActivas=true
+Authorization: Bearer {{token}}
+
+### 3. Detalle de una del sistema. Esperado 200 con clave "RecordatorioCita"
+###    y esSistema = true.
+GET {{host}}/api/plantillas/1
+Authorization: Bearer {{token}}
+
+### 4. Detalle de una que no existe. Esperado 400 con
+###    { "mensaje": "La plantilla indicada no existe." }
+GET {{host}}/api/plantillas/999
+Authorization: Bearer {{token}}
+
+### 5. Catalogos. Esperado 200 con los 6 marcadores ya con corchetes.
+GET {{host}}/api/plantillas/catalogos
+Authorization: Bearer {{token}}
+
+### 6. Crear una valida. Esperado 200 con el idPlantilla nuevo.
+POST {{host}}/api/plantillas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Aviso de material nuevo",
+  "asunto": "Material nuevo para [Estudiante]",
+  "cuerpo": "Hola [Encargado], subimos material nuevo para [Estudiante]. Cualquier duda nos escribe."
+}
+
+### 7. Crear con un marcador que no existe. Esperado 400, con el marcador malo
+###    y la lista de los que si se pueden usar.
+POST {{host}}/api/plantillas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Plantilla con marcador malo",
+  "asunto": "Hola [Encargdo]",
+  "cuerpo": "Texto para [Alumno], que no es un marcador valido."
+}
+
+### 8. Crear con el nombre de una que ya existe. Esperado 400 con
+###    { "mensaje": "Ya existe una plantilla con ese nombre." }
+POST {{host}}/api/plantillas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Cita cancelada",
+  "cuerpo": "Cualquier texto."
+}
+
+### 9. Crear sin cuerpo. Esperado 400 por la validacion del modelo, antes de
+###    llegar a la base.
+POST {{host}}/api/plantillas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Plantilla sin cuerpo",
+  "cuerpo": ""
+}
+
+### 10. Editar la del paso 6. Cambiar el 7 por el id que devolvio.
+###     Esperado 200 y fechaModificacion llena al volver a consultarla.
+PUT {{host}}/api/plantillas/7
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Aviso de material nuevo",
+  "asunto": "Material nuevo en [Consultorio]",
+  "cuerpo": "Hola [Encargado], ya hay material nuevo para [Estudiante]."
+}
+
+### 11. Editar una del sistema. Esperado 200: el texto de las del sistema si se
+###     cambia, lo unico que no se puede es apagarlas.
+PUT {{host}}/api/plantillas/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Recordatorio de cita",
+  "asunto": "Recordatorio de su cita",
+  "cuerpo": "Le recordamos la cita de [Estudiante] el [Fecha] a las [Hora]."
+}
+
+### 12. Desactivar la del paso 6. Esperado 200. Despues de esto, el paso 2
+###     devuelve 6 y el paso 1 sigue devolviendo 7.
+PUT {{host}}/api/plantillas/7/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "activa": false
+}
+
+### 13. Desactivar una del sistema. Esperado 400 con
+###     { "mensaje": "Esta plantilla la usa el sistema y no se puede desactivar." }
+PUT {{host}}/api/plantillas/1/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "activa": false
+}
+
+### 14. Volver a desactivar la que ya esta desactivada. Esperado 400 con
+###     { "mensaje": "La plantilla ya esta en ese estado." }
+PUT {{host}}/api/plantillas/7/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "activa": false
+}
+
+### 15. Reactivar la del paso 6. Esperado 200.
+PUT {{host}}/api/plantillas/7/estado
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "activa": true
+}
+
+### ----------------------------------------------------------
+### Permisos
+### ----------------------------------------------------------
+
+### 16. Sin token. Esperado 401.
+GET {{host}}/api/plantillas
+
+### 17. El asistente SI puede leer: escribe mensajes a los encargados y
+###     necesita las plantillas. Esperado 200.
+GET {{host}}/api/plantillas?soloActivas=true
+Authorization: Bearer {{tokenAsistente}}
+
+### 18. El asistente NO puede crear. Esperado 403.
+POST {{host}}/api/plantillas
+Authorization: Bearer {{tokenAsistente}}
+Content-Type: application/json
+
+{
+  "nombre": "Plantilla del asistente",
+  "cuerpo": "No deberia poder guardarse."
+}
+
+### 19. El asistente NO puede editar. Esperado 403.
+PUT {{host}}/api/plantillas/5
+Authorization: Bearer {{tokenAsistente}}
+Content-Type: application/json
+
+{
+  "nombre": "Bienvenida a nuevo cliente",
+  "cuerpo": "No deberia poder guardarse."
+}
+
+### 20. El asistente NO puede desactivar. Esperado 403.
+PUT {{host}}/api/plantillas/5/estado
+Authorization: Bearer {{tokenAsistente}}
+Content-Type: application/json
+
+{
+  "activa": false
+}

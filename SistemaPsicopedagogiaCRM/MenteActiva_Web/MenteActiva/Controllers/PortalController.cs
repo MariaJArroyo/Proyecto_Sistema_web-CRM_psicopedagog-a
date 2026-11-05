@@ -567,6 +567,122 @@ public class PortalController : Controller
     }
 
 
+    #region Mensajes (HU-M10-4)
+
+    // Los mensajes NO son por estudiante: la conversacion es entre el encargado
+    // y el consultorio. Igual se cargan los estudiantes, porque _NavbarPortal los
+    // necesita para su selector y para que los demas enlaces no pierdan el
+    // estudiante que la persona venia viendo.
+    public async Task<IActionResult> Mensajes(int? idEstudiante, CancellationToken cancelacion)
+    {
+        var modelo = new PortalMensajesViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var ruta = "portal/inicio";
+
+            if (idEstudiante.HasValue)
+            {
+                ruta += $"?idEstudiante={idEstudiante.Value}";
+            }
+
+            var inicio = await client.GetFromJsonAsync<PortalInicioViewModel>(
+                UrlApi(ruta), cancelacion);
+
+            if (inicio is not null)
+            {
+                modelo.Estudiantes = inicio.Estudiantes;
+                modelo.IdEstudiante = inicio.Resumen.IdEstudiante;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Sin los estudiantes la pantalla de mensajes igual sirve: lo unico
+            // que se pierde es el selector de arriba
+            ViewBag.ErrorCarga = "No se pudieron cargar sus estudiantes.";
+        }
+
+        return View(modelo);
+    }
+
+    // ---------- se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarHilos(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> AbrirHilo(int idHilo, CancellationToken cancelacion)
+        => ReenviarGetAsync($"mensajes/{idHilo}", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> DestinatariosMensaje(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes/destinatarios", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> MensajesSinLeer(CancellationToken cancelacion)
+        => ReenviarGetAsync("mensajes/sin-leer", cancelacion);
+
+    [HttpPost]
+    public async Task<IActionResult> EnviarMensaje(
+        EnviarMensajeViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            var errores = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct();
+
+            return BadRequest(new { mensaje = string.Join(" ", errores) });
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(UrlApi("mensajes"), modelo, cancelacion);
+
+        var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (string.IsNullOrWhiteSpace(contenido))
+        {
+            contenido = respuesta.IsSuccessStatusCode
+                ? "{}"
+                : "{\"mensaje\":\"No se pudo enviar el mensaje.\"}";
+        }
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    // Reenvia la respuesta del API tal cual, con su codigo y su cuerpo
+    private async Task<IActionResult> ReenviarGetAsync(string ruta, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(UrlApi(ruta), cancelacion);
+
+        var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode && string.IsNullOrWhiteSpace(contenido))
+        {
+            contenido = "{\"mensaje\":\"No se pudo completar la consulta.\"}";
+        }
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
+
+    #endregion
+
     #region Otras pantallas
 
 

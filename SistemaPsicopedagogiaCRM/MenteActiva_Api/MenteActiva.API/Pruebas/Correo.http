@@ -1,0 +1,310 @@
+### Pruebas de los endpoints de correo manual (HU-M10-1)
+###
+### OJO: la prueba 4 MANDA UN CORREO DE VERDAD. Sale por el SMTP de Gmail con
+### la cuenta del proyecto y llega a menteactiva.dev@gmail.com, que es la
+### direccion sembrada en los encargados 1 y 4. Si no quiere mandar nada,
+### cambie "Correo:Proveedor" a "Registro" en los User Secrets: con eso el
+### correo se escribe en la consola del API y no sale a ningun lado.
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos.
+###   2. Ejecutar "0. Login" y copiar el token a @token. Para las pruebas de
+###      permisos hace falta tambien el del asistente.
+###   3. Ejecutar de arriba hacia abajo. Las pruebas 4, 8 y 8b dejan filas en
+###      TB_NOTIFICACION: para repetir la tanda limpia hay que volver a correr
+###      los scripts.
+###
+### Destinatarios sembrados (encargado activo y con correo):
+###   1  Andrea Solis Mora    menteactiva.dev@gmail.com   estudiante: Lucia
+###   2  Marco Vindas Rojas   marco.prueba@example.com    estudiantes: Lucia, Tomas
+###   3  Paula Jimenez Arce   paula.prueba@example.com    estudiante: Tomas
+###   4  Diego Campos         menteactiva.dev@gmail.com   SIN estudiantes
+###
+### Marcadores que se resuelven en un correo manual:
+###   [Encargado]   siempre
+###   [Consultorio] siempre, de la clave NombreConsultorio
+###   [Estudiante]  solo si se manda idEstudiante
+###   [Fecha] [Hora]  solo si se manda idCita
+###   [Motivo]      solo si la cita de idCita esta cancelada, porque en TB_CITA
+###                 el unico motivo que existe es el de cancelacion
+###
+### Citas sembradas que sirven para probar idCita (SP_Correo_ListarCitasEstudiante
+### solo ofrece las de los ultimos 90 dias y las futuras):
+###   4  estudiante 2 (Tomas)  05/10/2026 09:45  CANCELADA, con motivo
+###   2  estudiante 2 (Tomas)  05/10/2026 09:30  Completada, sin motivo
+###   1  estudiante 1 (Lucia)  05/10/2026 09:00
+### Tomas esta a cargo de los encargados 2 (Marco) y 3 (Paula).
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+
+### 0. Login del administrador. Devuelve 200 con el token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del asistente, para las pruebas de permisos.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+### 1. Catalogos. Esperado 200 con 4 destinatarios, 6 plantillas activas y los
+###    6 marcadores. Diego Campos tiene que venir con "estudiantes": [].
+GET {{host}}/api/comunicacion/catalogos
+Authorization: Bearer {{token}}
+
+### 2. Vista previa que si se puede resolver. Esperado 200,
+###    sePuedeEnviar = true, sinResolver vacio, y el asunto y el cuerpo ya con
+###    los nombres puestos. No escribe nada en la base.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "idEstudiante": 1,
+  "asunto": "Hola [Encargado]",
+  "cuerpo": "Le escribimos de [Consultorio] sobre [Estudiante]."
+}
+
+### 3. Vista previa con marcadores que no se pueden resolver. Esperado 200 con
+###    sePuedeEnviar = false, sinResolver ["Estudiante","Fecha","Hora"] y una
+###    advertencia que explica cada caso por separado: a [Estudiante] le falta el
+###    estudiante y a los otros dos les falta la cita.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "asunto": "Hola [Encargado]",
+  "cuerpo": "Sobre [Estudiante] el [Fecha] a las [Hora]."
+}
+
+### 3b. Citas que se le pueden ofrecer para el estudiante 2. Esperado 200 con las
+###     citas 4 y 2, la cancelada primero porque es la mas reciente, y la 4 con
+###     motivoCancelacion lleno.
+GET {{host}}/api/comunicacion/citas?idEstudiante=2
+Authorization: Bearer {{token}}
+
+### 3c. Vista previa CON cita cancelada. Esperado 200, sePuedeEnviar = true y el
+###     cuerpo ya con 05/10/2026, 09:45 y el motivo puestos. El formato de la
+###     fecha es el mismo que arma FN_Plantilla_Sustituir en la base.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3,
+  "idEstudiante": 2,
+  "idCita": 4,
+  "asunto": "Cita cancelada de [Estudiante]",
+  "cuerpo": "Hola [Encargado], la cita de [Estudiante] del [Fecha] a las [Hora] quedo cancelada. Motivo: [Motivo]. Atentamente, [Consultorio]."
+}
+
+### 3d. La misma cosa con una cita que NO esta cancelada. Esperado 200 con
+###     sePuedeEnviar = false y sinResolver ["Motivo"] solamente: [Fecha] y
+###     [Hora] si salen de la cita.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3,
+  "idEstudiante": 2,
+  "idCita": 2,
+  "asunto": "Asunto",
+  "cuerpo": "El [Fecha] a las [Hora]. Motivo: [Motivo]."
+}
+
+### 3e. Cita que es de otro estudiante. Esperado 400: la cita 1 es de Lucia.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3,
+  "idEstudiante": 2,
+  "idCita": 1,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 3f. Cita sin estudiante. Esperado 400 con "Para elegir una cita hay que
+###     elegir primero el estudiante.": la cita cuelga del estudiante.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3,
+  "idCita": 4,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 4. ENVIO REAL. Esperado 200 con { idNotificacion, correoDestino, mensaje }.
+###    Despues de esto, la fila queda Enviada = 1, Intentos = 1 y con
+###    FechaEnvio, y hay una fila nueva en TB_BITACORA.
+###    El salto de linea doble se convierte en dos parrafos en el correo.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "idEstudiante": 1,
+  "asunto": "Prueba de [Consultorio] para [Encargado]",
+  "cuerpo": "Buenas tardes [Encargado].\n\nEste es un correo de prueba del modulo de comunicacion, sobre [Estudiante].\n\nGracias."
+}
+
+### 5. Enviar con [Estudiante] pero sin mandar idEstudiante. Esperado 400 con la
+###    advertencia, y NADA escrito en la base: la validacion va antes del
+###    registro justamente para no dejar basura.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "asunto": "Sin estudiante",
+  "cuerpo": "Sobre [Estudiante]."
+}
+
+### 6. Destinatario que no existe. Esperado 400 con
+###    "El destinatario indicado no existe, esta inactivo o no tiene correo
+###    registrado." Lo mismo sale con el encargado inactivo y con el que no
+###    tiene correo: a proposito, para no decirle a quien pregunta cual de las
+###    tres cosas pasa.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 999,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 7. Estudiante que no esta a cargo de ese encargado. Esperado 400.
+###    El estudiante 2 (Tomas) no es de Andrea.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "idEstudiante": 2,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 8. A una direccion que no existe de verdad. Esperado 200: el SMTP de Gmail
+###    ACEPTA el mensaje en el momento y el rebote llega despues, aparte. O sea
+###    que el sistema puede confirmar que lo mando, no que llego. El rebote cae
+###    en la bandeja de la cuenta del proyecto.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 2,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 8b. ENVIO REAL con cita. Esperado 200. La fila que queda en TB_NOTIFICACION
+###     trae IdCita = 4 y ClavePlantilla en nulo, y la bitacora anota el IdCita.
+###     Eso no choca con el aviso automatico de esa misma cita: la regla
+###     antiduplicado del recordatorio filtra por ClavePlantilla.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 3,
+  "idEstudiante": 2,
+  "idCita": 4,
+  "asunto": "Sobre la cita del [Fecha]",
+  "cuerpo": "Hola [Encargado], la cita de [Estudiante] del [Fecha] a las [Hora] quedo cancelada. Motivo: [Motivo]."
+}
+
+### 9. Sin asunto. Esperado 400 por la validacion del modelo, antes de tocar la
+###    base y antes de intentar cualquier envio.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "asunto": "",
+  "cuerpo": "Texto."
+}
+
+### 10. Historial solo de lo manual. Esperado 200 con los correos de las pruebas
+###     4 y 8, cada uno con su remitente, y sin el recordatorio sembrado.
+GET {{host}}/api/comunicacion/notificaciones?soloManuales=true
+Authorization: Bearer {{token}}
+
+### 11. Historial completo. Esperado 200 e incluye la notificacion 1, que es
+###     automatica: viene con remitente nulo y esManual = false.
+GET {{host}}/api/comunicacion/notificaciones
+Authorization: Bearer {{token}}
+
+### 12. Historial acotado. Esperado 200 con una sola fila, la mas reciente.
+GET {{host}}/api/comunicacion/notificaciones?limite=1
+Authorization: Bearer {{token}}
+
+### ----------------------------------------------------------
+### Permisos
+### ----------------------------------------------------------
+
+### 13. Sin token. Esperado 401.
+GET {{host}}/api/comunicacion/catalogos
+
+### 14. El asistente SI ve el historial: atiende la comunicacion con los
+###     encargados y necesita saber que ya se les escribio. Esperado 200.
+GET {{host}}/api/comunicacion/notificaciones?soloManuales=true
+Authorization: Bearer {{tokenAsistente}}
+
+### 15. El asistente NO envia correo. Esperado 403.
+POST {{host}}/api/comunicacion/correo
+Authorization: Bearer {{tokenAsistente}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}
+
+### 15b. El asistente NO ve las citas del formulario: solo sirven para redactar.
+###      Esperado 403.
+GET {{host}}/api/comunicacion/citas?idEstudiante=2
+Authorization: Bearer {{tokenAsistente}}
+
+### 16. El asistente NO ve la vista previa, porque es el paso anterior al envio.
+###     Esperado 403.
+POST {{host}}/api/comunicacion/correo/vista-previa
+Authorization: Bearer {{tokenAsistente}}
+Content-Type: application/json
+
+{
+  "idEncargado": 1,
+  "asunto": "Asunto",
+  "cuerpo": "Texto."
+}

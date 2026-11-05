@@ -1,200 +1,563 @@
+@model MenteActiva.Models.CatalogosComunicacionViewModel
 @{
     ViewData["Title"] = "Comunicación";
+    var puedeAdministrar = User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
+    var hayDestinatarios = Model.Destinatarios.Count > 0;
+
+    // JsonSerializer suelto escribe las propiedades en PascalCase, y el resto
+    // del JavaScript de la pantalla lee camelCase porque es lo que devuelve el
+    // API. Sin esto, lo que se inyecta aqui llega con otros nombres y el
+    // selector de estudiantes no encuentra nada.
+    var jsonCamel = new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    };
 }
 
-      <main class="PrincipalAdmin">
-        <div class="mb-4">
-          <h2 class="mb-1">Comunicación y notificaciones</h2>
-          <p class="TextoSuave mb-0">Correo, recordatorios automáticos, mensajería interna y plantillas.</p>
-        </div>
+<main class="PrincipalAdmin">
+    @Html.AntiForgeryToken()
 
-        <ul class="nav nav-pills mb-3" id="SelectorComunicacion">
-          <li class="nav-item"><button type="button" class="nav-link active" data-vista="Correo">Correo</button></li>
-          <li class="nav-item"><button type="button" class="nav-link" data-vista="Recordatorios">Recordatorios automáticos</button></li>
-          <li class="nav-item"><button type="button" class="nav-link" data-vista="Mensajeria">Mensajería interna</button></li>
-          <li class="nav-item"><button type="button" class="nav-link" data-vista="Plantillas">Plantillas</button></li>
-        </ul>
+    <div class="mb-4">
+        <h2 class="mb-1">Comunicación y notificaciones</h2>
+        <p class="TextoSuave mb-0">Correo, recordatorios automáticos, mensajería interna y plantillas.</p>
+    </div>
 
-        <div class="Tarjeta p-3 p-md-4" id="VistaCorreo">
-          <h3 class="mb-3">Redactar correo</h3>
-          <!-- Razor: asp-controller="Comunicacion" asp-action="EnviarCorreo" method="post" -->
-          <form id="FormularioCorreo" novalidate>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label for="DestinatarioCorreo" class="form-label CampoObligatorio">Destinatario</label>
-                <select class="form-select" id="DestinatarioCorreo" name="DestinatarioId">
-                  <option value="" selected>Seleccione un cliente</option>
-                  <option value="CarlosJimenez">Carlos Jiménez — carlos.jimenez@@example.com</option>
-                  <option value="RodolfoVargas">Rodolfo Vargas — rodolfo.vargas@@example.com</option>
-                  <option value="MarjorieCastro">Marjorie Castro — marjorie.castro@@example.com</option>
-                  <option value="JoseFernandez">José Fernández — jose.fernandez@@example.com</option>
-                  <option value="LauraMendez">Laura Méndez — laura.mendez@@example.com</option>
-                </select>
-                <div class="invalid-feedback"></div>
-              </div>
-              <div class="col-md-6">
-                <label for="AsuntoCorreo" class="form-label CampoObligatorio">Asunto</label>
-                <input type="text" class="form-control" id="AsuntoCorreo" name="Asunto">
-                <div class="invalid-feedback"></div>
-              </div>
-              <div class="col-12">
-                <label for="MensajeCorreo" class="form-label CampoObligatorio">Mensaje</label>
-                <textarea class="form-control" id="MensajeCorreo" name="Mensaje" rows="5"></textarea>
-                <div class="invalid-feedback"></div>
-              </div>
+    @if (ViewBag.ErrorCarga is string errorCarga)
+    {
+        <div class="alert alert-warning" role="alert">@errorCarga</div>
+    }
+
+    <ul class="nav nav-pills mb-3" id="SelectorComunicacion">
+        <li class="nav-item">
+            <button type="button" class="nav-link active" data-vista="Correo">Correo</button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link" data-vista="Recordatorios">Recordatorios automáticos</button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link" data-vista="Mensajeria">Mensajería interna</button>
+        </li>
+        <li class="nav-item">
+            <button type="button" class="nav-link" data-vista="Plantillas">Plantillas</button>
+        </li>
+    </ul>
+
+    @* ============================================================
+       Correo (HU-M10-1)
+       ============================================================ *@
+
+    <div id="VistaCorreo">
+        <div class="row g-3">
+
+            <div class="col-xl-7">
+                <div class="Tarjeta p-3 p-md-4 h-100">
+                    <h3 class="mb-1">Redactar correo</h3>
+                    <p class="TextoSuave">
+                        Se le escribe a un encargado registrado. El correo sale a nombre del
+                        consultorio y queda anotado con la dirección a la que se mandó.
+                    </p>
+
+                    @if (!puedeAdministrar)
+                    {
+                        <div class="alert alert-light border mb-0">
+                            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+                            Su rol puede consultar el historial, pero no enviar correos.
+                        </div>
+                    }
+                    else if (!hayDestinatarios)
+                    {
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+                            No hay destinatarios disponibles. Para escribirle a un encargado,
+                            primero hay que registrarle un correo en su ficha.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert d-none" id="AlertaCorreo" role="alert"></div>
+
+                        <form id="FormularioCorreo" novalidate>
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <label for="DestinatarioCorreo" class="form-label CampoObligatorio">
+                                        Destinatario
+                                    </label>
+                                    <select class="form-select" id="DestinatarioCorreo">
+                                        <option value="" selected>Seleccione un encargado</option>
+                                        @foreach (var destinatario in Model.Destinatarios)
+                                        {
+                                            <option value="@destinatario.IdEncargado">
+                                                @destinatario.Encargado — @destinatario.Correo
+                                            </option>
+                                        }
+                                    </select>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label for="EstudianteCorreo" class="form-label">Estudiante</label>
+                                    <select class="form-select" id="EstudianteCorreo" disabled>
+                                        <option value="">Sin estudiante</option>
+                                    </select>
+                                    <div class="form-text" id="AyudaEstudianteCorreo">
+                                        Solo hace falta si el texto usa <code>[Estudiante]</code>.
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="CitaCorreo" class="form-label">Cita de la que habla el correo</label>
+                                    <select class="form-select" id="CitaCorreo" disabled>
+                                        <option value="">Sin cita</option>
+                                    </select>
+                                    <div class="form-text" id="AyudaCitaCorreo">
+                                        Solo hace falta si el texto usa <code>[Fecha]</code>,
+                                        <code>[Hora]</code> o <code>[Motivo]</code>. Primero elija
+                                        un estudiante.
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="PlantillaCorreo" class="form-label">Partir de una plantilla</label>
+                                    <select class="form-select" id="PlantillaCorreo">
+                                        <option value="">Escribir desde cero</option>
+                                        @foreach (var plantilla in Model.Plantillas)
+                                        {
+                                            <option value="@plantilla.IdPlantilla">@plantilla.Nombre</option>
+                                        }
+                                    </select>
+                                    <div class="form-text">
+                                        Al elegirla se copia su asunto y su texto. Lo que se edite
+                                        aquí no cambia la plantilla.
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="AsuntoCorreo" class="form-label CampoObligatorio">Asunto</label>
+                                    <input type="text" class="form-control" id="AsuntoCorreo" maxlength="200">
+                                    <div class="invalid-feedback"></div>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="CuerpoCorreo" class="form-label CampoObligatorio">Mensaje</label>
+                                    <textarea class="form-control" id="CuerpoCorreo" rows="8"
+                                              maxlength="1000"></textarea>
+                                    <div class="invalid-feedback"></div>
+                                    <div class="form-text">
+                                        <span id="ContadorCuerpoCorreo">0</span> de 1000 caracteres.
+                                        Una línea en blanco separa párrafos.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-3 p-3 bg-body-tertiary mt-3">
+                                <p class="fw-semibold mb-2">
+                                    <i class="bi bi-braces me-1" aria-hidden="true"></i>Marcadores
+                                </p>
+                                <p class="mb-2">
+                                    @foreach (var marcador in Model.Marcadores)
+                                    {
+                                        <code class="me-2">@marcador</code>
+                                    }
+                                </p>
+                                <p class="mb-0 small" id="MarcadoresCorreo">
+                                    <span class="TextoSuave">
+                                        Al enviar se reemplazan por los datos reales. Revise la vista
+                                        previa antes de mandar.
+                                    </span>
+                                </p>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button type="button" class="btn btn-outline-secondary" id="BotonVistaPreviaCorreo">
+                                    <i class="bi bi-eye me-1" aria-hidden="true"></i>Ver vista previa
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="BotonEnviarCorreo">
+                                    <i class="bi bi-send me-1" aria-hidden="true"></i>Enviar correo
+                                </button>
+                            </div>
+                        </form>
+                    }
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary mt-3">
-              <i class="bi bi-send me-1"></i>Enviar correo
+
+            <div class="col-xl-5">
+                <div class="Tarjeta p-3 p-md-4 h-100">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                        <div>
+                            <h3 class="mb-1">Correos enviados</h3>
+                            <p class="TextoSuave mb-0">
+                                Lo que se le escribió a mano a cada familia. Toque uno para leerlo completo.
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                id="BotonRecargarHistorialCorreo" title="Actualizar">
+                            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                            <span class="visually-hidden">Actualizar</span>
+                        </button>
+                    </div>
+
+                    <div class="alert d-none" id="AlertaHistorialCorreo" role="alert"></div>
+
+                    <div class="list-group list-group-flush" id="HistorialCorreo">
+                        <div class="list-group-item px-0 TextoSuave">Cargando…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ============================================================
+       Las dos de abajo todavía no están conectadas. Se dejan visibles porque
+       el menú ya las anunciaba, pero sin ningún botón que finja guardar.
+       ============================================================ *@
+
+    @* ============================================================
+       Recordatorios y avisos automaticos (HU-M10-2 y HU-M10-3)
+       ============================================================ *@
+
+    <div class="Tarjeta p-3 p-md-4 d-none" id="VistaRecordatorios">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <h3 class="mb-1">Recordatorios y avisos automáticos</h3>
+                <p class="TextoSuave mb-0">
+                    Lo que el sistema manda solo: el recordatorio antes de cada cita y el
+                    aviso cuando una cita se agenda, se mueve o se cancela. Toque una fila
+                    para leer el aviso completo.
+                </p>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    id="BotonRecargarRecordatorios" title="Actualizar">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                <span class="visually-hidden">Actualizar</span>
             </button>
-          </form>
         </div>
 
-        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaRecordatorios">
-          <h3 class="mb-3">Recordatorios automáticos de citas</h3>
-          <p class="TextoSuave">Representación de las notificaciones programadas por el sistema.</p>
-          <div class="list-group list-group-flush">
-            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
-              <div>
-                <div class="fw-semibold"><i class="bi bi-bell me-2 text-primary"></i>Recordatorio de cita</div>
-                <div class="TextoSuave small">Se enviará a Carlos Jiménez el 12 de julio a las 8:00 a. m. sobre la cita de María Rodríguez del 13 de julio.</div>
-              </div>
-              <span class="badge badge-cita-programada">Programado</span>
-            </div>
-            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
-              <div>
-                <div class="fw-semibold"><i class="bi bi-bell me-2 text-primary"></i>Recordatorio de pago</div>
-                <div class="TextoSuave small">Se enviará a José Fernández el 14 de julio sobre el pago vencido.</div>
-              </div>
-              <span class="badge badge-cita-programada">Programado</span>
-            </div>
-            <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
-              <div>
-                <div class="fw-semibold"><i class="bi bi-bell-fill me-2 text-success"></i>Recordatorio de cita</div>
-                <div class="TextoSuave small">Enviado a Marjorie Castro el 13 de julio sobre la evaluación de Ana Castro.</div>
-              </div>
-              <span class="badge badge-cita-completada">Enviado</span>
-            </div>
-          </div>
+        <div class="alert alert-light border mb-3">
+            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+            La anticipación del recordatorio se cambia en
+            <a asp-controller="Admin" asp-action="Configuracion">Configuración</a>.
+            El texto de cada aviso sale de su plantilla, en la pestaña de Plantillas.
         </div>
 
-        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaMensajeria">
-          <h3 class="mb-3">Mensajería interna</h3>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <div class="btn-group-vertical w-100" role="group" aria-label="Bandeja de recibidos" data-filtro-grupo="Mensajeria">
-                <button type="button" class="btn btn-outline-secondary text-start active d-flex justify-content-between align-items-center" data-filtro-valor="CarlosJimenez">
-                  <span>Carlos Jiménez</span><span class="badge badge-estado-nuevo">2</span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" data-filtro-valor="RodolfoVargas">
-                  <span>Rodolfo Vargas</span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" data-filtro-valor="MarjorieCastro">
-                  <span>Marjorie Castro</span>
-                </button>
-              </div>
+        <div class="alert d-none" id="AlertaRecordatorios" role="alert"></div>
+
+        <div class="table-responsive">
+            <table class="table align-middle" id="TablaRecordatorios">
+                <thead>
+                    <tr>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Destinatario</th>
+                        <th scope="col">Mensaje</th>
+                        <th scope="col">Cuándo</th>
+                        <th scope="col">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="CuerpoTablaRecordatorios">
+                    <tr>
+                        <td colspan="5" class="TextoSuave text-center py-4">Cargando…</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ============================================================
+       Mensajeria interna (HU-M10-4)
+       ============================================================ *@
+
+    <div class="Tarjeta p-3 p-md-4 d-none" id="VistaMensajeria">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <h3 class="mb-1">Mensajería interna</h3>
+                <p class="TextoSuave mb-0">
+                    Conversaciones con los encargados. Cada uno ve las suyas desde su portal.
+                </p>
             </div>
-            <div class="col-md-8">
-              <div class="border rounded-3 p-3 mb-3" style="min-height: 220px;">
-                <div data-filtro-item="Mensajeria" data-tipo="CarlosJimenez">
-                  <p class="mb-2"><span class="fw-semibold">Carlos Jiménez:</span> Buenas tardes, ¿podríamos confirmar la hora de la próxima cita de María?</p>
-                  <p class="mb-2"><span class="fw-semibold text-primary">Marcela Solano:</span> ¡Buenas! Sí, queda confirmada para el lunes 13 de julio a las 9:00 a. m.</p>
-                </div>
-                <div class="d-none" data-filtro-item="Mensajeria" data-tipo="RodolfoVargas">
-                  <p class="mb-2"><span class="fw-semibold">Rodolfo Vargas:</span> Buenos días, quisiera saber cómo le fue a Diego en su primera sesión.</p>
-                </div>
-                <div class="d-none" data-filtro-item="Mensajeria" data-tipo="MarjorieCastro">
-                  <p class="mb-0 TextoSuave">Aún no hay mensajes con Marjorie Castro.</p>
-                </div>
-              </div>
-              <form id="FormularioMensajeInterno" class="d-flex gap-2">
-                <input type="text" class="form-control" id="TextoMensajeInterno" placeholder="Escriba un mensaje…">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i></button>
-              </form>
-            </div>
-          </div>
+            <button type="button" class="btn btn-primary" id="BotonNuevoHilo">
+                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva conversación
+            </button>
         </div>
 
-        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaPlantillas">
-          <h3 class="mb-3">Plantillas de mensajes</h3>
-          <label for="SelectorPlantilla" class="form-label">Seleccionar plantilla</label>
-          <select class="form-select mb-3" id="SelectorPlantilla" style="max-width: 360px;">
-            <option value="RecordatorioCita">Recordatorio de cita</option>
-            <option value="BienvenidaCliente">Bienvenida a nuevo cliente</option>
-            <option value="SeguimientoPago">Seguimiento de pago pendiente</option>
-          </select>
-          <label for="TextoPlantilla" class="form-label">Contenido de la plantilla</label>
-          <textarea class="form-control mb-3" id="TextoPlantilla" rows="5"></textarea>
-          <button type="button" class="btn btn-primary" id="BotonGuardarPlantilla">
-            <i class="bi bi-save me-1"></i>Guardar plantilla
-          </button>
+        @* La bandeja, la conversacion y el modal son los mismos del portal *@
+        <partial name="_Mensajeria" model="@("Encargado")" />
+    </div>
+
+    @* ============================================================
+       Plantillas (HU-M10-5)
+       ============================================================ *@
+
+    <div class="d-none" id="VistaPlantillas">
+        <div class="Tarjeta p-3 p-md-4">
+
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                    <h3 class="mb-1">Plantillas de mensajes</h3>
+                    <p class="TextoSuave mb-0">
+                        Textos ya preparados para los mensajes que se repiten.
+                    </p>
+                </div>
+
+                @if (puedeAdministrar)
+                {
+                    <button type="button" class="btn btn-primary" id="BotonNuevaPlantilla">
+                        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva plantilla
+                    </button>
+                }
+            </div>
+
+            @if (Model.Marcadores.Count > 0)
+            {
+                <div class="alert alert-light border mb-3">
+                    <p class="mb-2 fw-semibold">
+                        <i class="bi bi-braces me-1" aria-hidden="true"></i>Marcadores que se pueden usar
+                    </p>
+                    <p class="mb-2">
+                        @foreach (var marcador in Model.Marcadores)
+                        {
+                            <code class="me-2">@marcador</code>
+                        }
+                    </p>
+                    <p class="TextoSuave small mb-0">
+                        Al enviar el mensaje se reemplazan por los datos reales. Cualquier otra
+                        palabra entre corchetes se rechaza al guardar: así no sale un correo
+                        con un hueco a la vista.
+                    </p>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="SoloActivasPlantillas" checked>
+                    <label class="form-check-label" for="SoloActivasPlantillas">
+                        Ver solo las activas
+                    </label>
+                </div>
+                <span class="TextoSuave small" id="ConteoPlantillas"></span>
+            </div>
+
+            <div class="alert d-none" id="AlertaPlantillas" role="alert"></div>
+
+            <div class="table-responsive">
+                <table class="table align-middle" id="TablaPlantillas">
+                    <thead>
+                        <tr>
+                            <th scope="col">Nombre</th>
+                            <th scope="col">Asunto</th>
+                            <th scope="col">Contenido</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col" class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="CuerpoTablaPlantillas">
+                        <tr>
+                            <td colspan="5" class="TextoSuave text-center py-4">Cargando…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </main>
+    </div>
+
+    @* ---------- Modal de vista previa del correo ---------- *@
+
+    @if (puedeAdministrar && hayDestinatarios)
+    {
+        <div class="modal fade" id="ModalVistaPreviaCorreo" tabindex="-1"
+             aria-labelledby="TituloModalVistaPreviaCorreo" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="TituloModalVistaPreviaCorreo">
+                            Así va a salir el correo
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert d-none" id="AlertaVistaPreviaCorreo" role="alert"></div>
+
+                        <dl class="row mb-3">
+                            <dt class="col-sm-3">Para</dt>
+                            <dd class="col-sm-9" id="VistaPreviaPara"></dd>
+                            <dt class="col-sm-3">Asunto</dt>
+                            <dd class="col-sm-9" id="VistaPreviaAsunto"></dd>
+                        </dl>
+
+                        <div class="border rounded-3 p-3 bg-body-tertiary">
+                            <p class="mb-0" id="VistaPreviaCuerpo" style="white-space: pre-wrap;"></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Seguir editando
+                        </button>
+                        <button type="button" class="btn btn-primary" id="BotonEnviarDesdeVistaPrevia">
+                            <i class="bi bi-send me-1" aria-hidden="true"></i>Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ---------- Modal de detalle de un correo ----------
+       Fuera del @if de arriba a proposito: el Asistente ve el historial y
+       tambien tiene que poder leer lo que se mando. Sirve para los dos
+       listados, el manual y el de avisos automaticos. *@
+
+    <div class="modal fade" id="ModalDetalleCorreo" tabindex="-1"
+         aria-labelledby="TituloModalDetalleCorreo" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="TituloModalDetalleCorreo">Correo enviado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-3">Para</dt>
+                        <dd class="col-sm-9" id="DetalleCorreoPara"></dd>
+                        <dt class="col-sm-3">Estado</dt>
+                        <dd class="col-sm-9" id="DetalleCorreoEstado"></dd>
+                        <dt class="col-sm-3" id="EtiquetaDetalleCorreoQuien">Enviado por</dt>
+                        <dd class="col-sm-9" id="DetalleCorreoQuien"></dd>
+                        <dt class="col-sm-3">Asunto</dt>
+                        <dd class="col-sm-9" id="DetalleCorreoAsunto"></dd>
+                    </dl>
+
+                    <div class="border rounded-3 p-3 bg-body-tertiary">
+                        <p class="mb-0" id="DetalleCorreoCuerpo" style="white-space: pre-wrap;"></p>
+                    </div>
+
+                    <div class="alert alert-danger mt-3 d-none" id="DetalleCorreoError" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ---------- Modales de plantillas ---------- *@
+
+    @if (puedeAdministrar)
+    {
+        <div class="modal fade" id="ModalPlantilla" tabindex="-1" aria-labelledby="TituloModalPlantilla"
+             aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="TituloModalPlantilla">Nueva plantilla</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <form id="FormularioPlantilla" novalidate>
+                        <div class="modal-body">
+
+                            <div class="alert d-none" id="AlertaFormularioPlantilla" role="alert"></div>
+
+                            <div class="alert alert-light border d-none" id="AvisoPlantillaSistema">
+                                <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+                                Esta plantilla la usa el sistema. El texto se puede cambiar; lo que
+                                no se puede es desactivarla, porque los avisos automáticos se
+                                quedarían sin qué enviar.
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="NombrePlantilla" class="form-label CampoObligatorio">Nombre</label>
+                                <input type="text" class="form-control" id="NombrePlantilla" maxlength="100">
+                                <div class="invalid-feedback"></div>
+                                <div class="form-text">
+                                    Es el nombre con el que se busca en la lista. No se le manda a nadie.
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="AsuntoPlantilla" class="form-label">Asunto</label>
+                                <input type="text" class="form-control" id="AsuntoPlantilla" maxlength="200">
+                                <div class="invalid-feedback"></div>
+                                <div class="form-text">
+                                    Opcional. Admite marcadores, igual que el contenido.
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="CuerpoPlantilla" class="form-label CampoObligatorio">Contenido</label>
+                                <textarea class="form-control" id="CuerpoPlantilla" rows="7"
+                                          maxlength="4000"></textarea>
+                                <div class="invalid-feedback"></div>
+                                <div class="form-text">
+                                    <span id="ContadorCuerpoPlantilla">0</span> de 4000 caracteres.
+                                </div>
+                            </div>
+
+                            <div class="border rounded-3 p-3 bg-body-tertiary">
+                                <p class="fw-semibold mb-2">
+                                    <i class="bi bi-eye me-1" aria-hidden="true"></i>Marcadores detectados
+                                </p>
+                                <p class="mb-0 small" id="MarcadoresDetectados">
+                                    <span class="TextoSuave">Ninguno todavía.</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="BotonGuardarPlantilla">
+                                <i class="bi bi-save me-1" aria-hidden="true"></i>Guardar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="ModalEstadoPlantilla" tabindex="-1"
+             aria-labelledby="TituloModalEstadoPlantilla" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="TituloModalEstadoPlantilla">Desactivar plantilla</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0" id="TextoModalEstadoPlantilla"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary" id="BotonConfirmarEstadoPlantilla">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</main>
 
 @section Scripts {
-  <script src="~/js/Validaciones.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var vistas = {
-        Correo: document.getElementById("VistaCorreo"),
-        Recordatorios: document.getElementById("VistaRecordatorios"),
-        Mensajeria: document.getElementById("VistaMensajeria"),
-        Plantillas: document.getElementById("VistaPlantillas")
-      };
-      document.querySelectorAll("#SelectorComunicacion [data-vista]").forEach(function (boton) {
-        boton.addEventListener("click", function () {
-          document.querySelectorAll("#SelectorComunicacion .nav-link").forEach(function (b) { b.classList.remove("active"); });
-          boton.classList.add("active");
-          Object.keys(vistas).forEach(function (clave) {
-            vistas[clave].classList.toggle("d-none", clave !== boton.getAttribute("data-vista"));
-          });
-        });
-      });
-      document.getElementById("FormularioCorreo").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("DestinatarioCorreo"), "Seleccione un destinatario.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("AsuntoCorreo"), "Ingrese el asunto.") && esValido;
-        esValido = ValidarObligatorio(document.getElementById("MensajeCorreo"), "Ingrese el mensaje.") && esValido;
-        if (!esValido) {
-          return;
-        }
-        evento.target.reset();
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        MostrarToast("Correo enviado correctamente (simulado).");
-      });
-      document.getElementById("FormularioMensajeInterno").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var campoTexto = document.getElementById("TextoMensajeInterno");
-        if (!campoTexto.value.trim()) {
-          return;
-        }
-        var panelVisible = document.querySelector('[data-filtro-item="Mensajeria"]:not(.d-none)');
-        if (panelVisible) {
-          var parrafo = document.createElement("p");
-          parrafo.className = "mb-2";
-          parrafo.innerHTML = '<span class="fw-semibold text-primary">Marcela Solano:</span> ';
-          parrafo.append(campoTexto.value);
-          panelVisible.appendChild(parrafo);
-        }
-        campoTexto.value = "";
-        MostrarToast("Mensaje enviado.");
-      });
-      var textoPlantillas = {
-        RecordatorioCita: "Hola [Encargado], le recordamos la cita de [Estudiante] el [Fecha] a las [Hora]. ¡Le esperamos!",
-        BienvenidaCliente: "¡Bienvenido/a a Mente Activa Psicopedagogía! Estamos para acompañar el proceso de aprendizaje de [Estudiante].",
-        SeguimientoPago: "Hola [Encargado], le recordamos que el pago de [Estudiante] se encuentra pendiente. Cualquier consulta, escríbanos."
-      };
-      var selectorPlantilla = document.getElementById("SelectorPlantilla");
-      var campoTextoPlantilla = document.getElementById("TextoPlantilla");
-      function CargarPlantilla() {
-        campoTextoPlantilla.value = textoPlantillas[selectorPlantilla.value];
-      }
-      selectorPlantilla.addEventListener("change", CargarPlantilla);
-      CargarPlantilla();
-      document.getElementById("BotonGuardarPlantilla").addEventListener("click", function () {
-        textoPlantillas[selectorPlantilla.value] = campoTextoPlantilla.value;
-        MostrarToast("Plantilla guardada correctamente.");
-      });
-    });
-  </script>
+    <script>
+        window.COMUNICACION_PUEDE_ADMINISTRAR = @(puedeAdministrar ? "true" : "false");
+        window.COMUNICACION_MARCADORES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Marcadores, jsonCamel));
+        window.COMUNICACION_DESTINATARIOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Destinatarios, jsonCamel));
+        window.COMUNICACION_PLANTILLAS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Plantillas, jsonCamel));
+
+        window.MENSAJERIA_RUTAS = {
+            hilos: "/Admin/ConsultarHilos",
+            hilo: "/Admin/AbrirHilo",
+            destinatarios: "/Admin/DestinatariosMensaje",
+            enviar: "/Admin/EnviarMensaje"
+        };
+    </script>
+    <script src="~/js/comunicacion.js" asp-append-version="true"></script>
+    <script src="~/js/mensajeria.js" asp-append-version="true"></script>
 }

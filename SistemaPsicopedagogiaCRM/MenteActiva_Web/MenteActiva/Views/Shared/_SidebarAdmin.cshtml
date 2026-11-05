@@ -48,9 +48,13 @@
         <a href="/Admin/Pagos" class="SidebarAdmin-Enlace@(seccion == "Pagos" ? " activo" : "")">
           <i class="bi bi-cash-coin"></i><span>Pagos</span>
         </a>
-        <!-- Razor: asp-controller="Comunicacion" asp-action="Index" -->
+        <!-- Comunicacion, con contador de mensajes internos sin leer -->
         <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace@(seccion == "Comunicacion" ? " activo" : "")">
-          <i class="bi bi-chat-dots"></i><span>Comunicación</span>
+          <div class="SidebarAdmin-Icono">
+            <i class="bi bi-chat-dots"></i>
+            <sup class="SidebarAdmin-Contador d-none" data-contador-mensajes="/Admin/MensajesSinLeer"></sup>
+          </div>
+          <span>Comunicación</span>
         </a>
         <!-- Solicitudes de contacto del sitio web, con contador de pendientes -->
         <a href="/Admin/Solicitudes" class="SidebarAdmin-Enlace@(seccion == "Solicitudes" ? " activo" : "")">

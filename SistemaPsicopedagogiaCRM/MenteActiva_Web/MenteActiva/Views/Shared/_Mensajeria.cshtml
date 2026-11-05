@@ -1,0 +1,112 @@
+@*
+    Mensajeria interna (HU-M10-4), compartida por el panel y el portal.
+
+    Las dos pantallas son la misma cosa: bandeja de hilos, conversacion, caja de
+    respuesta y boton de conversacion nueva. Lo unico que cambia es a quien se le
+    escribe, y eso es una etiqueta. Por RG-112 y RG-113 va en una parcial en vez
+    de estar dos veces.
+
+    Quien la incluya tiene que dejar en el JavaScript:
+      window.MENSAJERIA_RUTAS  las cuatro rutas del controlador que corresponda
+      window.MENSAJERIA_ETIQUETA  como se llama la contraparte en esa pantalla
+
+    El modelo es la etiqueta de la contraparte: "Encargado" en el panel,
+    "Consultorio" en el portal.
+*@
+@model string
+
+<div class="alert d-none" id="AlertaMensajeria" role="alert"></div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold">Conversaciones</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    id="BotonRecargarHilos" title="Actualizar">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                <span class="visually-hidden">Actualizar</span>
+            </button>
+        </div>
+
+        <div class="list-group" id="ListaHilos">
+            <div class="list-group-item TextoSuave">Cargando…</div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="border rounded-3 d-flex flex-column" style="min-height: 420px;">
+            <div class="border-bottom p-3 d-none" id="EncabezadoHilo">
+                <div class="fw-semibold" id="TituloHilo"></div>
+                <div class="TextoSuave small" id="ContraparteHilo"></div>
+            </div>
+
+            <div class="p-3 flex-grow-1" id="PanelConversacion"
+                 style="max-height: 380px; overflow-y: auto;">
+                <p class="TextoSuave mb-0">
+                    Elija una conversación de la izquierda, o empiece una nueva.
+                </p>
+            </div>
+
+            <form class="border-top p-3 d-none" id="FormularioRespuesta">
+                <div class="d-flex gap-2 align-items-start">
+                    <textarea class="form-control" id="TextoRespuesta" rows="2" maxlength="4000"
+                              placeholder="Escriba su respuesta…"></textarea>
+                    <button type="submit" class="btn btn-primary" id="BotonResponder">
+                        <i class="bi bi-send" aria-hidden="true"></i>
+                        <span class="visually-hidden">Enviar</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ModalNuevoHilo" tabindex="-1"
+     aria-labelledby="TituloModalNuevoHilo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="TituloModalNuevoHilo">Nueva conversación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <form id="FormularioNuevoHilo" novalidate>
+                <div class="modal-body">
+                    <div class="alert d-none" id="AlertaNuevoHilo" role="alert"></div>
+
+                    <div class="mb-3">
+                        <label for="DestinatarioHilo" class="form-label CampoObligatorio">@Model</label>
+                        <select class="form-select" id="DestinatarioHilo">
+                            <option value="">Seleccione a quién le quiere escribir</option>
+                        </select>
+                        <div class="invalid-feedback"></div>
+                        <div class="form-text">
+                            Solo aparecen las cuentas activas: son las que pueden contestar.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="AsuntoHilo" class="form-label CampoObligatorio">Asunto</label>
+                        <input type="text" class="form-control" id="AsuntoHilo" maxlength="200">
+                        <div class="invalid-feedback"></div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="CuerpoHilo" class="form-label CampoObligatorio">Mensaje</label>
+                        <textarea class="form-control" id="CuerpoHilo" rows="5" maxlength="4000"></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="BotonCrearHilo">
+                        <i class="bi bi-send me-1" aria-hidden="true"></i>Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

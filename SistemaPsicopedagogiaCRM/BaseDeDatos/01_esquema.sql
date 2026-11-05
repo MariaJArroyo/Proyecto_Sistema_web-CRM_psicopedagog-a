@@ -587,28 +587,75 @@ CREATE TABLE IF NOT EXISTS TB_SESION (
   CONSTRAINT CK_Sesion_Duracion CHECK (DuracionMinutos BETWEEN 15 AND 240)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- M10. El destinatario es un usuario del sistema o un encargado sin portal, y
+-- nunca los dos: antes solo admitia usuarios, y a un encargado que jamas activo
+-- la cuenta igual hay que poder escribirle. IdEncargado sigue la convencion de
+-- nombrar la foranea igual que la llave que referencia; IdUsuarioDestinatario
+-- venia asi de antes y no se renombra.
+--
+-- CorreoDestino guarda la direccion a la que de verdad salio el envio, que no es
+-- lo mismo que la que el encargado tenga hoy: si manana la cambia, el historial
+-- tiene que seguir diciendo a donde se mando. Que venga lleno cuando el canal es
+-- Correo lo exige el procedimiento, no una restriccion, para no clavar aqui el id
+-- de una fila del catalogo.
+--
+-- IdUsuarioRegistro dice quien lo mando: con valor, lo escribio una persona desde
+-- la pantalla de correo; en nulo, lo genero el sistema. Sirve para dos cosas a la
+-- vez, saber a quien preguntarle por un correo que salio y separar en la pantalla
+-- lo manual de lo automatico sin adivinarlo por si la fila trae cita.
+--
+-- ClavePlantilla dice que plantilla del sistema lo genero (RecordatorioCita,
+-- ConfirmacionCita, ActualizacionCita, CancelacionCita); en nulo es correo escrito
+-- a mano. Sin esta columna no se puede distinguir el recordatorio de la
+-- confirmacion de la misma cita al mismo encargado, que es justo lo que necesita la
+-- regla antiduplicado del recordatorio, y la pantalla tendria que adivinar el tipo
+-- de aviso por el asunto, que la usuaria puede cambiar.
+-- No es foranea a proposito: si alguien borra la plantilla, el historial de lo que
+-- ya salio no se puede quedar sin explicacion.
 CREATE TABLE IF NOT EXISTS TB_NOTIFICACION (
   IdNotificacion INT NOT NULL AUTO_INCREMENT,
   IdCita INT NULL,
-  IdUsuarioDestinatario INT NOT NULL,
+  IdUsuarioDestinatario INT NULL,
+  IdEncargado INT NULL,
+  IdUsuarioRegistro INT NULL,
   IdCanalNotificacion INT NOT NULL,
+  ClavePlantilla VARCHAR(50) NULL,
+  CorreoDestino VARCHAR(150) NULL,
   Asunto VARCHAR(200) NULL,
   Cuerpo VARCHAR(1000) NOT NULL,
   FechaProgramada DATETIME NOT NULL,
   FechaEnvio DATETIME NULL,
   Enviada BOOLEAN NOT NULL DEFAULT 0,
+  Intentos INT NOT NULL DEFAULT 0,
   MensajeError VARCHAR(500) NULL,
   PRIMARY KEY (IdNotificacion),
   KEY IX_Notificacion_Cita (IdCita),
   KEY IX_Notificacion_UsuarioDestinatario (IdUsuarioDestinatario),
+  KEY IX_Notificacion_Encargado (IdEncargado),
+  KEY IX_Notificacion_UsuarioRegistro (IdUsuarioRegistro),
+  KEY IX_Notificacion_ClavePlantilla (ClavePlantilla),
   KEY IX_Notificacion_CanalNotificacion (IdCanalNotificacion),
+  -- El worker barre por aqui en cada vuelta: pendientes cuya hora ya llego
+  KEY IX_Notificacion_Pendientes (Enviada, FechaProgramada),
   CONSTRAINT FK_Notificacion_Cita FOREIGN KEY (IdCita)
     REFERENCES TB_CITA (IdCita) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT FK_Notificacion_UsuarioDestinatario FOREIGN KEY (IdUsuarioDestinatario)
     REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Notificacion_Encargado FOREIGN KEY (IdEncargado)
+    REFERENCES TB_ENCARGADO (IdEncargado) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Notificacion_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Notificacion_CanalNotificacion FOREIGN KEY (IdCanalNotificacion)
     REFERENCES TB_CANAL_NOTIFICACION (IdCanalNotificacion) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT CK_Notificacion_CuerpoNoVacio CHECK (TRIM(Cuerpo) <> ''),
+  CONSTRAINT CK_Notificacion_UnDestinatario CHECK (
+    (IdUsuarioDestinatario IS NOT NULL AND IdEncargado IS NULL)
+    OR (IdUsuarioDestinatario IS NULL AND IdEncargado IS NOT NULL)),
+  CONSTRAINT CK_Notificacion_CorreoDestinoNoVacio CHECK (
+    CorreoDestino IS NULL OR TRIM(CorreoDestino) <> ''),
+  CONSTRAINT CK_Notificacion_ClavePlantillaNoVacio CHECK (
+    ClavePlantilla IS NULL OR TRIM(ClavePlantilla) <> ''),
+  CONSTRAINT CK_Notificacion_Intentos CHECK (Intentos >= 0),
   CONSTRAINT CK_Notificacion_EnvioCoherente CHECK (
     (Enviada = 0 AND FechaEnvio IS NULL) OR (Enviada = 1 AND FechaEnvio IS NOT NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -862,15 +909,26 @@ CREATE TABLE IF NOT EXISTS TB_TAREA_ASIGNACION (
 -- 7. Comunicacion y contenido publico
 -- ============================================================
 
+-- M10. Clave identifica las plantillas que el sistema usa solo: el recordatorio
+-- automatico la busca por ahi y no por id ni por nombre, que la administradora
+-- puede cambiar. Clave llena = plantilla del sistema, no se desactiva ni se
+-- borra; Clave nula = plantilla que creo la usuaria y hace con ella lo que
+-- quiera. FechaModificacion la pide HU-M10-5, que guarda cambios.
 CREATE TABLE IF NOT EXISTS TB_PLANTILLA_MENSAJE (
   IdPlantilla INT NOT NULL AUTO_INCREMENT,
+  Clave VARCHAR(50) NULL,
   Nombre VARCHAR(100) NOT NULL,
   Asunto VARCHAR(200) NULL,
   Cuerpo LONGTEXT NOT NULL,
   Activa BOOLEAN NOT NULL DEFAULT 1,
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (IdPlantilla),
-  CONSTRAINT CK_PlantillaMensaje_NombreNoVacio CHECK (TRIM(Nombre) <> '')
+  UNIQUE KEY UX_PlantillaMensaje_Clave (Clave),
+  UNIQUE KEY UX_PlantillaMensaje_Nombre (Nombre),
+  CONSTRAINT CK_PlantillaMensaje_NombreNoVacio CHECK (TRIM(Nombre) <> ''),
+  CONSTRAINT CK_PlantillaMensaje_ClaveNoVacio CHECK (Clave IS NULL OR TRIM(Clave) <> ''),
+  CONSTRAINT CK_PlantillaMensaje_CuerpoNoVacio CHECK (TRIM(Cuerpo) <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_MENSAJE (
