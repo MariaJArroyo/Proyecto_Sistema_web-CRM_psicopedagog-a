@@ -1,0 +1,13 @@
+﻿@* Aviso que el controlador deja en TempData y sobrevive la recarga que hacen
+   los modales al guardar. El texto lo escribe el API, no esta vista: importa
+   cuando algo sale bien a medias y "listo" seria mentira. *@
+
+@if (TempData["Mensaje"] is string aviso)
+{
+  <div class="alert alert-success" role="alert">@aviso</div>
+}
+
+@if (TempData["Error"] is string problema)
+{
+  <div class="alert alert-danger" role="alert">@problema</div>
+}

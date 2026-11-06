@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -8,6 +9,9 @@ namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/materiales")]
+// Los tres roles internos, como la pantalla de materiales. Igual que el
+// dashboard, todavia no hay pantalla que lo consuma.
+[Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class MaterialesController : ControllerBase
 {
     private readonly IConfiguration _config;

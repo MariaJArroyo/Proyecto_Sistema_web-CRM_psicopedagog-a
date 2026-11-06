@@ -1,7 +1,7 @@
 @model MenteActiva.Models.CatalogosSesionViewModel
 
 @{
-    ViewData["Title"] = "Sesiones";
+    ViewData["Title"] = "Bitácora de citas";
     var hayCatalogos = Model.TiposSesion.Any() && Model.TiposAtencion.Any();
 }
 
@@ -9,7 +9,7 @@
 
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-      <h2 class="mb-1">Seguimiento de sesiones</h2>
+      <h2 class="mb-1">Bitácora de citas</h2>
       <p class="TextoSuave mb-0" id="ResumenSesiones" aria-live="polite">&nbsp;</p>
     </div>
     <button type="button" class="btn btn-primary" id="BotonNuevaSesion"
@@ -410,28 +410,34 @@
   </div>
 </div>
 
-<!-- No dice "Eliminar": la sesion nunca se borra, se marca inactiva (HU-M5-3) -->
+<!-- Dice "Eliminar" aunque la fila no se borre: SP_Sesion_Listar filtra
+     Activo = 1 sin parametro para incluir las inactivas, no existe ningun
+     SP_Sesion_Activar y la bitacora guarda la accion como 'Eliminar'. Desde
+     la interfaz no hay vuelta, asi que el basurero dice la verdad y
+     "Inactivar" prometia algo que el sistema no sabe hacer. La fila se
+     conserva para auditoria y el parrafo de abajo lo explica (HU-M5-3) -->
 <div class="modal fade" id="ModalInactivarSesion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Inactivar sesión</h5>
+        <h5 class="modal-title">Eliminar registro de sesión</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <div class="alert d-none" id="AlertaInactivarSesion" role="alert"></div>
         <p class="mb-2">
-          ¿Seguro que desea inactivar la sesión de
+          ¿Seguro que desea eliminar el registro de la sesión de
           <strong id="NombreSesionInactivar"></strong>?
         </p>
         <p class="TextoSuave mb-0">
           La sesión deja de aparecer en el historial y en el portal del encargado,
-          pero no se borra: su información se conserva.
+          y no hay forma de recuperarla desde el sistema. La información se
+          conserva en la base para auditoría, pero no vuelve a los listados.
         </p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion">Inactivar</button>
+        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion"><i class="bi bi-trash me-1"></i>Eliminar</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,9 @@
 using Dapper;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.API.Models;
+using MenteActiva.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -11,13 +14,32 @@ namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class ClientesController : ControllerBase
 {
     private readonly IConfiguration _config;
 
-    public ClientesController(IConfiguration config)
+    // Las dos acciones de estado del encargado pasan por servicio y repositorio
+    // (RG-117). Las otras ocho siguen abriendo su propia conexion aqui abajo:
+    // bajarlas a capas es un trabajo aparte y esta anotado como deuda.
+    private readonly IServicioEncargado _encargados;
+
+    // Solo para la casilla de invitacion del alta: el alta crea al encargado y
+    // esto le habilita el portal, en ese orden y nunca al reves.
+    private readonly IServicioUsuarios _usuarios;
+
+    private readonly ILogger<ClientesController> _registro;
+
+    public ClientesController(
+        IConfiguration config,
+        IServicioEncargado encargados,
+        IServicioUsuarios usuarios,
+        ILogger<ClientesController> registro)
     {
         _config = config;
+        _encargados = encargados;
+        _usuarios = usuarios;
+        _registro = registro;
     }
 
     #region Consultar clientes
@@ -70,7 +92,7 @@ public class ClientesController : ControllerBase
     #region Registrar cliente
 
     [HttpPost]
-    public IActionResult RegistrarCliente([FromBody] ClienteRegistroRequest request)
+    public async Task<IActionResult> RegistrarCliente([FromBody] ClienteRegistroRequest request)
     {
         if (!ModelState.IsValid || request.IdServicioInteres <= 0)
         {
@@ -110,11 +132,105 @@ public class ClientesController : ControllerBase
         parametros.Add("p_EstudiantesJson", estudiantesJson);
         parametros.Add("p_IdSolicitud", request.IdSolicitud);
 
-        return EjecutarSp(
-            "SP_RegistrarCliente_CRM",
-            parametros,
-            "Cliente registrado correctamente.",
-            "Error al registrar el cliente.");
+        int idEncargado;
+
+        using (var conexion = CrearConexion())
+        {
+            try
+            {
+                idEncargado = await conexion.QuerySingleAsync<int>(
+                    "SP_RegistrarCliente_CRM",
+                    parametros,
+                    commandType: CommandType.StoredProcedure);
+            }
+            catch (MySqlException ex) when (ex.SqlState == "45000")
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    mensaje = "Error al registrar el cliente.",
+                    detalle = ex.Message
+                });
+            }
+        }
+
+        // De aqui para abajo el cliente YA quedo guardado y la solicitud, si
+        // venia una, ya quedo convertida. Nada de lo que sigue puede devolver un
+        // error: la pantalla lo leeria como que no se guardo nada. Lo que falle
+        // se cuenta en el mensaje, con correoEnviado en false (RG-123).
+        // Sin correo la pantalla deja la casilla apagada, asi que la peticion
+        // llega en false igual que si la hubieran desmarcado a mano. El aviso
+        // tiene que decir por que no se invito, o parece que se olvido.
+        if (!request.EnviarInvitacion)
+        {
+            return Ok(new
+            {
+                mensaje = string.IsNullOrWhiteSpace(request.Correo)
+                    ? "Cliente registrado. Sin correo no se puede invitar al portal."
+                    : "Cliente registrado correctamente.",
+                idEncargado
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Correo))
+        {
+            return Ok(new
+            {
+                mensaje = "Cliente registrado. No se invitó al portal porque no tiene correo.",
+                idEncargado,
+                correoEnviado = false
+            });
+        }
+
+        return await InvitarAlPortalAsync(idEncargado);
+    }
+
+    // Habilita el portal al encargado recien creado. Devuelve siempre 200: el
+    // alta ya esta hecha y lo unico que cambia es el aviso.
+    private async Task<IActionResult> InvitarAlPortalAsync(int idEncargado)
+    {
+        try
+        {
+            var resultado = await _usuarios.InvitarEncargadoAsync(ObtenerIdUsuarioActual(), idEncargado);
+
+            return Ok(new
+            {
+                mensaje = resultado.CorreoEnviado
+                    ? "Cliente registrado. Se envió la invitación al portal."
+                    : "Cliente registrado y cuenta del portal creada, pero el correo no salió. "
+                      + "Use \"Reenviar invitación\" en Acceso al portal.",
+                idEncargado,
+                correoEnviado = resultado.CorreoEnviado
+            });
+        }
+        catch (MySqlException ex) when (ex.SqlState == "45000")
+        {
+            // Las cuatro negativas de SP_UsuarioExterno_Crear: correo de otro
+            // usuario, ya tiene portal, sin correo, o encargado inactivo
+            return Ok(new
+            {
+                mensaje = $"Cliente registrado, pero no se pudo habilitar el portal: {ex.Message}",
+                idEncargado,
+                correoEnviado = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _registro.LogError(ex,
+                "El encargado {IdEncargado} quedo creado pero fallo la invitacion al portal.",
+                idEncargado);
+
+            return Ok(new
+            {
+                mensaje = "Cliente registrado, pero no se pudo habilitar el portal. "
+                        + "Invítelo desde Acceso al portal.",
+                idEncargado,
+                correoEnviado = false
+            });
+        }
     }
 
     #endregion
@@ -149,19 +265,25 @@ public class ClientesController : ControllerBase
 
     #endregion
 
-    #region Desactivar cliente
+    #region Desactivar y reactivar cliente
 
+    // Las reglas ("no existe", "ya esta inactivo") salen del procedimiento como
+    // SIGNAL 45000 y ManejadorExcepciones las responde como 400 con su mensaje,
+    // asi que aqui no hay try/catch.
     [HttpPut("{id:int}/desactivar")]
-    public IActionResult DesactivarCliente(int id)
+    public async Task<IActionResult> DesactivarCliente(int id, CancellationToken cancelacion)
     {
-        var parametros = new DynamicParameters();
-        parametros.Add("p_IdEncargado", id);
+        await _encargados.DesactivarAsync(User.ObtenerIdUsuario(), id, cancelacion);
 
-        return EjecutarSp(
-            "SP_DesactivarCliente_CRM",
-            parametros,
-            "Cliente desactivado correctamente.",
-            "Error al desactivar el cliente.");
+        return Ok(new { mensaje = "Cliente desactivado correctamente." });
+    }
+
+    [HttpPut("{id:int}/reactivar")]
+    public async Task<IActionResult> ReactivarCliente(int id, CancellationToken cancelacion)
+    {
+        await _encargados.ReactivarAsync(User.ObtenerIdUsuario(), id, cancelacion);
+
+        return Ok(new { mensaje = "Cliente reactivado correctamente." });
     }
 
     #endregion

@@ -1,6 +1,6 @@
 @model IEnumerable<MenteActiva.Models.UsuarioExternoViewModel>
 @{
-    ViewData["Title"] = "Usuarios externos";
+    ViewData["Title"] = "Acceso al portal";
 
     string ClaseInsignia(string estado) => estado switch
     {
@@ -14,9 +14,11 @@
 
       <main class="PrincipalAdmin">
         <div class="mb-4">
-          <h2 class="mb-1">Usuarios externos</h2>
+          <h2 class="mb-1">Acceso al portal</h2>
           <p class="TextoSuave mb-0">
-            Acceso al Portal de familias para los encargados registrados en "Clientes". Invitar a un
+            Llave de entrada al Portal de familias para cada encargado. Los encargados se dan de
+            alta en "Encargados": aquí solo se invita, se reenvía el enlace, se suspende o se
+            reactiva su acceso al portal.
             cliente crea su cuenta de acceso; esto es independiente de su información de contacto en el CRM.
           </p>
         </div>
@@ -35,7 +37,7 @@
                 @* Los mismos textos que devuelve la base: el filtro compara
                    contra data-estado, asi que si no coinciden no filtra nada *@
                 <option value="">Todos los estados</option>
-                <option value="Activo" selected>Activo</option>
+                <option value="Activo">Activo</option>
                 <option value="Pendiente de activación">Pendiente de activación</option>
                 <option value="Sin invitar">Sin invitar</option>
                 <option value="Sin correo">Sin correo</option>
@@ -90,7 +92,7 @@
                       <form asp-controller="Admin" asp-action="CambiarAccesoPortal" method="post" class="d-inline">
                         <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
                         <input type="hidden" name="suspender" value="false">
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Reactivar</button>
+                        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-check-circle me-1"></i>Reactivar</button>
                       </form>
                     }
                     else
@@ -102,7 +104,7 @@
                         </button>
                       </form>
                       <button type="button" class="btn btn-sm btn-outline-danger"
-                        data-accion="suspender">Suspender</button>
+                        data-accion="suspender"><i class="bi bi-slash-circle me-1"></i>Suspender</button>
                     }
                   </td>
                 </tr>

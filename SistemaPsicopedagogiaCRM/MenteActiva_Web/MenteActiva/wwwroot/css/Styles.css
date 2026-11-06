@@ -5,6 +5,32 @@
    ============================================================ */
 
 
+/* ============================================================
+   Iconos de accion: una sola tabla para todo el panel
+   Bootstrap Icons via CDN. La idea es que el mismo simbolo
+   signifique siempre lo mismo, en cualquier pantalla.
+
+     bi-eye            ver detalle
+     bi-pencil         editar
+     bi-slash-circle   inactivar   (el registro se puede volver a activar)
+     bi-check-circle   reactivar   (la pareja del anterior)
+     bi-trash          eliminar    (borrado fisico, o logico sin camino de vuelta)
+     bi-x-circle       cancelar o anular (cambio de estado terminal)
+
+   El basurero solo va donde no hay vuelta. Si el registro se puede
+   reactivar, aunque sea mas adelante, lleva bi-slash-circle.
+
+   Tres excepciones, a proposito:
+     bi-person-dash           cancelar a un solo estudiante dentro de un grupo,
+                              para distinguirlo de cancelar el grupo entero
+     bi-person-x              marcar que la persona no asistio
+     bi-arrow-counterclockwise devolver una solicitud a pendiente, que es
+                              deshacer y no inactivar
+
+   No usar bi-toggle-on / bi-toggle-off ni bi-archive: eran un segundo
+   y un tercer dialecto para decir inactivar.
+   ============================================================ */
+
 :root {
   --color-primario: #4F6FAE;
   --color-primario-oscuro: #3A5488;
@@ -954,76 +980,6 @@ button.TopbarAdmin-Usuario {
         color: #fff;
     }
 
-    /* ===== Contador de notificaciones del menu ===== */
-
-    .SidebarAdmin-Contador {
-        position: absolute;
-        top: -0.45rem;
-        right: -0.65rem;
-        min-width: 1.15rem;
-        height: 1.15rem;
-        padding: 0 0.3rem;
-        border-radius: 999px;
-        background-color: var(--color-peligro);
-        color: #fff;
-        font-size: 0.68rem;
-        font-weight: 600;
-        line-height: 1.15rem;
-        text-align: center;
-        vertical-align: baseline;
-        /* Aro del color del menu para que el circulo se despegue del icono */
-        box-shadow: 0 0 0 2px var(--color-primario-oscuro);
-    }
-
-    .SidebarAdmin-Enlace.activo .SidebarAdmin-Contador {
-        box-shadow: 0 0 0 2px var(--color-primario);
-    }
-
-    .SidebarAdmin-Contador.pulso {
-        animation: pulsoContador 0.6s ease-out 2;
-    }
-
-    @keyframes pulsoContador {
-        0% {
-            transform: scale(1);
-        }
-
-        40% {
-            transform: scale(1.35);
-        }
-
-        100% {
-            transform: scale(1);
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .SidebarAdmin-Contador.pulso {
-            animation: none;
-        }
-    }
-
-    /* ===== Estados de solicitudes ===== */
-
-    .badge-solicitud-pendiente {
-        background-color: var(--color-acento);
-        color: #fff;
-    }
-
-    .badge-solicitud-contactada {
-        background-color: var(--color-primario);
-        color: #fff;
-    }
-
-    .badge-solicitud-convertida {
-        background-color: var(--color-exito);
-        color: #fff;
-    }
-
-    .badge-solicitud-descartada {
-        background-color: #9AA5B4;
-        color: #fff;
-    }
 /* =========================================================
    Campos de formulario: borde visible siempre, no solo al escribir
    ========================================================= */
@@ -1739,4 +1695,75 @@ button.TopbarAdmin-Usuario {
 
 .ChipFiltro .btn-close {
   font-size: 0.6rem;
+}
+
+/* =========================================================
+   Mensajeria interna: bandeja de hilos y conversacion
+   El panel y el portal usan la misma parcial, asi que esto se
+   escribe una vez y arregla las dos pantallas.
+   Todo va acotado por #ListaHilos y #PanelConversacion a
+   proposito: las clases de abajo son utilidades de Bootstrap que
+   se usan en media aplicacion, y sin acotar se cambiarian
+   pantallas ajenas.
+   ========================================================= */
+
+/* El hilo abierto traia el azul por defecto de Bootstrap, que no es
+   el de la identidad visual. Va con el tono oscuro de la paleta y no
+   con el primario: sobre el primario el texto secundario se queda en
+   4.1 de contraste, por debajo del 4.5 que pide WCAG AA. Con este
+   pasa a 5.9 y el nombre del hilo a 7.5 */
+#ListaHilos .list-group-item.active {
+  background-color: var(--color-primario-oscuro);
+  border-color: var(--color-primario-oscuro);
+}
+
+/* Lo que estaba roto: .active pinta el texto blanco, pero el asunto,
+   el ultimo mensaje y la fecha traen color propio y quedaban grises
+   sobre el azul */
+#ListaHilos .list-group-item.active .TextoSuave,
+#ListaHilos .list-group-item.active .small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* La insignia de sin leer es azul claro sobre azul: sin un borde que
+   la despegue se perdia en el fondo */
+#ListaHilos .list-group-item.active .badge-estado-nuevo {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+/* El asunto, el ultimo mensaje y la fecha iban los tres en .small, que
+   es relativo al padre: 14 px dentro de un bloque que ya es chico.
+   Pasan a 15 px en rem, y el nombre del hilo se deja fijo en 16 para
+   que la jerarquia no dependa de lo que herede */
+#ListaHilos .list-group-item {
+  font-size: 1rem;
+}
+
+#ListaHilos .list-group-item .small {
+  font-size: 0.9375rem;
+}
+
+#ListaHilos .badge {
+  font-size: 0.75rem;
+}
+
+/* La burbuja de la contraparte usaba un gris de Bootstrap ajeno a la
+   paleta */
+#PanelConversacion .bg-body-tertiary {
+  background-color: var(--color-fondo) !important;
+  border: 1px solid var(--color-borde);
+  color: var(--color-texto);
+}
+
+/* La burbuja propia, al azul de la casa. Las dos reglas de arriba y
+   esta llevan !important porque las utilidades .bg-* de Bootstrap ya
+   lo traen, y sin el no hay forma de ganarles sin tocar el JavaScript
+   que arma las burbujas */
+#PanelConversacion .bg-primary {
+  background-color: var(--color-primario) !important;
+}
+
+/* El remitente y la hora de cada burbuja, un poco mas legibles */
+#PanelConversacion .TextoSuave.small {
+  font-size: 0.8rem;
 }

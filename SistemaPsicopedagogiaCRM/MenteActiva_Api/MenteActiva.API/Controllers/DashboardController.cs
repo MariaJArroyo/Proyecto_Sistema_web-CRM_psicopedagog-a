@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -8,6 +9,11 @@ namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
+// Los tres roles internos, como la pantalla del dashboard. Hoy nadie
+// llama a este endpoint: la vista es HTML fijo y el procedimiento que
+// busca no existe en la base. El rol queda puesto para que el dia que
+// se conecte no nazca abierto (RG-115).
+[Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class DashboardController : ControllerBase
 {
     private readonly IConfiguration _config;

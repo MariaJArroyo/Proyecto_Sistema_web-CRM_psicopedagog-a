@@ -696,7 +696,7 @@
                 <span class="visually-hidden">No se puede desactivar</span></button>`;
         }
 
-        const icono = plantilla.activa ? "bi-toggle-on" : "bi-toggle-off";
+        const icono = plantilla.activa ? "bi-slash-circle" : "bi-check-circle";
         const etiqueta = plantilla.activa ? "Desactivar" : "Activar";
 
         return editar + ` <button type="button" class="btn btn-sm btn-outline-secondary"

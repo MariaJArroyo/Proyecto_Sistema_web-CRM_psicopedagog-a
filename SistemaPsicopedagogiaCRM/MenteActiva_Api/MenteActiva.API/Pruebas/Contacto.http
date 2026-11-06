@@ -1,0 +1,167 @@
+### Pruebas del formulario publico de contacto (bloque F)
+###
+### Es lo unico del CRM que se usa sin sesion, asi que ninguna prueba de aqui
+### lleva token. Lo que importa: que la solicitud quede guardada, que salgan los
+### dos correos (el aviso al consultorio y la confirmacion a quien escribio) y
+### que el limite anti-abuso por IP siga frenando.
+###
+### Antes de correrlo:
+###
+###   1. Base con 01, 02, 03 y 05 recien corridos.
+###   2. Para VER los correos en vez de mandarlos, levantar el API con el
+###      proveedor de registro, que los escribe en la consola:
+###
+###        $env:Correo__Proveedor = "Registro"
+###        $env:Correo__DestinatarioContacto = "consultorio.prueba@example.invalid"
+###
+###      Sin la primera variable el envio es real (el proveedor sale de los
+###      secretos de usuario) y las direcciones de ejemplo de abajo rebotan.
+###      Sin la segunda, el aviso interno no sale y queda una advertencia en el
+###      registro diciendo que falta la configuracion.
+###
+### Al terminar, borrar lo que se haya creado (RG-13):
+###
+###   DELETE FROM TB_SOLICITUD_CONTACTO WHERE Nombre = 'ZZPrueba';
+
+@host = https://localhost:7201
+
+### 1. Servicios activos para el <select> del formulario.
+###    Esperado: 200 con la lista; solo los activos.
+GET {{host}}/api/contacto/servicios
+
+### 2. Solicitud completa. Esperado: 200 { "mensaje": "Mensaje enviado correctamente." }
+###    En el registro del API tienen que aparecer DOS correos:
+###      - "Nueva solicitud de contacto - Mente Activa" al consultorio, con los
+###        datos en tabla, el servicio, la fecha y el boton al panel.
+###      - "Recibimos su mensaje - <nombre del consultorio>" a quien escribio,
+###        con su texto citado y las formas de contacto del pie.
+###    El nombre del servicio y la fecha los devuelve el procedimiento; no los
+###    arma el API.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "Completa",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "idServicioInteres": 3,
+  "mensaje": "Buenas tardes.\n\nMi hijo esta en cuarto grado y le cuesta la lectura.\nQuisiera saber si hacen evaluaciones.\n\nGracias.",
+  "direccionIp": "203.0.113.10"
+}
+
+### 3. Sin servicio de interes: es opcional. Esperado: 200.
+###    En el aviso interno, la fila Servicio dice "Sin indicar".
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "SinServicio",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "mensaje": "Solo queria consultar precios.",
+  "direccionIp": "203.0.113.11"
+}
+
+### 4. Servicio que no existe o esta inactivo. Esperado: 200.
+###    No frena el mensaje: la solicitud queda sin servicio, porque el
+###    procedimiento descarta un id que no corresponde a un servicio activo.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "ServicioRaro",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "idServicioInteres": 9999,
+  "mensaje": "Pruebo con un servicio que no existe.",
+  "direccionIp": "203.0.113.12"
+}
+
+### 5. HTML y comillas en el texto. Esperado: 200.
+###    En los dos correos el texto tiene que verse literal, con las etiquetas
+###    como letras. Si en el correo aparece un titulo gigante o un enlace, el
+###    escapado se rompio.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "Inyeccion",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "idServicioInteres": 2,
+  "mensaje": "<h1>hola</h1> <a href=\"http://example.com\">enlace</a> & \"comillas\" <script>alert(1)</script>",
+  "direccionIp": "203.0.113.13"
+}
+
+### 6. Correo con formato invalido. Esperado: 400 "Revise los datos del formulario."
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "CorreoMalo",
+  "telefono": "87654321",
+  "correo": "esto-no-es-un-correo",
+  "mensaje": "Prueba.",
+  "direccionIp": "203.0.113.14"
+}
+
+### 7. Telefono que no son 8 digitos. Esperado: 400.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "TelefonoMalo",
+  "telefono": "123",
+  "correo": "zz.visitante@example.invalid",
+  "mensaje": "Prueba.",
+  "direccionIp": "203.0.113.15"
+}
+
+### 8. Sin mensaje. Esperado: 400.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "SinMensaje",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "mensaje": "",
+  "direccionIp": "203.0.113.16"
+}
+
+### 9. Limite por IP. Correr este bloque SEIS veces con la misma IP.
+###    Las cinco primeras: 200. La sexta: 400 con el mensaje del
+###    procedimiento ("Se recibieron demasiadas solicitudes...").
+###    El limite es de 5 por IP por hora y lo aplica la base, no el API.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "Limite",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "mensaje": "Prueba del limite por IP.",
+  "direccionIp": "203.0.113.200"
+}
+
+### 10. Sin IP. Esperado: 200, y el limite no aplica.
+###     La IP la manda la Web, porque el API solo ve la del servidor web; si no
+###     llega, no hay con que contar las repeticiones.
+POST {{host}}/api/contacto
+Content-Type: application/json
+
+{
+  "nombre": "ZZPrueba",
+  "apellido": "SinIp",
+  "telefono": "87654321",
+  "correo": "zz.visitante@example.invalid",
+  "mensaje": "Prueba sin direccion IP."
+}

@@ -610,7 +610,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         ${a.activo && !anulado
                             ? `<button type="button" class="btn btn-sm btn-outline-danger border-0" data-anular-abono="${a.idAbono}"
                                        data-texto="${escaparHtml(`${dinero(a.monto)} del ${formatoFecha(a.fechaAbono)}`)}"
-                                       title="Anular este pago" aria-label="Anular este pago"><i class="bi bi-arrow-counterclockwise"></i></button>`
+                                       title="Anular este pago" aria-label="Anular este pago"><i class="bi bi-x-circle"></i></button>`
                             : ""}
                     </td>
                 </tr>`).join("");

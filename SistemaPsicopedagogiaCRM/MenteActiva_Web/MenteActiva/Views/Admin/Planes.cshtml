@@ -98,8 +98,8 @@
                                         class="btn btn-sm border-0"
                                         data-accion="cambiar-estado"
                                         data-bs-toggle="tooltip"
-                                        title="Inactivar plan">
-                                    <i class="bi bi-archive"></i>
+                                        title="@(plan.Estado == "Inactivo" ? "Reactivar plan" : "Inactivar plan")">
+                                    <i class="bi @(plan.Estado == "Inactivo" ? "bi-check-circle" : "bi-slash-circle")"></i>
                                 </button>
 
                                 
@@ -1608,6 +1608,16 @@ if (accionConfirmadaPlan === "eliminar") {
 
                     var icono = botonEstado.querySelector("i");
 
+                    // El dispose va antes de escribir el title. Al destruirse,
+                    // el tooltip devuelve a title lo que tenia guardado en
+                    // data-bs-original-title, asi que si se escribe primero el
+                    // texto nuevo se pierde y el tooltip queda con el viejo.
+                    var tooltipAnterior = bootstrap.Tooltip.getInstance(botonEstado);
+
+                    if (tooltipAnterior) {
+                        tooltipAnterior.dispose();
+                    }
+
                     botonEstado.title =
                         nuevoEstado === "Activo"
                             ? "Inactivar plan"
@@ -1632,14 +1642,8 @@ if (accionConfirmadaPlan === "eliminar") {
                     if (icono) {
                         icono.className =
                             nuevoEstado === "Activo"
-                                ? "bi bi-archive"
-                                : "bi bi-arrow-counterclockwise";
-                    }
-
-                    var tooltip = bootstrap.Tooltip.getInstance(botonEstado);
-
-                    if (tooltip) {
-                        tooltip.dispose();
+                                ? "bi bi-slash-circle"
+                                : "bi bi-check-circle";
                     }
 
                     bootstrap.Tooltip.getOrCreateInstance(botonEstado);

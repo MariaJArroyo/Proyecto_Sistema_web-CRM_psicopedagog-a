@@ -11,6 +11,12 @@ namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/planes")]
+// Mismos roles que la pantalla de planes del panel (supuesto 6). Ojo con
+// esto: ahi entra tambien la asistente, mientras que sesiones y reportes
+// se cerraron a administrador y psicopedagoga por llevar nota clinica.
+// Si el plan de intervencion cuenta como lo mismo, hay que cerrar la
+// pantalla primero y despues este rol.
+[Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class PlanesController : ControllerBase
 {
     private readonly IConfiguration _config;
@@ -21,7 +27,6 @@ public class PlanesController : ControllerBase
     }
 
     [HttpGet]
-    [AllowAnonymous]
     public async Task<IActionResult> ObtenerTodos()
     {
         using var conexion = new MySqlConnection(
@@ -394,7 +399,6 @@ public class PlanesController : ControllerBase
 
 
     [HttpGet("{id:int}/historial")]
-    [AllowAnonymous]
     public async Task<IActionResult> Historial(int id)
     {
         if (id <= 0)
