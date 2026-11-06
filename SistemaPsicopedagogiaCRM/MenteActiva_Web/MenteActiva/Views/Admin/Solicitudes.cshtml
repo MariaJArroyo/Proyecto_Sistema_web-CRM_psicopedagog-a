@@ -32,20 +32,15 @@
                     {
                         foreach (var estado in ViewBag.EstadosSolicitud)
                         {
-                            if (estado.Nombre == "Pendiente")
-                            {
-                                <option value="@estado.Nombre" selected>@estado.Nombre</option>
-                            }
-                            else
-                            {
-                                <option value="@estado.Nombre">@estado.Nombre</option>
-                            }
+                            <option value="@estado.Nombre">@estado.Nombre</option>
                         }
                     }
                 </select>
             </div>
 
         </div>
+
+        <partial name="_AvisoGuardado" />
 
         <div class="table-responsive">
 

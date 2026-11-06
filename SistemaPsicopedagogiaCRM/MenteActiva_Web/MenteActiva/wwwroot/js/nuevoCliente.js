@@ -14,8 +14,37 @@ document.addEventListener("DOMContentLoaded", function () {
     const campoIdSolicitud = document.getElementById("NuevoClienteIdSolicitud");
     const titulo = document.getElementById("TituloNuevoCliente");
      const contador = document.getElementById("ContadorEstudiantesNuevo");
+    const campoCorreo = document.getElementById("CorreoNuevoCliente");
+    const casillaInvitar = document.getElementById("InvitarPortalNuevoCliente");
+    const ayudaInvitar = document.getElementById("AyudaInvitarPortal");
 
     const PatronCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const AyudaConCorreo = ayudaInvitar.textContent.trim();
+    const AyudaSinCorreo = "Escriba un correo electrónico para poder invitarlo al portal.";
+
+
+    // ---------- casilla de invitacion al portal ----------
+
+    // Sin correo no hay a donde mandar la invitacion, asi que la casilla se
+    // apaga. Se recuerda lo que la persona eligio para que al corregir el
+    // correo vuelva como estaba y no se le reactive sola.
+    let invitarElegido = true;
+
+    casillaInvitar.addEventListener("change", function () {
+        invitarElegido = casillaInvitar.checked;
+    });
+
+    function refrescarInvitacion() {
+        const hayCorreo = PatronCorreo.test(campoCorreo.value.trim());
+
+        casillaInvitar.disabled = !hayCorreo;
+        casillaInvitar.checked = hayCorreo && invitarElegido;
+        ayudaInvitar.textContent = hayCorreo ? AyudaConCorreo : AyudaSinCorreo;
+    }
+
+    campoCorreo.addEventListener("input", refrescarInvitacion);
+    campoCorreo.addEventListener("change", refrescarInvitacion);
 
 
     // ---------- utilidades ----------
@@ -124,6 +153,10 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("ServicioInteresNuevoCliente").value = datos.idServicioInteres ?? "";
             document.getElementById("Observaciones").value = (datos.observaciones ?? "").slice(0, 1000);
         }
+
+        // Despues de cargar el correo, nunca antes: la casilla depende de el
+        invitarElegido = true;
+        refrescarInvitacion();
     }
 
     // Abierto con el boton "Nuevo cliente": trae relatedTarget y se abre vacio

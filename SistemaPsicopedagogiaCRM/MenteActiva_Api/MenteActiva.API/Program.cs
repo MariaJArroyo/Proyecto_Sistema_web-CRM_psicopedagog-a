@@ -71,6 +71,12 @@ builder.Services.AddScoped<IRepositorioPortal, RepositorioPortal>();
 builder.Services.AddScoped<IServicioPortal, ServicioPortal>();
 
 // ---------- Solicitudes de contacto ----------
+builder.Services.AddScoped<IRepositorioContadores, RepositorioContadores>();
+builder.Services.AddScoped<IServicioContadores, ServicioContadores>();
+
+builder.Services.AddScoped<IRepositorioEncargado, RepositorioEncargado>();
+builder.Services.AddScoped<IServicioEncargado, ServicioEncargado>();
+
 builder.Services.AddScoped<IRepositorioSolicitud, RepositorioSolicitud>();
 builder.Services.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
 

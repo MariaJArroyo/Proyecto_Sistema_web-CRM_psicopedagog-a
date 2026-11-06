@@ -204,8 +204,8 @@
                             data-accion="editar" data-id="${s.idSesion}" title="Editar">
                       <i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                            data-accion="inactivar" data-id="${s.idSesion}" title="Inactivar">
-                      <i class="bi bi-slash-circle"></i></button>
+                            data-accion="inactivar" data-id="${s.idSesion}" title="Eliminar registro">
+                      <i class="bi bi-trash"></i></button>
                   </td>
                 </tr>`;
         }).join("");
@@ -579,7 +579,7 @@
         }
 
         modal("ModalInactivarSesion").hide();
-        notificar("Sesión inactivada correctamente.", "success");
+        notificar("Registro de sesión eliminado.", "success");
         idSesionInactivar = null;
         await cargar(true);
     }

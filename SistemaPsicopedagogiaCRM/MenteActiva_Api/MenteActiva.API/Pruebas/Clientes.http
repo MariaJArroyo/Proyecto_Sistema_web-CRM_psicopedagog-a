@@ -1,0 +1,104 @@
+### Pruebas de los endpoints de estado del encargado (bloque D)
+###
+### Cubre las dos acciones de estado de TB_ENCARGADO, que son las unicas de
+### ClientesController que pasan por servicio y repositorio. Las otras ocho
+### siguen abriendo su conexion dentro del controlador y estan anotadas como
+### deuda (RG-117).
+###
+### Que se arreglo en esta tanda:
+###   - SP_DesactivarCliente_CRM no escribia bitacora ni recibia el usuario que
+###     actua, contra RG-94. Ahora recibe p_IdUsuarioAccion y la escribe.
+###   - Ese mismo procedimiento sobrescribia IdEstadoCliente con 5, y con eso
+###     se perdia el estado comercial. Ya no lo toca: los dos procedimientos de
+###     consulta derivan "Inactivo" de Activo = 0, asi que guardarlo era de mas.
+###   - SP_Encargado_Reactivar es nuevo: la vuelta, con el estado que tenia y
+###     los estudiantes que cayeron con el.
+###
+### Como correrlo:
+###   1. Levantar el API con la base de 01, 02, 03 y 05 recien corridos.
+###   2. Ejecutar el login y pegar el token en @token.
+###   3. Ejecutar de arriba hacia abajo. La 3 y la 6 son las que ESCRIBEN.
+###
+### La 3 y la 6 son una ida y vuelta: al terminar la 6 el encargado queda como
+### estaba. Lo que no se deshace solo son las dos filas de TB_BITACORA, que son
+### el registro de que las dos cosas pasaron.
+###
+### El puerto sale de Properties/launchSettings.json. Ojo: Solicitudes.http
+### apunta a 7301, que en este entorno no responde.
+
+@host = https://localhost:7201
+@idEncargado = 6
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@token = PEGAR_AQUI_EL_TOKEN
+
+### 0. Login del administrador. De la respuesta se copia "token" a @token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 1. Antes de tocar nada: el encargado aparece activo y con su estado.
+###    Esperado: 200. En la fila de @idEncargado, estado distinto de "Inactivo".
+GET {{host}}/api/clientes
+Authorization: Bearer {{token}}
+
+### 2. El detalle, para anotar el IdEstadoCliente que tiene ahora.
+###    Esperado: 200, con Activo = 1.
+GET {{host}}/api/clientes/{{idEncargado}}
+Authorization: Bearer {{token}}
+
+### 3. ESCRIBE. Inactivar.
+###    Esperado: 200 { "mensaje": "Cliente desactivado correctamente." }
+###    En la base: Activo = 0, IdEstadoCliente SIN cambiar, los estudiantes que
+###    se quedan sin ningun encargado activo pasan a Activo = 0, y una fila en
+###    TB_BITACORA con Accion = 'CambiarEstado' y el IdUsuario del token.
+PUT {{host}}/api/clientes/{{idEncargado}}/desactivar
+Authorization: Bearer {{token}}
+
+### 4. Inactivar otra vez, para ver la regla de negocio.
+###    Esperado: 400 { "mensaje": "El encargado ya esta inactivo." }
+PUT {{host}}/api/clientes/{{idEncargado}}/desactivar
+Authorization: Bearer {{token}}
+
+### 5. El listado ahora lo muestra como Inactivo, aunque el estado guardado sea
+###    el de antes: los procedimientos de consulta lo derivan de Activo.
+###    Esperado: 200, IdEstadoCliente = 5 y Estado = "Inactivo" en esa fila.
+GET {{host}}/api/clientes
+Authorization: Bearer {{token}}
+
+### 6. ESCRIBE. Reactivar: aqui se deshace la 3.
+###    Esperado: 200 { "mensaje": "Cliente reactivado correctamente." }
+###    En la base: Activo = 1, vuelve el IdEstadoCliente de la prueba 2, y
+###    vuelven los estudiantes que habian caido.
+PUT {{host}}/api/clientes/{{idEncargado}}/reactivar
+Authorization: Bearer {{token}}
+
+### 7. Reactivar otra vez.
+###    Esperado: 400 { "mensaje": "El encargado ya esta activo." }
+PUT {{host}}/api/clientes/{{idEncargado}}/reactivar
+Authorization: Bearer {{token}}
+
+### 8. Un encargado que no existe.
+###    Esperado: 400 { "mensaje": "El encargado indicado no existe." }
+PUT {{host}}/api/clientes/99999/reactivar
+Authorization: Bearer {{token}}
+
+### 9. Id invalido: lo para el servicio antes de ir a la base.
+###    Esperado: 400 { "mensaje": "El encargado indicado no existe." }
+PUT {{host}}/api/clientes/0/reactivar
+Authorization: Bearer {{token}}
+
+### 10. Sin token.
+###     Esperado: 401.
+PUT {{host}}/api/clientes/{{idEncargado}}/reactivar
+
+### 11. PENDIENTE del bloque I. ClientesController todavia no declara rol, asi
+###     que con el token de un encargado del portal esto responde 200 en vez de
+###     403. Cuando el bloque I le ponga el rol, lo esperado aqui pasa a 403.
+###     Hoy esta prueba FALLA a proposito y es la que avisa cuando se arregle.
+GET {{host}}/api/clientes
+Authorization: Bearer PEGAR_AQUI_EL_TOKEN_DE_UN_ENCARGADO

@@ -29,8 +29,17 @@
         <!-- Razor: asp-controller="Sesiones" asp-action="Index" -->
          @if (User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga"))
         {
+          <!-- Burbuja: citas ya pasadas que nadie anoto como sesion -->
           <a href="/Admin/Sesiones" class="SidebarAdmin-Enlace@(seccion == "Sesiones" ? " activo" : "")">
-            <i class="bi bi-journal-text"></i><span>Sesiones</span>
+            <div class="SidebarAdmin-Icono">
+              <i class="bi bi-journal-text"></i>
+              <sup class="SidebarAdmin-Contador d-none"
+                   data-contador="/Admin/ContarCitasSinSesion"
+                   data-contador-nombre="citasSinSesion"
+                   data-contador-singular="cita atendida sin sesión registrada"
+                   data-contador-plural="citas atendidas sin sesión registrada"></sup>
+            </div>
+            <span>Bitácora de citas</span>
           </a>
         }
         <!-- Razor: asp-controller="Planes" asp-action="Index" -->
@@ -45,14 +54,30 @@
           </a>
         }
         <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
+        <!-- Burbuja: cobros que ya pasaron su fecha de vencimiento -->
         <a href="/Admin/Pagos" class="SidebarAdmin-Enlace@(seccion == "Pagos" ? " activo" : "")">
-          <i class="bi bi-cash-coin"></i><span>Pagos</span>
+          <div class="SidebarAdmin-Icono">
+            <i class="bi bi-cash-coin"></i>
+            <sup class="SidebarAdmin-Contador d-none"
+                 data-contador="/Admin/ContarPagosVencidos"
+                 data-contador-nombre="pagosVencidos"
+                 data-contador-singular="cobro vencido"
+                 data-contador-plural="cobros vencidos"></sup>
+          </div>
+          <span>Pagos</span>
         </a>
-        <!-- Comunicacion, con contador de mensajes internos sin leer -->
+        <!-- Burbuja: mensajes internos sin leer mas recordatorios que no salieron.
+             Suma las dos cosas porque el enlace es uno; el texto del tooltip lo
+             arma el servidor y dice de que esta hecho el numero -->
         <a href="/Admin/Comunicacion" class="SidebarAdmin-Enlace@(seccion == "Comunicacion" ? " activo" : "")">
           <div class="SidebarAdmin-Icono">
             <i class="bi bi-chat-dots"></i>
-            <sup class="SidebarAdmin-Contador d-none" data-contador-mensajes="/Admin/MensajesSinLeer"></sup>
+            <sup class="SidebarAdmin-Contador d-none"
+                 data-contador="/Admin/PendientesComunicacion"
+                 data-contador-campo-titulo="detalle"
+                 data-contador-nombre="mensajes"
+                 data-contador-singular="pendiente de comunicación"
+                 data-contador-plural="pendientes de comunicación"></sup>
           </div>
           <span>Comunicación</span>
         </a>
@@ -60,7 +85,12 @@
         <a href="/Admin/Solicitudes" class="SidebarAdmin-Enlace@(seccion == "Solicitudes" ? " activo" : "")">
           <div class="SidebarAdmin-Icono">
             <i class="bi bi-inbox"></i>
-            <sup class="SidebarAdmin-Contador d-none" id="ContadorSolicitudes"></sup>
+            <sup class="SidebarAdmin-Contador d-none" id="ContadorSolicitudes"
+                 data-contador="/Admin/ContarSolicitudesPendientes"
+                 data-contador-campo="pendientes"
+                 data-contador-nombre="solicitudes"
+                 data-contador-singular="solicitud pendiente"
+                 data-contador-plural="solicitudes pendientes"></sup>
           </div>
           <span>Solicitudes</span>
         </a>
@@ -73,8 +103,22 @@
           <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
         </a>
         <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
+        <!-- Burbuja: encargados con correo que todavia no tienen cuenta de portal.
+             Va dentro del rol que pide la pantalla, para no ensenar la cuenta de
+             algo que esa persona no puede abrir -->
         <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace@(seccion == "UsuariosExternos" ? " activo" : "")">
-          <i class="bi bi-person-badge"></i><span>Usuarios externos</span>
+          <div class="SidebarAdmin-Icono">
+            <i class="bi bi-person-badge"></i>
+            @if (User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga"))
+            {
+              <sup class="SidebarAdmin-Contador d-none"
+                   data-contador="/Admin/ContarEncargadosSinInvitar"
+                   data-contador-nombre="sinInvitar"
+                   data-contador-singular="encargado sin invitación al portal"
+                   data-contador-plural="encargados sin invitación al portal"></sup>
+            }
+          </div>
+          <span>Acceso al portal</span>
         </a>
 
          @if (User.IsInRole("Administrador"))

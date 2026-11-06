@@ -156,23 +156,7 @@ function InicializarFormularioLogin() {
 
   var campoCorreo = document.getElementById("CorreoElectronico");
   var campoContrasena = document.getElementById("Contrasena");
-  var campoTipoAcceso = document.getElementById("TipoAcceso");
-  var selectorTipoAcceso = document.getElementById("SelectorTipoAcceso");
 
-  if (selectorTipoAcceso && campoTipoAcceso) {
-    selectorTipoAcceso.querySelectorAll("[data-tipo-acceso]").forEach(function (boton) {
-      boton.addEventListener("click", function () {
-        selectorTipoAcceso.querySelectorAll("[data-tipo-acceso]").forEach(function (b) {
-          b.classList.remove("active");
-        });
-        boton.classList.add("active");
-        campoTipoAcceso.value = boton.getAttribute("data-tipo-acceso");
-      });
-    });
-  }
-
-  // El formulario se envia al servidor. A donde entra la persona lo decide el
-  // rol que trae la base, no el tipo de acceso que eligio aqui.
   formulario.addEventListener("submit", function (evento) {
     var esValido = true;
     esValido = ValidarCorreo(campoCorreo) && esValido;

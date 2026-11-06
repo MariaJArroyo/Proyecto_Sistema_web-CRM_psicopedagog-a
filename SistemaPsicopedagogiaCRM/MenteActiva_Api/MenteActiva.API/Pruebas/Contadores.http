@@ -1,0 +1,93 @@
+### Pruebas de los contadores de las burbujas del menu (bloque E)
+###
+### Los cuatro son una sola cuenta sin reglas de negocio, asi que no hay casos
+### de error de negocio que probar: lo que importa aqui es el rol. Cada burbuja
+### pide el mismo rol que la pantalla que abre, para que nadie vea la cuenta de
+### algo que no puede entrar a ver.
+###
+### Como correrlo:
+###   1. Levantar el API con la base de 01, 02, 03 y 05 recien corridos.
+###   2. Ejecutar los dos logins y pegar cada token.
+###   3. Ejecutar de arriba hacia abajo. Ninguna prueba escribe.
+###
+### Para ver una burbuja encenderse de verdad hay que provocar la condicion.
+### Los dos casos que los datos de prueba no traen:
+###
+###   -- recordatorio fallido
+###   INSERT INTO TB_NOTIFICACION (IdEncargado, IdCanalNotificacion, CorreoDestino,
+###     Asunto, Cuerpo, FechaProgramada, Enviada, Intentos, MensajeError)
+###   SELECT 1, cn.IdCanalNotificacion, 'zz@example.invalid', 'ZZ prueba',
+###          'Aviso desechable.', NOW(), 0, 3, 'Agoto los intentos.'
+###   FROM TB_CANAL_NOTIFICACION cn WHERE cn.Nombre = 'Correo' LIMIT 1;
+###
+###   -- mensaje sin leer para el administrador
+###   INSERT INTO TB_MENSAJE (IdUsuarioRemitente, IdUsuarioDestinatario, Asunto, Cuerpo, Leido)
+###   VALUES (2, 3, 'ZZ prueba', 'Mensaje desechable.', 0);
+###
+### Las dos filas se borran al terminar: son desechables (RG-13).
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 1. Login del asistente.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+### 2. Encargados sin invitacion al portal. Esperado: 200 { "total": n }
+###    Con los datos de prueba da 2.
+GET {{host}}/api/contadores/encargados-sin-invitar
+Authorization: Bearer {{token}}
+
+### 3. Recordatorios que agotaron sus intentos. Esperado: 200 { "total": n }
+###    Con los datos de prueba da 0; con la fila sembrada de arriba, 1.
+GET {{host}}/api/contadores/notificaciones-fallidas
+Authorization: Bearer {{token}}
+
+### 4. Citas atendidas sin sesion anotada. Esperado: 200 { "total": n }
+###    Con los datos de prueba da 3.
+GET {{host}}/api/contadores/citas-sin-sesion
+Authorization: Bearer {{token}}
+
+### 5. Cobros vencidos. Esperado: 200 { "total": n }
+###    Con los datos de prueba da 4.
+GET {{host}}/api/contadores/pagos-vencidos
+Authorization: Bearer {{token}}
+
+### 6. El asistente NO entra a "Acceso al portal". Esperado: 403.
+GET {{host}}/api/contadores/encargados-sin-invitar
+Authorization: Bearer {{tokenAsistente}}
+
+### 7. El asistente NO entra a la bitacora de citas, que lleva la nota clinica
+###    del menor. Esperado: 403.
+GET {{host}}/api/contadores/citas-sin-sesion
+Authorization: Bearer {{tokenAsistente}}
+
+### 8. El asistente SI ve los recordatorios fallidos. Esperado: 200.
+GET {{host}}/api/contadores/notificaciones-fallidas
+Authorization: Bearer {{tokenAsistente}}
+
+### 9. El asistente SI ve los cobros vencidos. Esperado: 200.
+GET {{host}}/api/contadores/pagos-vencidos
+Authorization: Bearer {{tokenAsistente}}
+
+### 10. Sin token. Esperado: 401.
+GET {{host}}/api/contadores/pagos-vencidos

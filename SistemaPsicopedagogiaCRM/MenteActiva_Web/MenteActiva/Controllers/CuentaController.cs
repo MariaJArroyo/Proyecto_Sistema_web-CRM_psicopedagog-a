@@ -85,8 +85,8 @@ public class CuentaController : Controller
             return Redirect(urlRetorno);
         }
 
-        // El destino lo decide el rol que vino de la base, nunca el tipo de
-        // acceso que eligio la persona en la pantalla.
+        // El destino lo decide el rol que vino de la base. La pantalla de login
+        // no pregunta por donde entra la persona.
         return sesion.Rol == RolEncargado
             ? RedirectToAction("Inicio", "Portal")
             : RedirectToAction("Dashboard", "Admin");

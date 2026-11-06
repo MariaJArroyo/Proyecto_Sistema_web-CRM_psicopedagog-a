@@ -325,11 +325,11 @@
             const botonEstado = est.activo
                 ? `<button type="button" class="btn btn-sm btn-outline-danger border-0"
                            data-accion-estudiante="desactivar" data-id="${est.idEstudiante}" title="Desactivar">
-                       <i class="bi bi-person-dash"></i>
+                       <i class="bi bi-slash-circle"></i>
                    </button>`
                 : `<button type="button" class="btn btn-sm btn-outline-success border-0"
                            data-accion-estudiante="activar" data-id="${est.idEstudiante}" title="Activar">
-                       <i class="bi bi-person-check"></i>
+                       <i class="bi bi-check-circle"></i>
                    </button>`;
  
             return `
@@ -790,6 +790,17 @@
  
                 mostrarModal("ModalEliminarCliente");
             }
+ 
+            if (accion === "reactivar") {
+ 
+                document.getElementById("NombreClienteReactivar").textContent =
+                    fila.querySelector('[data-campo="encargado"]')?.innerText.trim() || "";
+ 
+                document.getElementById("BotonConfirmarReactivarCliente")
+                    .setAttribute("data-id", id);
+ 
+                mostrarModal("ModalReactivarCliente");
+            }
         });
     }
  
@@ -797,6 +808,47 @@
     // =====================================================
     // CONFIRMAR DESACTIVACIÓN (sin cambios de logica)
     // =====================================================
+ 
+    const botonConfirmarReactivar = document.getElementById("BotonConfirmarReactivarCliente");
+ 
+    if (botonConfirmarReactivar) {
+ 
+        botonConfirmarReactivar.addEventListener("click", async function () {
+ 
+            const id = this.getAttribute("data-id");
+            if (!id) return;
+ 
+            this.disabled = true;
+ 
+            try {
+                const datos = new FormData();
+                datos.append("__RequestVerificationToken", tokenAntifalsificacion());
+ 
+                const respuesta = await fetch("/Admin/ReactivarCliente?id=" + id,
+                    { method: "POST", body: datos });
+ 
+                if (respuesta.ok) {
+                    location.reload();
+                    return;
+                }
+ 
+                // El procedimiento manda el motivo real ("ya esta activo") y el
+                // API lo devuelve como 400: se muestra ese, no uno inventado
+                let mensaje = "No se pudo reactivar el encargado.";
+ 
+                try {
+                    const cuerpo = await respuesta.json();
+                    if (cuerpo?.mensaje) mensaje = cuerpo.mensaje;
+                } catch { /* la respuesta no traia json */ }
+ 
+                alert(mensaje);
+ 
+            } finally {
+                this.disabled = false;
+            }
+        });
+    }
+ 
  
     const botonConfirmarEliminar = document.getElementById("BotonConfirmarEliminarCliente");
  
@@ -807,7 +859,11 @@
             const id = this.getAttribute("data-id");
             if (!id) return;
  
-            const response = await fetch("/Admin/DesactivarCliente?id=" + id, { method: "POST" });
+            const datos = new FormData();
+            datos.append("__RequestVerificationToken", tokenAntifalsificacion());
+ 
+            const response = await fetch("/Admin/DesactivarCliente?id=" + id,
+                { method: "POST", body: datos });
  
             if (response.ok) {
                 location.reload();

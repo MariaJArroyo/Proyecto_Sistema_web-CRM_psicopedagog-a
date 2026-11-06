@@ -311,7 +311,17 @@ public class AdminController : Controller
 
         var respuesta = await client.PostAsJsonAsync(UrlApi("clientes"), modelo);
 
-        return await ResponderSegunApi(respuesta, "No se pudo registrar el cliente.");
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return await ResponderSegunApi(respuesta, "No se pudo registrar el cliente.");
+        }
+
+        // El modal recarga la pantalla al guardar, asi que el aviso tiene que
+        // viajar en TempData. Importa cuando sale bien a medias: el cliente
+        // quedo creado y la invitacion al portal no.
+        await GuardarAvisoAsync(respuesta, "No se pudo registrar el cliente.");
+
+        return Ok();
     }
     #endregion
 
@@ -365,7 +375,6 @@ public class AdminController : Controller
     #region desactivar cliente
 
     [HttpPost]
-    [IgnoreAntiforgeryToken]
     public IActionResult DesactivarCliente(int id)
     {
         using var client = _http.CreateClient();
@@ -378,6 +387,32 @@ public class AdminController : Controller
         }
 
         return BadRequest();
+    }
+
+    // La vuelta. Reenvia el cuerpo del API tal cual porque ahi viene el motivo
+    // cuando el procedimiento se niega ("El encargado ya esta activo."), y la
+    // pantalla muestra ese mensaje y no uno generico.
+    [HttpPost]
+    public async Task<IActionResult> ReactivarCliente(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsync(
+            UrlApi("clientes/" + id + "/reactivar"), null, cancelacion);
+
+        var cuerpo = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+        if (respuesta.IsSuccessStatusCode)
+        {
+            return Content(cuerpo, "application/json");
+        }
+
+        return new ContentResult
+        {
+            Content = cuerpo,
+            ContentType = "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
     }
     #endregion
 
@@ -995,6 +1030,86 @@ public class AdminController : Controller
     [HttpGet]
     public Task<IActionResult> MensajesSinLeer(CancellationToken cancelacion)
         => ReenviarGetAsync("mensajes/sin-leer", cancelacion);
+
+    #region burbujas del menu
+
+    // Las cuatro rutas de abajo las lee contadores.js. Todas devuelven cero si
+    // algo falla: una burbuja caida no debe romper el panel, y es lo mismo que
+    // ya hacia ContarSolicitudesPendientes.
+
+    [HttpGet]
+    public Task<IActionResult> ContarEncargadosSinInvitar(CancellationToken cancelacion)
+        => ContarAsync("contadores/encargados-sin-invitar", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> ContarCitasSinSesion(CancellationToken cancelacion)
+        => ContarAsync("contadores/citas-sin-sesion", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> ContarPagosVencidos(CancellationToken cancelacion)
+        => ContarAsync("contadores/pagos-vencidos", cancelacion);
+
+    // Comunicacion tiene dos cosas que avisar y un solo enlace en el menu, asi
+    // que la burbuja suma las dos y manda ademas el texto ya armado para que el
+    // tooltip diga de que esta hecho el numero.
+    [HttpGet]
+    public async Task<IActionResult> PendientesComunicacion(CancellationToken cancelacion)
+    {
+        var mensajes = await ContarCampoAsync("mensajes/sin-leer", "sinLeer", cancelacion);
+        var fallidas = await ContarCampoAsync("contadores/notificaciones-fallidas", "total", cancelacion);
+
+        return Json(new
+        {
+            total = mensajes + fallidas,
+            mensajes,
+            recordatoriosFallidos = fallidas,
+            detalle = DetalleComunicacion(mensajes, fallidas)
+        });
+    }
+
+    private static string DetalleComunicacion(int mensajes, int fallidas)
+    {
+        var partes = new List<string>();
+
+        if (mensajes > 0)
+        {
+            partes.Add(mensajes == 1 ? "1 mensaje sin leer" : $"{mensajes} mensajes sin leer");
+        }
+
+        if (fallidas > 0)
+        {
+            partes.Add(fallidas == 1
+                ? "1 recordatorio que no se pudo enviar"
+                : $"{fallidas} recordatorios que no se pudieron enviar");
+        }
+
+        return string.Join(" y ", partes);
+    }
+
+    private async Task<IActionResult> ContarAsync(string ruta, CancellationToken cancelacion)
+        => Json(new { total = await ContarCampoAsync(ruta, "total", cancelacion) });
+
+    // Devuelve cero ante cualquier problema: sesion vencida, API caido o un
+    // json que no trae el campo. La burbuja se queda apagada y nada mas.
+    private async Task<int> ContarCampoAsync(string ruta, string campo, CancellationToken cancelacion)
+    {
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var json = await client.GetFromJsonAsync<JsonElement>(UrlApi(ruta), cancelacion);
+
+            return json.TryGetProperty(campo, out var valor) && valor.TryGetInt32(out var total)
+                ? total
+                : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    #endregion
 
     [HttpPost]
     public async Task<IActionResult> EnviarMensaje(

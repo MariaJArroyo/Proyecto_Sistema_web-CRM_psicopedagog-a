@@ -1,6 +1,7 @@
 ﻿
 using Dapper;
 using MenteActiva.API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -11,6 +12,7 @@ namespace MenteActiva.API.Controllers;
 
 [ApiController]
 [Route("api/actividades")]
+[Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class ActividadesController : ControllerBase
 {
     private readonly IConfiguration _config;

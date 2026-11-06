@@ -50,7 +50,7 @@
                 editar.dataset.observacion = a.observacion || "";
                 acciones.append(editar);
             }
-            const estado = boton(activa ? "bi-toggle-on" : "bi-toggle-off", activa ? "Desactivar área" : "Reactivar área");
+            const estado = boton(activa ? "bi-slash-circle" : "bi-check-circle", activa ? "Desactivar área" : "Reactivar área");
             estado.setAttribute("role", "switch");
             estado.setAttribute("aria-checked", String(activa));
             estado.dataset.estadoArea = a.idAreaDificultad;

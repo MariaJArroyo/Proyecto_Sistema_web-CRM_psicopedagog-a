@@ -1,15 +1,6 @@
 @model MenteActiva.Models.LoginViewModel
 @{ ViewData["Title"] = "Iniciar sesión"; }
 
-<div class="btn-group w-100 mb-4" role="group" aria-label="Tipo de acceso" id="SelectorTipoAcceso">
-  <button type="button" class="btn btn-outline-primary active" data-tipo-acceso="Admin">
-    <i class="bi bi-briefcase me-1"></i>Personal administrativo
-  </button>
-  <button type="button" class="btn btn-outline-primary" data-tipo-acceso="Portal">
-    <i class="bi bi-house-heart me-1"></i>Portal de familias
-  </button>
-</div>
-
 @if (TempData["Mensaje"] is string aviso)
 {
   <div class="alert alert-success" role="alert">@aviso</div>
@@ -27,7 +18,6 @@
 
 <form asp-controller="Cuenta" asp-action="Login" asp-route-urlRetorno="@ViewData["UrlRetorno"]" method="post" novalidate
   id="FormularioLogin">
-  <input type="hidden" asp-for="TipoAcceso" id="TipoAcceso">
   <div class="mb-3">
     <label for="CorreoElectronico" class="form-label CampoObligatorio">Correo electrónico</label>
     <input type="email" class="form-control" asp-for="CorreoElectronico" id="CorreoElectronico"

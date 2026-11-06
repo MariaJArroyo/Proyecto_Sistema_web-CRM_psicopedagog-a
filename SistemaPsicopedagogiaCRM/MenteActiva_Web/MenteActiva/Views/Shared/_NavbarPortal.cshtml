@@ -102,7 +102,11 @@
                        asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@idActual">
                         Mensajes
                         <span class="badge badge-estado-nuevo ms-1 d-none" id="ContadorMensajesPortal"
-                              data-contador-mensajes="/Portal/MensajesSinLeer"></span>
+                              data-contador="/Portal/MensajesSinLeer"
+                              data-contador-campo="sinLeer"
+                              data-contador-nombre="mensajes"
+                              data-contador-singular="mensaje sin leer"
+                              data-contador-plural="mensajes sin leer"></span>
                     </a>
                 </li>
                 <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil">Mi perfil</a></li>

@@ -4,6 +4,10 @@
     ViewData["Title"] = "Encargados";
 }
  
+@* El token lo lee la peticion de reactivar. La de inactivar es anterior y va
+   sin token, con [IgnoreAntiforgeryToken] en el controlador: esta anotado *@
+@Html.AntiForgeryToken()
+
 <main class="PrincipalAdmin">
  
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
@@ -54,6 +58,8 @@
             </div>
  
         </div>
+ 
+        <partial name="_AvisoGuardado" />
  
         <div class="table-responsive">
  
@@ -123,14 +129,31 @@
                                         <i class="bi bi-pencil"></i>
                                     </button>
  
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-danger border-0"
-                                            data-accion="eliminar"
-                                            data-bs-toggle="tooltip"
-                                            title="Desactivar"
-                                            data-id="@cliente.Id">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    @* 5 = "Inactivo". Los dos procedimientos de consulta
+                                       devuelven ese id cuando Activo = 0, asi que alcanza
+                                       para saber de que lado esta la fila *@
+                                    @if (cliente.IdEstadoCliente == 5)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary border-0"
+                                                data-accion="reactivar"
+                                                data-bs-toggle="tooltip"
+                                                title="Reactivar"
+                                                data-id="@cliente.Id">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger border-0"
+                                                data-accion="eliminar"
+                                                data-bs-toggle="tooltip"
+                                                title="Inactivar"
+                                                data-id="@cliente.Id">
+                                            <i class="bi bi-slash-circle"></i>
+                                        </button>
+                                    }
  
                                 </td>
  
@@ -535,20 +558,56 @@
         <div class="modal-content">
  
             <div class="modal-header">
-                <h5 class="modal-title">Desactivar cliente</h5>
+                <h5 class="modal-title">Inactivar encargado</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
  
             <div class="modal-body">
                 <p class="mb-0">
-                    ¿Está seguro de que desea desactivar a
+                    ¿Está seguro de que desea inactivar a
                     <strong id="NombreClienteEliminar"></strong>?
+                </p>
+                <p class="TextoSuave mb-0">
+                    Deja de aparecer en la lista de trabajo y sus estudiantes quedan
+                    inactivos, salvo los que tengan otro encargado activo. Se puede
+                    reactivar después.
                 </p>
             </div>
  
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente">Desactivar</button>
+                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente"><i class="bi bi-slash-circle me-1"></i>Inactivar</button>
+            </div>
+ 
+        </div>
+    </div>
+ 
+</div>
+
+ 
+<div class="modal fade" id="ModalReactivarCliente" tabindex="-1" aria-hidden="true">
+ 
+    <div class="modal-dialog">
+        <div class="modal-content">
+ 
+            <div class="modal-header">
+                <h5 class="modal-title">Reactivar encargado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+ 
+            <div class="modal-body">
+                <p class="mb-2">
+                    ¿Desea reactivar a <strong id="NombreClienteReactivar"></strong>?
+                </p>
+                <p class="TextoSuave mb-0">
+                    Vuelve con el estado que tenía antes de inactivarse, y con él vuelven
+                    los estudiantes que quedaron inactivos a su cargo.
+                </p>
+            </div>
+ 
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="BotonConfirmarReactivarCliente"><i class="bi bi-check-circle me-1"></i>Reactivar</button>
             </div>
  
         </div>

@@ -1,0 +1,225 @@
+### Alta de encargado con invitacion al portal (bloque H)
+###
+### POST /api/clientes crea al encargado, sus telefonos y sus estudiantes en una
+### transaccion, y si viene "enviarInvitacion" le habilita el portal DESPUES del
+### commit. Lo que importa de estas pruebas es que el alta nunca se cae por
+### culpa de la invitacion: una vez guardado el cliente la respuesta es 200 y lo
+### que fallo se cuenta en "mensaje", con "correoEnviado": false.
+###
+### Antes de correrlo:
+###
+###   1. Base con 01, 02, 03 y 05 recien corridos.
+###   2. Para ver los correos en vez de mandarlos, levantar el API asi:
+###
+###        $env:Correo__Proveedor = "Registro"
+###
+###      Sin esa variable el proveedor sale de los secretos de usuario y el
+###      envio es real: las direcciones de abajo son .invalid y rebotan.
+###   3. Ejecutar la 1 para dejar el token.
+###
+### Al terminar, borrar lo que se haya creado (RG-13). El orden importa: de las
+### seis tablas que cuelgan del encargado, la unica que cae sola es
+### TB_ESTUDIANTE_ENCARGADO (ON DELETE CASCADE). TB_TELEFONO y TB_USUARIO van
+### con RESTRICT, asi que hay que borrarlos antes o el DELETE falla.
+###
+###   CREATE TEMPORARY TABLE zz AS
+###     SELECT IdEncargado FROM TB_ENCARGADO WHERE Nombre = 'ZZHttp';
+###
+###   -- 1. cuentas de portal (sus tokens y roles caen por cascade)
+###   DELETE FROM TB_USUARIO WHERE IdEncargado IN (SELECT IdEncargado FROM zz);
+###
+###   -- 2. estudiantes: primero la tabla puente, que RESTRINGE al estudiante
+###   CREATE TEMPORARY TABLE zze AS
+###     SELECT IdEstudiante FROM TB_ESTUDIANTE_ENCARGADO
+###     WHERE IdEncargado IN (SELECT IdEncargado FROM zz);
+###   DELETE FROM TB_ESTUDIANTE_ENCARGADO WHERE IdEncargado IN (SELECT IdEncargado FROM zz);
+###   DELETE FROM TB_ESTUDIANTE WHERE IdEstudiante IN (SELECT IdEstudiante FROM zze);
+###
+###   -- 3. telefonos y el encargado
+###   DELETE FROM TB_TELEFONO WHERE IdEncargado IN (SELECT IdEncargado FROM zz);
+###   DELETE FROM TB_ENCARGADO WHERE IdEncargado IN (SELECT IdEncargado FROM zz);
+###
+### Si la prueba 8 convirtio una solicitud, devolverla a pendiente:
+###
+###   UPDATE TB_SOLICITUD_CONTACTO
+###   SET IdEstadoSolicitud = 1, IdEncargado = NULL, IdUsuarioAtiende = NULL,
+###       FechaAtencion = NULL
+###   WHERE IdSolicitud = 1;
+###
+### Y las filas de TB_BITACORA que dejaron estas pruebas, que apuntan a registros
+### que ya no existen.
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+
+
+### 1. Login del administrador. De aqui sale el token.
+# @name ingreso
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+@token = {{ingreso.response.body.token}}
+
+
+### 2. Alta con invitacion. Esperado: 200 con
+###    { "mensaje": "Cliente registrado. Se envió la invitación al portal.",
+###      "idEncargado": N, "correoEnviado": true }
+###    En el registro del API sale el correo "Active su cuenta de Mente Activa",
+###    y en la base queda un TB_USUARIO con IdEstadoUsuario = 4 y su token.
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "ConInvitacion",
+  "telefono": "87650011",
+  "correo": "zz.http.invita@example.invalid",
+  "idServicioInteres": 2,
+  "observaciones": "Prueba del bloque H.",
+  "enviarInvitacion": true,
+  "estudiantes": [
+    { "nombre": "Hija", "apellido": "ZZHttp", "idParentesco": 1, "fechaNacimiento": "2016-03-14", "idNivelEducativo": 3 }
+  ]
+}
+
+### 3. La misma alta sin invitacion. Esperado: 200 con
+###    { "mensaje": "Cliente registrado correctamente.", "idEncargado": N }
+###    y SIN "correoEnviado". No tiene que quedar ningun TB_USUARIO nuevo.
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "SinInvitacion",
+  "telefono": "87650012",
+  "correo": "zz.http.sininvitar@example.invalid",
+  "idServicioInteres": 2,
+  "enviarInvitacion": false,
+  "estudiantes": [
+    { "nombre": "Hijo", "apellido": "ZZHttp", "idParentesco": 1 }
+  ]
+}
+
+### 4. Sin correo y sin pedir invitacion, que es como llega desde la pantalla
+###    cuando el campo esta vacio (la casilla se deshabilita sola).
+###    Esperado: 200 con
+###    { "mensaje": "Cliente registrado. Sin correo no se puede invitar al portal." }
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "SinCorreo",
+  "telefono": "87650013",
+  "idServicioInteres": 2,
+  "enviarInvitacion": false,
+  "estudiantes": [
+    { "nombre": "Nino", "apellido": "ZZHttp", "idParentesco": 1 }
+  ]
+}
+
+### 5. Pidiendo invitacion pero sin correo. La pantalla no deja llegar aqui;
+###    esto cubre una llamada directa al API. Esperado: 200 con
+###    { "mensaje": "Cliente registrado. No se invitó al portal porque no tiene correo.",
+###      "correoEnviado": false }
+###    El cliente SE CREA igual: la invitacion no es condicion del alta.
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "PideSinCorreo",
+  "telefono": "87650014",
+  "idServicioInteres": 2,
+  "enviarInvitacion": true,
+  "estudiantes": [
+    { "nombre": "Nina", "apellido": "ZZHttp", "idParentesco": 1 }
+  ]
+}
+
+### 6. Con un correo que ya es de otro usuario. SP_UsuarioExterno_Crear lo
+###    rechaza con SIGNAL 45000. Esperado: 200 (no 400 y no 500) con
+###    { "mensaje": "Cliente registrado, pero no se pudo habilitar el portal:
+###                  Ya existe un usuario con ese correo.",
+###      "correoEnviado": false }
+###    Es el caso que mas importa: el cliente ya estaba guardado cuando fallo la
+###    invitacion, asi que devolver un error haria creer que no se guardo nada.
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "CorreoRepetido",
+  "telefono": "87650015",
+  "correo": "admin.prueba@example.com",
+  "idServicioInteres": 2,
+  "enviarInvitacion": true,
+  "estudiantes": [
+    { "nombre": "Hijo", "apellido": "ZZHttp", "idParentesco": 1 }
+  ]
+}
+
+### 7. Sin estudiantes. Aqui si corresponde 400: el alta misma es invalida y no
+###    se guardo nada. Esperado: 400 "Debe agregar al menos un estudiante."
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "SinEstudiantes",
+  "telefono": "87650016",
+  "idServicioInteres": 2,
+  "enviarInvitacion": true,
+  "estudiantes": []
+}
+
+### 8. Conversion de una solicitud pendiente. Cambiar idSolicitud por una que
+###    este en estado 1 o 2. Esperado: 200 con la invitacion enviada, y la
+###    solicitud queda en IdEstadoSolicitud = 3 apuntando al encargado nuevo.
+###    Repetir la misma llamada da 400 "La solicitud no existe o ya fue
+###    convertida." y no crea un segundo cliente.
+POST {{host}}/api/clientes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombreEncargado": "ZZHttp",
+  "apellidoEncargado": "Conversion",
+  "telefono": "87650017",
+  "correo": "zz.http.conversion@example.invalid",
+  "idServicioInteres": 2,
+  "idSolicitud": 1,
+  "enviarInvitacion": true,
+  "estudiantes": [
+    { "nombre": "Hija", "apellido": "ZZHttp", "idParentesco": 1 }
+  ]
+}
+
+### 9. El correo caido. No se prueba con datos sino con configuracion: levantar
+###    el API apuntando a un servidor SMTP que no existe en la propia maquina,
+###    asi nada puede salir a internet.
+###
+###      $env:Correo__Proveedor = "Gmail"
+###      $env:Correo__Servidor  = "127.0.0.1"
+###      $env:Correo__Puerto    = "25252"
+###      $env:Correo__Remitente = "zz.remitente@example.invalid"
+###      $env:Correo__Contrasena = "no-es-una-clave"
+###
+###    Repitiendo la prueba 2 con otro correo, lo esperado es 200 con
+###    { "mensaje": "Cliente registrado y cuenta del portal creada, pero el
+###                  correo no salió. Use \"Reenviar invitación\" en Acceso al
+###                  portal.", "correoEnviado": false }
+###    y en la base el TB_USUARIO y su token igual creados, que es lo que hace
+###    que "Reenviar invitacion" tenga algo que reenviar.

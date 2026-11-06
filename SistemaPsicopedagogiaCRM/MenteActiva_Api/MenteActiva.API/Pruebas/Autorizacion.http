@@ -1,0 +1,175 @@
+### Cierre de autorizacion del API (bloque I)
+###
+### Esto no prueba un modulo: prueba que ningun endpoint del CRM se pueda llamar
+### sin el rol que le corresponde. Es la prueba de regresion del bloque I, y hay
+### que volver a correrla cada vez que se agregue un controlador.
+###
+### Como estaba antes: ocho controladores no declaraban rol, asi que la
+### FallbackPolicy los dejaba pasar con cualquier sesion valida, incluida la de
+### un encargado del portal. Y dos endpoints de planes estaban [AllowAnonymous],
+### que no pedian ni sesion.
+###
+### Lo que tiene que pasar:
+###   - sin token            -> 401
+###   - token de encargado   -> 403 en todo lo del panel, 200 en lo del portal
+###   - token interno        -> 200 segun el rol de la pantalla que lo consume
+###
+### Los tres [AllowAnonymous] que quedan son a proposito: autenticacion (login y
+### restablecimiento, que pasan antes de haber sesion), contacto (el formulario
+### del sitio publico) y home (comprobar que el API esta arriba).
+###
+### Esta prueba no escribe nada excepto la 20 y la 21, que son una ida y vuelta
+### sobre el encargado 6 y lo dejan como estaba. Las dos filas de TB_BITACORA
+### que generan si quedan: son el registro de que las dos llamadas pasaron.
+
+@host = https://localhost:7201
+
+
+### ---------------------------------------------------------------
+### 1 a 9. SIN TOKEN. Todas tienen que dar 401.
+###        La 1 y la 2 son las que estaban [AllowAnonymous] y daban 200.
+### ---------------------------------------------------------------
+
+### 1. Lista de planes. Antes: 200 con los planes de los menores.
+GET {{host}}/api/planes
+
+### 2. Historial de un plan. Antes: 200.
+GET {{host}}/api/planes/1/historial
+
+### 3.
+GET {{host}}/api/clientes
+
+### 4.
+GET {{host}}/api/estudiantes
+
+### 5.
+GET {{host}}/api/servicios
+
+### 6.
+GET {{host}}/api/dashboard
+
+### 7.
+GET {{host}}/api/materiales
+
+### 8.
+GET {{host}}/api/estrategias/plan/1
+
+### 9.
+GET {{host}}/api/actividades/estrategia/1
+
+
+### ---------------------------------------------------------------
+### 10. Token de un ENCARGADO del portal.
+### ---------------------------------------------------------------
+
+# @name portal
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "marco.prueba@example.com",
+  "contrasena": "Marco123*"
+}
+
+@tokenPortal = {{portal.response.body.token}}
+
+
+### 11 a 16. Con ese token, todo lo del panel tiene que dar 403.
+###          Antes daban 200: un padre leia los datos de los hijos de los demas.
+
+### 11.
+GET {{host}}/api/clientes
+Authorization: Bearer {{tokenPortal}}
+
+### 12.
+GET {{host}}/api/estudiantes
+Authorization: Bearer {{tokenPortal}}
+
+### 13.
+GET {{host}}/api/planes
+Authorization: Bearer {{tokenPortal}}
+
+### 14. Tambien los catalogos, que devolvian nombres de familias.
+GET {{host}}/api/estudiantes/encargados
+Authorization: Bearer {{tokenPortal}}
+
+### 15. Y las escrituras. 403 antes de tocar la base.
+PUT {{host}}/api/clientes/6/desactivar
+Authorization: Bearer {{tokenPortal}}
+
+### 16.
+DELETE {{host}}/api/estrategias/1
+Authorization: Bearer {{tokenPortal}}
+
+
+### 17 y 18. Lo que el portal SI necesita, con el mismo token: 200.
+###           Si alguna de estas da 403, el portal quedo roto.
+
+### 17.
+GET {{host}}/api/portal/inicio
+Authorization: Bearer {{tokenPortal}}
+
+### 18.
+GET {{host}}/api/mensajes
+Authorization: Bearer {{tokenPortal}}
+
+
+### ---------------------------------------------------------------
+### 19 a 21. Token de la ASISTENTE, que es el rol interno mas corto.
+###          Lo que la pantalla le deja hacer tiene que seguir dando 200.
+### ---------------------------------------------------------------
+
+# @name asistente
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "asistente.prueba@example.com",
+  "contrasena": "Asis123*"
+}
+
+@tokenAsistente = {{asistente.response.body.token}}
+
+
+### 19. Lectura: 200.
+GET {{host}}/api/clientes
+Authorization: Bearer {{tokenAsistente}}
+
+### 20. Escritura: 200. Esta y la 21 son la ida y la vuelta.
+PUT {{host}}/api/clientes/6/desactivar
+Authorization: Bearer {{tokenAsistente}}
+
+### 21. Deja al encargado 6 como estaba.
+PUT {{host}}/api/clientes/6/reactivar
+Authorization: Bearer {{tokenAsistente}}
+
+
+### ---------------------------------------------------------------
+### 22 y 23. Los dos que siguen abiertos a proposito.
+### ---------------------------------------------------------------
+
+### 22. El API esta arriba. Esperado: 200 sin token.
+GET {{host}}/api/home
+
+### 23. Servicios del formulario publico. Esperado: 200 sin token.
+###     Ojo: no es lo mismo que /api/servicios, que es del panel y pide rol.
+GET {{host}}/api/contacto/servicios
+
+
+### ---------------------------------------------------------------
+### 24 y 25. Dos que dan 500 y no es por la autorizacion.
+###          Llaman procedimientos que no existen en la base:
+###          SP_ConsultarDashboard y SP_ConsultarMateriales. Los que si
+###          existen se llaman SP_Dashboard_ObtenerResumen y
+###          SP_Material_Listar. Es la deuda de M11 y M12, anotada aparte.
+###          Con token interno dan 500; sin token siguen dando 401, que es lo
+###          que esta prueba mira.
+### ---------------------------------------------------------------
+
+### 24.
+GET {{host}}/api/dashboard
+Authorization: Bearer {{tokenAsistente}}
+
+### 25.
+GET {{host}}/api/materiales
+Authorization: Bearer {{tokenAsistente}}

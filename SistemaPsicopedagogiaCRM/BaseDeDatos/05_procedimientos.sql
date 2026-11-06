@@ -542,6 +542,24 @@ DELIMITER ;
 
 
 -- Quita el acceso al portal sin tocar al encargado, que sigue siendo cliente.
+-- Para la burbuja de "Acceso al portal": encargados activos, con correo, que
+-- todavia no tienen cuenta de portal. La condicion es la misma rama
+-- 'Sin invitar' de SP_UsuarioExterno_Listar, para que el numero de la burbuja y
+-- la columna de la tabla no puedan decir cosas distintas.
+DROP PROCEDURE IF EXISTS SP_UsuarioExterno_ContarSinInvitar;
+DELIMITER $$
+CREATE PROCEDURE SP_UsuarioExterno_ContarSinInvitar()
+BEGIN
+  SELECT COUNT(*) AS Total
+  FROM TB_ENCARGADO e
+  WHERE e.Activo = 1
+    AND e.Correo IS NOT NULL
+    AND TRIM(e.Correo) <> ''
+    AND NOT EXISTS (SELECT 1 FROM TB_USUARIO u WHERE u.IdEncargado = e.IdEncargado);
+END$$
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS SP_UsuarioExterno_SuspenderAcceso;
 DELIMITER $$
 CREATE PROCEDURE SP_UsuarioExterno_SuspenderAcceso(
@@ -1130,25 +1148,118 @@ DELIMITER ;
 DROP PROCEDURE IF EXISTS SP_DesactivarCliente_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_DesactivarCliente_CRM(
-    IN p_IdEncargado INT
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEncargado     INT
 )
 BEGIN
+    DECLARE v_Activo TINYINT DEFAULT NULL;
+    DECLARE v_Estado INT;
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
 
+    SELECT Activo, IdEstadoCliente INTO v_Activo, v_Estado
+    FROM TB_ENCARGADO
+    WHERE IdEncargado = p_IdEncargado;
+
+    IF v_Activo IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado indicado no existe.';
+    END IF;
+
+    IF v_Activo = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado ya esta inactivo.';
+    END IF;
+
     START TRANSACTION;
 
-    -- 5 = "Inactivo" en TB_ESTADO_CLIENTE
+    -- Aqui no se toca IdEstadoCliente a proposito. SP_ConsultarClientes_CRM y
+    -- SP_ObtenerCliente_CRM ya muestran "Inactivo" cuando Activo = 0, asi que
+    -- guardarlo era de mas, y encima borraba el estado comercial que la
+    -- reactivacion necesita devolver.
     UPDATE TB_ENCARGADO
     SET Activo = 0,
-        IdEstadoCliente = 5,
         FechaModificacion = NOW()
     WHERE IdEncargado = p_IdEncargado;
 
     CALL SP_DesactivarEstudiantesEncargado_CRM(p_IdEncargado);
+
+    -- 'CambiarEstado' y no 'Desactivar': CK_Bitacora_Accion solo admite
+    -- Crear, Editar, Eliminar y CambiarEstado.
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'CambiarEstado',
+            JSON_OBJECT('Activo', 1, 'IdEstadoCliente', v_Estado),
+            JSON_OBJECT('Activo', 0, 'IdEstadoCliente', v_Estado));
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Devuelve al encargado a activo. Es la vuelta de SP_DesactivarCliente_CRM y
+-- hace lo mismo que ya hacia SP_EditarCliente_CRM al cambiarle el estado, pero
+-- sin pedir el formulario completo: desde una fila solo se manda el id.
+DROP PROCEDURE IF EXISTS SP_Encargado_Reactivar;
+DELIMITER $$
+CREATE PROCEDURE SP_Encargado_Reactivar(
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEncargado     INT
+)
+BEGIN
+    DECLARE v_Activo TINYINT DEFAULT NULL;
+    DECLARE v_Estado INT;
+    DECLARE v_EstadoNuevo INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT Activo, IdEstadoCliente INTO v_Activo, v_Estado
+    FROM TB_ENCARGADO
+    WHERE IdEncargado = p_IdEncargado;
+
+    IF v_Activo IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado indicado no existe.';
+    END IF;
+
+    IF v_Activo = 1 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado ya esta activo.';
+    END IF;
+
+    -- Vuelve con el estado comercial que tenia. Los que se dieron de baja antes
+    -- de que la desactivacion dejara de sobrescribirlo quedaron guardados con 5
+    -- ("Inactivo"), y eso no puede quedar en un encargado activo: esos pasan a
+    -- 4 ("Activo").
+    SET v_EstadoNuevo = IF(v_Estado = 5, 4, v_Estado);
+
+    START TRANSACTION;
+
+    UPDATE TB_ENCARGADO
+    SET Activo = 1,
+        IdEstadoCliente = v_EstadoNuevo,
+        FechaModificacion = NOW()
+    WHERE IdEncargado = p_IdEncargado;
+
+    -- La misma regla que aplica SP_EditarCliente_CRM cuando reactiva por su
+    -- via, para que la misma accion no haga dos cosas distintas segun el boton:
+    -- vuelven los estudiantes que cayeron con el.
+    UPDATE TB_ESTUDIANTE
+    SET Activo = 1,
+        FechaModificacion = NOW()
+    WHERE Activo = 0
+      AND IdEstudiante IN (
+          SELECT ee.IdEstudiante
+          FROM TB_ESTUDIANTE_ENCARGADO ee
+          WHERE ee.IdEncargado = p_IdEncargado);
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'CambiarEstado',
+            JSON_OBJECT('Activo', 0, 'IdEstadoCliente', v_Estado),
+            JSON_OBJECT('Activo', 1, 'IdEstadoCliente', v_EstadoNuevo));
 
     COMMIT;
 END$$
@@ -3737,6 +3848,31 @@ DELIMITER ;
 -- Citas del estudiante a las que todavia se les puede registrar la sesion: ya
 -- empezaron, no estan canceladas y no tienen una sesion activa. Alimenta el
 -- campo opcional de cita de origen del formulario.
+-- Para la burbuja de "Bitacora de citas": citas cuya hora ya paso y que nadie
+-- anoto como sesion. Es SP_Sesion_ListarCitasDisponibles sin el filtro por
+-- estudiante y contando en vez de listar, asi que las dos aplican la misma
+-- regla: fuera las canceladas y las de "no asistio", porque en esas no hubo
+-- atencion que anotar.
+DROP PROCEDURE IF EXISTS SP_Sesion_ContarCitasSinSesion;
+DELIMITER $$
+CREATE PROCEDURE SP_Sesion_ContarCitasSinSesion(
+    IN p_Ahora DATETIME
+)
+BEGIN
+    DECLARE v_Ahora DATETIME;
+
+    SET v_Ahora = IFNULL(p_Ahora, NOW());
+
+    SELECT COUNT(*) AS Total
+    FROM TB_CITA c
+    WHERE c.FechaHoraInicio <= v_Ahora
+      AND c.IdEstadoCita NOT IN (4, 5)
+      AND NOT EXISTS (SELECT 1 FROM TB_SESION s
+                      WHERE s.IdCita = c.IdCita AND s.Activo = 1);
+END$$
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS SP_Sesion_ListarCitasDisponibles;
 DELIMITER $$
 CREATE PROCEDURE SP_Sesion_ListarCitasDisponibles(
@@ -4168,6 +4304,22 @@ DELIMITER ;
 
 -- Pasa a Vencido lo que ya vencio y sigue sin abonos. Pensado para correr una
 -- vez al dia; tambien se puede llamar a mano.
+-- Para la burbuja de Pagos: cobros en estado "Vencido" (3). Cuenta el estado
+-- guardado y no lo recalcula, para decir lo mismo que muestra la pantalla.
+-- Ojo: quien pasa un cobro a vencido es SP_Pago_RecalcularVencidos, y hoy no lo
+-- llama nadie, asi que un cobro pasado de fecha puede seguir figurando como
+-- pendiente y no entrar aqui. Esta anotado.
+DROP PROCEDURE IF EXISTS SP_Pago_ContarVencidos;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_ContarVencidos()
+BEGIN
+    SELECT COUNT(*) AS Total
+    FROM TB_PAGO
+    WHERE IdEstadoPago = 3;
+END$$
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS SP_Pago_RecalcularVencidos;
 DELIMITER $$
 CREATE PROCEDURE SP_Pago_RecalcularVencidos()
@@ -5585,6 +5737,30 @@ DELIMITER ;
 
 -- Suma el intento y guarda el motivo. No lanza error: se la llama justo cuando
 -- algo ya fallo, y que ademas reventara aqui taparia el error de verdad.
+-- Para la burbuja de Comunicacion: avisos que agotaron sus intentos y no van a
+-- volver a salir. El tope entra por parametro y no clavado, para que cuente lo
+-- mismo que deja de reintentar SP_Notificacion_ObtenerPendientes, que lo recibe
+-- igual desde la configuracion del worker.
+DROP PROCEDURE IF EXISTS SP_Notificacion_ContarFallidas;
+DELIMITER $$
+CREATE PROCEDURE SP_Notificacion_ContarFallidas(
+  IN p_MaxIntentos INT
+)
+BEGIN
+  DECLARE v_Max INT DEFAULT 3;
+
+  IF p_MaxIntentos IS NOT NULL AND p_MaxIntentos BETWEEN 1 AND 20 THEN
+    SET v_Max = p_MaxIntentos;
+  END IF;
+
+  SELECT COUNT(*) AS Total
+  FROM TB_NOTIFICACION
+  WHERE Enviada = 0
+    AND Intentos >= v_Max;
+END$$
+DELIMITER ;
+
+
 DROP PROCEDURE IF EXISTS SP_Notificacion_MarcarFallida;
 DELIMITER $$
 CREATE PROCEDURE SP_Notificacion_MarcarFallida(
@@ -6599,6 +6775,8 @@ CREATE PROCEDURE SP_RegistrarSolicitudContacto_CRM(
     IN p_DireccionIp       VARCHAR(45)
 )
 BEGIN
+    DECLARE v_IdSolicitud INT;
+
     IF p_DireccionIp IS NOT NULL AND (
         SELECT COUNT(*) FROM TB_SOLICITUD_CONTACTO
         WHERE DireccionIp = p_DireccionIp
@@ -6615,7 +6793,16 @@ BEGIN
         TRIM(p_Nombre), TRIM(p_Apellido), p_Telefono, TRIM(p_Correo),
         TRIM(p_Mensaje), p_DireccionIp);
 
-    SELECT LAST_INSERT_ID() AS IdSolicitud;
+    SET v_IdSolicitud = LAST_INSERT_ID();
+
+    -- La primera columna sigue siendo el id, como antes. Las otras dos son para
+    -- los dos correos que salen al registrar: el nombre del servicio lo resuelve
+    -- la base, porque el INSERT de arriba descarta uno inactivo, y la fecha es la
+    -- que quedo guardada y no la del reloj de quien pregunta.
+    SELECT sc.IdSolicitud, s.Nombre AS Servicio, sc.FechaRegistro
+    FROM TB_SOLICITUD_CONTACTO sc
+    LEFT JOIN TB_SERVICIO s ON s.IdServicio = sc.IdServicioInteres
+    WHERE sc.IdSolicitud = v_IdSolicitud;
 END$$
 DELIMITER ;
 

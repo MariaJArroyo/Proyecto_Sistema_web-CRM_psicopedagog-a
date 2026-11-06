@@ -238,7 +238,7 @@
                         </button>
 
                         <button type="button" class="btn btn-sm border-0 ${activo ? "text-primary" : "text-secondary"}" data-accion="estado" data-id="${escaparHtml(reporte.idReporte)}" role="switch" aria-checked="${activo}" title="${activo ? "Desactivar reporte" : "Reactivar reporte"}" aria-label="${activo ? "Desactivar reporte" : "Reactivar reporte"}">
-                            <i class="bi ${activo ? "bi-toggle-on" : "bi-toggle-off"} fs-5" aria-hidden="true"></i>
+                            <i class="bi ${activo ? "bi-slash-circle" : "bi-check-circle"}" aria-hidden="true"></i>
                         </button>
                     </td>
                 </tr>`;
