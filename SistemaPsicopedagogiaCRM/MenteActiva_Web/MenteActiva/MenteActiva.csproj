@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MenteActiva</RootNamespace>
     <AssemblyName>MenteActiva</AssemblyName>
+    <UserSecretsId>b5b84094-de00-4e67-bc2b-64b41491c368</UserSecretsId>
   </PropertyGroup>
 </Project>

@@ -115,6 +115,10 @@ builder.Services.AddSingleton<IPasswordHasher<UsuarioAutenticado>, PasswordHashe
 var llaveToken = builder.Configuration["Jwt:Llave"]
     ?? throw new InvalidOperationException("Falta Jwt:Llave en la configuracion.");
 
+Console.WriteLine(
+    $"Longitud de la clave JWT: {Encoding.UTF8.GetByteCount(llaveToken)} bytes"
+);
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opciones =>

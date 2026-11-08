@@ -1236,7 +1236,31 @@ public class AdminController : Controller
 
     #endregion
 
-    public IActionResult Dashboard() => View();
+
+    public async Task<IActionResult> Dashboard(CancellationToken cancelacion)
+    {
+        var dashboard = new DashboardViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            dashboard = await client.GetFromJsonAsync<DashboardViewModel>(
+                UrlApi("dashboard"), cancelacion) ?? dashboard;
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            ViewBag.ErrorCarga = "No se pudo cargar la información del Dashboard. El servicio no está disponible.";
+        }
+
+        return View(dashboard);
+    }
+
     public IActionResult Materiales() => View();
     public IActionResult MiPerfil() => View();
     #region Pagos
