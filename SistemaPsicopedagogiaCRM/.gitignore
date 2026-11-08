@@ -3,3 +3,25 @@ obj/
 .vs/
 *.user
 *.suo
+
+# secretos y configuracion local
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.p12
+.env
+.env.*
+
+# IDE y sistema
+.vscode/
+.idea/
+*.userprefs
+Thumbs.db
+.DS_Store
+
+# salidas de compilacion y publicacion
+[Bb]in/
+[Oo]bj/
+publish/
+*.log

@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Repositories;
 using Microsoft.AspNetCore.Identity;
@@ -11,21 +10,26 @@ namespace MenteActiva.Api.Services;
 public class ServicioAutenticacion : IServicioAutenticacion
 {
     private const int EstadoActivo = 1;
-    private const int HorasVigenciaEnlace = 1;
     private const string MensajeCredencialInvalida = "Correo o contraseña incorrectos.";
 
     private readonly IRepositorioUsuario _repositorio;
     private readonly IGeneradorTokenAcceso _generador;
     private readonly IPasswordHasher<UsuarioAutenticado> _hasher;
+    private readonly IServicioUsuarios _usuarios;
+    private readonly ILogger<ServicioAutenticacion> _registro;
 
     public ServicioAutenticacion(
         IRepositorioUsuario repositorio,
         IGeneradorTokenAcceso generador,
-        IPasswordHasher<UsuarioAutenticado> hasher)
+        IPasswordHasher<UsuarioAutenticado> hasher,
+        IServicioUsuarios usuarios,
+        ILogger<ServicioAutenticacion> registro)
     {
         _repositorio = repositorio;
         _generador = generador;
         _hasher = hasher;
+        _usuarios = usuarios;
+        _registro = registro;
     }
 
     public async Task<ResultadoInicioSesion> IniciarSesionAsync(LoginRequest peticion)
@@ -68,6 +72,10 @@ public class ServicioAutenticacion : IServicioAutenticacion
         });
     }
 
+    // El enlace y el correo los arma ServicioUsuarios, que ya resuelve los tres
+    // pasos juntos y elige el texto segun el estado de la cuenta. Lo que no puede
+    // salir de aqui es una excepcion: quien llama responde siempre lo mismo, y una
+    // cuenta inactiva o sin correo no puede delatarse fallando.
     public async Task<string?> SolicitarRestablecimientoAsync(string correo)
     {
         var usuario = await _repositorio.ObtenerPorCorreoAsync(correo);
@@ -77,11 +85,28 @@ public class ServicioAutenticacion : IServicioAutenticacion
             return null;
         }
 
-        var token = GenerarTextoToken();
+        try
+        {
+            var resultado = await _usuarios.ReenviarEnlaceAsync(usuario.IdUsuario);
 
-        await _repositorio.GenerarTokenAsync(usuario.IdUsuario, token, HorasVigenciaEnlace);
+            if (!resultado.CorreoEnviado)
+            {
+                // El enlace quedo guardado igual, asi que el panel lo puede reenviar.
+                _registro.LogWarning(
+                    "El enlace del usuario {IdUsuario} se genero pero el correo no salio.",
+                    usuario.IdUsuario);
+            }
 
-        return token;
+            return resultado.Token;
+        }
+        catch (Exception ex)
+        {
+            _registro.LogError(ex,
+                "No se pudo generar el enlace de restablecimiento del usuario {IdUsuario}.",
+                usuario.IdUsuario);
+
+            return null;
+        }
     }
 
     public async Task<int> RestablecerContrasenaAsync(RestablecerRequest peticion)
@@ -115,13 +140,4 @@ public class ServicioAutenticacion : IServicioAutenticacion
         4 => "La cuenta todavia no se ha activado. Revise el enlace de invitacion.",
         _ => MensajeCredencialInvalida
     };
-
-    private static string GenerarTextoToken()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToBase64String(bytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .TrimEnd('=');
-    }
 }

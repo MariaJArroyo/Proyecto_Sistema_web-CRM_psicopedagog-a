@@ -100,6 +100,22 @@ public class CuentaController : Controller
         return RedirectToAction(nameof(Login));
     }
 
+    // El API contesto 401: la cookie de la Web sigue viva pero el token que lleva
+    // dentro ya no sirve, porque vencio o porque el API se reinicio con otra llave
+    // de firma. Un solo lugar lo trata, y entran por aqui tanto las acciones de
+    // pantalla del panel como el gancho de sesionApi.js para las llamadas del
+    // navegador. Hay que botar la cookie antes de redirigir: si solo se redirige,
+    // el [Authorize] la acepta, vuelve a entrar y la pantalla rebota en bucle.
+    [HttpGet]
+    public async Task<IActionResult> SesionVencida()
+    {
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        TempData["Aviso"] = "Su sesión ya no es válida. Vuelva a iniciar sesión.";
+
+        return RedirectToAction(nameof(Login));
+    }
+
     [HttpGet]
     public IActionResult AccesoDenegado() => View();
 

@@ -26,20 +26,9 @@ public class UsuariosExternosController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] string? busqueda = null)
     {
-        try
-        {
-            var encargados = await _servicio.ListarExternosAsync(busqueda);
+        var encargados = await _servicio.ListarExternosAsync(busqueda);
 
-            return Ok(encargados);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al consultar los usuarios externos.",
-                detalle = ex.Message
-            });
-        }
+        return Ok(encargados);
     }
 
     // Habilita el portal a un encargado que ya existe como cliente
@@ -75,14 +64,6 @@ public class UsuariosExternosController : ControllerBase
         catch (MySqlException ex) when (ex.Number == ErrorReglaDeNegocio)
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al invitar al encargado.",
-                detalle = ex.Message
-            });
         }
     }
 
@@ -123,14 +104,6 @@ public class UsuariosExternosController : ControllerBase
         {
             return BadRequest(new { mensaje = ex.Message });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al reenviar el enlace.",
-                detalle = ex.Message
-            });
-        }
     }
 
     // Suspender le quita el acceso al portal sin tocar al encargado, que sigue
@@ -154,14 +127,6 @@ public class UsuariosExternosController : ControllerBase
         catch (MySqlException ex) when (ex.Number == ErrorReglaDeNegocio)
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al cambiar el acceso al portal.",
-                detalle = ex.Message
-            });
         }
     }
 

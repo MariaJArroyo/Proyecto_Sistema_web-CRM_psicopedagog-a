@@ -281,6 +281,8 @@
     const panelEstudiante = document.getElementById("PanelEstudianteCliente");
     const formEstudiante = document.getElementById("FormularioEstudianteCliente");
     const errorEstudiante = document.getElementById("EstudianteClienteError");
+    const errorEliminar = document.getElementById("EliminarClienteError");
+    const errorReactivar = document.getElementById("ReactivarClienteError");
  
     let clienteActual = null;
     let huboCambios = false;        // si se toco un estudiante, al cerrar se recarga la tabla
@@ -324,11 +326,11 @@
  
             const botonEstado = est.activo
                 ? `<button type="button" class="btn btn-sm btn-outline-danger border-0"
-                           data-accion-estudiante="desactivar" data-id="${est.idEstudiante}" title="Desactivar">
+                           data-accion-estudiante="desactivar" data-id="${est.idEstudiante}" title="Desactivar" aria-label="Desactivar">
                        <i class="bi bi-slash-circle"></i>
                    </button>`
                 : `<button type="button" class="btn btn-sm btn-outline-success border-0"
-                           data-accion-estudiante="activar" data-id="${est.idEstudiante}" title="Activar">
+                           data-accion-estudiante="activar" data-id="${est.idEstudiante}" title="Activar" aria-label="Activar">
                        <i class="bi bi-check-circle"></i>
                    </button>`;
  
@@ -341,11 +343,11 @@
                     <td>${estado}</td>
                     <td class="text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary border-0"
-                           href="/Admin/EstudianteFicha/${est.idEstudiante}" title="Ver ficha">
+                           href="/Admin/EstudianteFicha/${est.idEstudiante}" title="Ver ficha" aria-label="Ver ficha">
                             <i class="bi bi-file-earmark-person"></i>
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-secondary border-0"
-                                data-accion-estudiante="editar" data-id="${est.idEstudiante}" title="Editar">
+                                data-accion-estudiante="editar" data-id="${est.idEstudiante}" title="Editar" aria-label="Editar">
                             <i class="bi bi-pencil"></i>
                         </button>
                         ${botonEstado}
@@ -374,7 +376,6 @@
     // Vencido (3), Pendiente (2), Parcial (4), Pagado (1) y al final Anulado (5)
     const ORDEN_ESTADO_PAGO = { 3: 0, 2: 1, 4: 2, 1: 3, 5: 4 };
 
-    const moneda = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 });
     const filtroEstudiantePagos = document.getElementById("FiltroEstudiantePagos");
     const cuerpoPagosCliente = document.querySelector("#TablaPagosCliente tbody");
     const resumenPagosCliente = document.getElementById("ResumenPagosCliente");
@@ -383,7 +384,7 @@
     let numeroConsultaPagos = 0;     // descarta respuestas viejas si se abre otro encargado
 
     function dinero(valor) {
-        return moneda.format(Number(valor) || 0);
+        return window.Formato.dinero(valor);
     }
 
     // El API manda fechas sin hora como "2026-10-30T00:00:00"
@@ -638,7 +639,14 @@
             const activar = accion === "activar";
             const nombre = `${estudiante.nombre} ${estudiante.apellido}`;
  
-            if (!confirm(activar ? `¿Activar a ${nombre}?` : `¿Desactivar a ${nombre}?`)) return;
+            const acepta = await Confirmar({
+                titulo: activar ? "Activar estudiante" : "Desactivar estudiante",
+                texto: activar ? `¿Activar a ${nombre}?` : `¿Desactivar a ${nombre}?`,
+                textoBoton: activar ? "Activar" : "Desactivar",
+                tipo: activar ? "normal" : "peligro"
+            });
+
+            if (!acepta) return;
  
             const datos = new FormData();
             datos.append("__RequestVerificationToken", tokenAntifalsificacion());
@@ -774,7 +782,7 @@
                     else abrirEditar(cliente);
  
                 } catch (error) {
-                    alert(error.message);
+                    MostrarToast(error.message, "error");
                 } finally {
                     boton.disabled = false;
                 }
@@ -788,6 +796,7 @@
                 document.getElementById("BotonConfirmarEliminarCliente")
                     .setAttribute("data-id", id);
  
+                ocultarAlerta(errorEliminar);
                 mostrarModal("ModalEliminarCliente");
             }
  
@@ -799,6 +808,7 @@
                 document.getElementById("BotonConfirmarReactivarCliente")
                     .setAttribute("data-id", id);
  
+                ocultarAlerta(errorReactivar);
                 mostrarModal("ModalReactivarCliente");
             }
         });
@@ -841,7 +851,7 @@
                     if (cuerpo?.mensaje) mensaje = cuerpo.mensaje;
                 } catch { /* la respuesta no traia json */ }
  
-                alert(mensaje);
+                mostrarAlerta(errorReactivar, mensaje);
  
             } finally {
                 this.disabled = false;
@@ -868,7 +878,7 @@
             if (response.ok) {
                 location.reload();
             } else {
-                alert("No se pudo desactivar el cliente.");
+                mostrarAlerta(errorEliminar, "No se pudo desactivar el cliente.");
             }
         });
     }

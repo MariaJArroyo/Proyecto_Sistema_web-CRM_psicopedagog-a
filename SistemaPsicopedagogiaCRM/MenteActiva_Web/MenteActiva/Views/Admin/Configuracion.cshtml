@@ -1,5 +1,10 @@
-﻿@{
+﻿@using MenteActiva.Services
+@inject IProveedorMoneda ProveedorMoneda
+@{
     ViewData["Title"] = "Configuración";
+
+    // Mismo criterio que en Pagos: el simbolo lo decide TB_CONFIGURACION
+    var simboloMoneda = FormatoDinero.Simbolo(await ProveedorMoneda.ObtenerAsync());
 }
 
 <main class="PrincipalAdmin">
@@ -138,7 +143,7 @@
                             <tr>
                                 <th>Nombre</th>
                                 <th class="ColumnaDuracion">Duración (min)</th>
-                                <th class="ColumnaPrecio">Precio (₡)</th>
+                                <th class="ColumnaPrecio">Precio (@simboloMoneda)</th>
                                 <th class="text-end ColumnaAcciones"></th>
                             </tr>
                         </thead>

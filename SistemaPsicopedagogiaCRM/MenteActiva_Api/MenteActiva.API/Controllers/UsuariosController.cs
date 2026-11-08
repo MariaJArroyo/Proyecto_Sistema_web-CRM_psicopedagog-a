@@ -32,21 +32,10 @@ public class UsuariosController : ControllerBase
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanoPagina = 25)
     {
-        try
-        {
-            var usuarios = await _servicio.ListarAsync(
-                busqueda, idEstadoUsuario, soloInternos, pagina, tamanoPagina);
+        var usuarios = await _servicio.ListarAsync(
+            busqueda, idEstadoUsuario, soloInternos, pagina, tamanoPagina);
 
-            return Ok(usuarios);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al consultar los usuarios.",
-                detalle = ex.Message
-            });
-        }
+        return Ok(usuarios);
     }
 
     // Crea la cuenta sin contrasena y manda el enlace de activacion. La persona
@@ -66,35 +55,16 @@ public class UsuariosController : ControllerBase
         {
             return BadRequest(new { mensaje = ex.Message });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al crear el usuario.",
-                detalle = ex.Message
-            });
-        }
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Obtener(int id)
     {
-        try
-        {
-            var usuario = await _servicio.ObtenerAsync(id);
+        var usuario = await _servicio.ObtenerAsync(id);
 
-            return usuario is null
-                ? NotFound(new { mensaje = "El usuario indicado no existe." })
-                : Ok(usuario);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al consultar el usuario.",
-                detalle = ex.Message
-            });
-        }
+        return usuario is null
+            ? NotFound(new { mensaje = "El usuario indicado no existe." })
+            : Ok(usuario);
     }
 
     // Nombre, correo y rol. Si le cambian el correo, el procedimiento anula los
@@ -111,14 +81,6 @@ public class UsuariosController : ControllerBase
         catch (MySqlException ex) when (ex.Number == ErrorReglaDeNegocio)
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al editar el usuario.",
-                detalle = ex.Message
-            });
         }
     }
 
@@ -146,14 +108,6 @@ public class UsuariosController : ControllerBase
         {
             return BadRequest(new { mensaje = ex.Message });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al cambiar el estado del usuario.",
-                detalle = ex.Message
-            });
-        }
     }
 
     // Vuelve a mandar el enlace. Sirve para la invitacion que no llego y para
@@ -177,14 +131,6 @@ public class UsuariosController : ControllerBase
         {
             return BadRequest(new { mensaje = ex.Message });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al reenviar el enlace.",
-                detalle = ex.Message
-            });
-        }
     }
 
     // HU-M13-1: el administrador cambia el rol de un usuario. Un rol por
@@ -201,14 +147,6 @@ public class UsuariosController : ControllerBase
         catch (MySqlException ex) when (ex.Number == ErrorReglaDeNegocio)
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al asignar el rol.",
-                detalle = ex.Message
-            });
         }
     }
 

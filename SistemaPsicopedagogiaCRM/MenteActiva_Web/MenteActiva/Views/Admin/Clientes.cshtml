@@ -4,11 +4,11 @@
     ViewData["Title"] = "Encargados";
 }
  
-@* El token lo lee la peticion de reactivar. La de inactivar es anterior y va
-   sin token, con [IgnoreAntiforgeryToken] en el controlador: esta anotado *@
 @Html.AntiForgeryToken()
 
 <main class="PrincipalAdmin">
+
+    <partial name="_AvisoCarga" />
  
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
@@ -563,6 +563,7 @@
             </div>
  
             <div class="modal-body">
+                <div class="alert d-none" id="EliminarClienteError" role="alert"></div>
                 <p class="mb-0">
                     ¿Está seguro de que desea inactivar a
                     <strong id="NombreClienteEliminar"></strong>?
@@ -596,6 +597,7 @@
             </div>
  
             <div class="modal-body">
+                <div class="alert d-none" id="ReactivarClienteError" role="alert"></div>
                 <p class="mb-2">
                     ¿Desea reactivar a <strong id="NombreClienteReactivar"></strong>?
                 </p>

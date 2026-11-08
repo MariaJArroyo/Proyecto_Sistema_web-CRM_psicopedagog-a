@@ -1,4 +1,5 @@
 using MenteActiva.Seguridad;
+using MenteActiva.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,11 @@ builder.Services.AddTransient<ManejadorTokenApi>();
 // asi que el manejador del token queda puesto para todas las llamadas al API.
 builder.Services.AddHttpClient(string.Empty)
     .AddHttpMessageHandler<ManejadorTokenApi>();
+
+// La moneda de TB_CONFIGURACION la pide el layout en cada pantalla con montos, asi
+// que se cachea en vez de preguntarle al API cada vez
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IProveedorMoneda, ProveedorMoneda>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

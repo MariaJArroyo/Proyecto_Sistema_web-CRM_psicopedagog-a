@@ -26,25 +26,14 @@ public class AutenticacionController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest peticion)
     {
-        try
-        {
-            var resultado = await _servicio.IniciarSesionAsync(peticion);
+        var resultado = await _servicio.IniciarSesionAsync(peticion);
 
-            if (!resultado.Exito)
-            {
-                return Unauthorized(new { mensaje = resultado.Mensaje });
-            }
-
-            return Ok(resultado.Datos);
-        }
-        catch (Exception ex)
+        if (!resultado.Exito)
         {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al iniciar sesion.",
-                detalle = ex.Message
-            });
+            return Unauthorized(new { mensaje = resultado.Mensaje });
         }
+
+        return Ok(resultado.Datos);
     }
 
     // Siempre responde igual, exista o no la cuenta. Si distinguiera, cualquiera
@@ -53,32 +42,22 @@ public class AutenticacionController : ControllerBase
     public async Task<IActionResult> SolicitarRestablecimiento(
         [FromBody] SolicitarRestablecimientoRequest peticion)
     {
-        try
+        var token = await _servicio.SolicitarRestablecimientoAsync(peticion.Correo);
+
+        var respuesta = new Dictionary<string, object?>
         {
-            var token = await _servicio.SolicitarRestablecimientoAsync(peticion.Correo);
+            ["mensaje"] = "Si el correo esta registrado, recibira un enlace en los proximos minutos."
+        };
 
-            var respuesta = new Dictionary<string, object?>
-            {
-                ["mensaje"] = "Si el correo esta registrado, recibira un enlace en los proximos minutos."
-            };
-
-            // Mientras no haya envio de correo, el enlace se devuelve aqui para
-            // poder probar el flujo. Fuera de desarrollo nunca sale.
-            if (_entorno.IsDevelopment() && token is not null)
-            {
-                respuesta["token"] = token;
-            }
-
-            return Ok(respuesta);
-        }
-        catch (Exception ex)
+        // El enlace ya sale por correo. En desarrollo tambien se devuelve aqui
+        // para poder seguir la prueba sin buscarlo en el registro. Fuera de
+        // desarrollo nunca sale.
+        if (_entorno.IsDevelopment() && token is not null)
         {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al solicitar el restablecimiento.",
-                detalle = ex.Message
-            });
+            respuesta["token"] = token;
         }
+
+        return Ok(respuesta);
     }
 
     [HttpPost("restablecer")]
@@ -108,14 +87,6 @@ public class AutenticacionController : ControllerBase
         catch (MySqlException ex) when (ex.Number == ErrorReglaDeNegocio)
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al guardar la contraseña.",
-                detalle = ex.Message
-            });
         }
     }
 }

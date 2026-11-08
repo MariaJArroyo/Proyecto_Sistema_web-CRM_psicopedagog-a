@@ -1,0 +1,91 @@
+### Prueba de GET api/configuracion/moneda (bloque C, P9)
+###
+### Devuelve el codigo ISO de la moneda que guarda TB_CONFIGURACION en la fila
+### Moneda. Existe aparte de api/configuracion/consultorio porque ese endpoint es
+### del Administrador y la moneda la necesita cualquiera que vea un monto en
+### pantalla, incluido el encargado en el portal: sin ella el formato de dinero de
+### la Web tendria que llevar el simbolo escrito a mano, que es justo el defecto
+### que P9 fue a arreglar.
+###
+### Que recibe: nada, solo el token.
+### Que devuelve: 200 { "moneda": "CRC" }
+### Errores: 401 sin token o con token vencido. No hay 403: lo abre cualquier rol
+###          autenticado. No hay caso de error de negocio; si la fila falta o esta
+###          vacia el servicio contesta CRC.
+###
+### Como correrlo:
+###   1. Levantar el API con la base de 01, 02, 03 y 05 corridos.
+###   2. Ejecutar los tres logins y pegar cada token.
+###   3. Ejecutar de arriba hacia abajo. Ninguna prueba escribe.
+###
+### El paso 7 si escribe, y es el unico: cambia la fila Moneda para comprobar que
+### el endpoint sigue al dato y no a una constante. El paso 8 la devuelve a CRC,
+### asi que hay que correr los dos (RG-13).
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoAsistente = asistente.prueba@example.com
+@claveAsistente = Asis123*
+@correoEncargada = andrea.prueba@example.com
+@claveEncargada = Andrea123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenAsistente = PEGAR_AQUI_EL_TOKEN_DEL_ASISTENTE
+@tokenEncargada = PEGAR_AQUI_EL_TOKEN_DE_LA_ENCARGADA
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 1. Login del asistente.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAsistente}}",
+  "contrasena": "{{claveAsistente}}"
+}
+
+### 2. Login de la encargada.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoEncargada}}",
+  "contrasena": "{{claveEncargada}}"
+}
+
+### 3. Administrador. Esperado: 200 { "moneda": "CRC" }
+GET {{host}}/api/configuracion/moneda
+Authorization: Bearer {{token}}
+
+### 4. Asistente. Esperado: 200 { "moneda": "CRC" }
+###    El resto del controlador le da 403; este endpoint no, y es la unica
+###    excepcion al rol del controlador.
+GET {{host}}/api/configuracion/moneda
+Authorization: Bearer {{tokenAsistente}}
+
+### 5. Encargada del portal. Esperado: 200 { "moneda": "CRC" }
+GET {{host}}/api/configuracion/moneda
+Authorization: Bearer {{tokenEncargada}}
+
+### 6. Sin token. Esperado: 401.
+GET {{host}}/api/configuracion/moneda
+
+### 7. Comprobar que sigue al dato y no a una constante. Primero cambiar la fila
+###    en MySQL:
+###      UPDATE TB_CONFIGURACION SET Valor = 'USD' WHERE Clave = 'Moneda';
+###    y despues ejecutar esto. Esperado: 200 { "moneda": "USD" }
+GET {{host}}/api/configuracion/moneda
+Authorization: Bearer {{token}}
+
+### 8. Dejar el entorno como estaba (RG-13):
+###      UPDATE TB_CONFIGURACION SET Valor = 'CRC' WHERE Clave = 'Moneda';
+###    y comprobar. Esperado: 200 { "moneda": "CRC" }
+GET {{host}}/api/configuracion/moneda
+Authorization: Bearer {{token}}

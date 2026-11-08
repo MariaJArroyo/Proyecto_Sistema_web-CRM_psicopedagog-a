@@ -1,0 +1,142 @@
+### Pruebas del log de errores en TB_LOG_ERROR (bloque D, P3)
+###
+### La tabla estaba creada desde el primer script y nadie le escribia: los 500
+### se iban solo al registro del servidor, que en produccion se pierde cuando el
+### proceso se reinicia. Ahora los escribe ManejadorExcepciones, el unico lugar
+### por donde pasan los errores no controlados.
+###
+### Esta tanda no tiene endpoints propios: el log no se expone por HTTP. Lo que
+### se prueba es que las tres cosas que pide el diseno se cumplan.
+###
+###   1. Un 500 de verdad deja la fila, con la ruta, el metodo y el detalle.
+###   2. Si el error ocurrio dentro de una transaccion que se revierte, la fila
+###      del log SOBREVIVE. Es la razon de que el log no vaya en procedimiento:
+###      el rollback se lo llevaria. La prueba 2 es la que lo demuestra.
+###   3. Con la base caida el API sigue contestando. Un log que no se puede
+###      escribir no puede tumbar la respuesta al usuario.
+###
+### Lo que NO debe escribir fila: una respuesta buena (200) y un error de regla
+### de negocio (400). El log es de fallos tecnicos, no de validaciones. Las
+### pruebas 4 y 5 son ese control.
+###
+### Como correrlo:
+###   1. Levantar el API con la base de 01, 02, 03 y 05 recien corridos.
+###   2. Ejecutar el login y pegar el token en @token.
+###   3. Anotar los conteos de antes (consulta de abajo) y ejecutar en orden.
+###
+### La prueba 2 intenta escribir y falla a proposito, asi que no deja nada en las
+### tablas de negocio. Lo unico que queda es la fila del log, que se borra al
+### terminar: es desechable (RG-13).
+###
+###   -- antes y despues, para comparar
+###   SELECT (SELECT COUNT(*) FROM TB_LOG_ERROR)  AS log_filas,
+###          (SELECT COUNT(*) FROM TB_ENCARGADO)  AS encargados,
+###          (SELECT COUNT(*) FROM TB_ESTUDIANTE) AS estudiantes,
+###          (SELECT COUNT(*) FROM TB_TELEFONO)   AS telefonos,
+###          (SELECT COUNT(*) FROM TB_BITACORA)   AS bitacora;
+###
+###   -- la fila que dejo la prueba 2
+###   SELECT IdLogError, FechaHora, Nivel, Origen, MetodoHttp, UrlSolicitada,
+###          IdUsuario, DireccionIp, LEFT(Mensaje, 120) AS mensaje, TipoExcepcion
+###   FROM TB_LOG_ERROR ORDER BY IdLogError DESC LIMIT 1;
+###
+###   -- limpieza al terminar (el IdLogError es el de la consulta anterior)
+###   DELETE FROM TB_LOG_ERROR WHERE IdLogError = ...;
+###
+### El puerto sale de Properties/launchSettings.json.
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@token = PEGAR_AQUI_EL_TOKEN
+
+### 0. Login del administrador. De la respuesta se copia "token" a @token.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 1. Un 500 cualquiera, para ver que la fila se escribe.
+###    IdNivelEducativo 999 no existe, asi que la insercion del estudiante choca
+###    con FK_Estudiante_NivelEducativo. No es un SIGNAL 45000: es un error
+###    tecnico, y por eso sale 500 y no 400.
+###
+###    Esperado: 500 { "mensaje": "Ocurrió un error inesperado. Intente de nuevo." }
+###    y una fila nueva con Nivel = 'Error', Origen =
+###    'ClientesController/RegistrarCliente', MetodoHttp = 'POST',
+###    UrlSolicitada = '/api/clientes', IdUsuario = el del token, y en Mensaje el
+###    texto de MySQL sobre la llave foranea. El texto NO sale en la respuesta
+###    (eso fue el P2): solo queda guardado.
+POST {{host}}/api/clientes
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "nombreEncargado": "ZZPruebaLog",
+  "apellidoEncargado": "Rollback",
+  "telefono": "88880000",
+  "correo": "zz.prueba.log@example.invalid",
+  "idServicioInteres": 1,
+  "observaciones": "Prueba desechable del log de errores",
+  "enviarInvitacion": false,
+  "estudiantes": [
+    {
+      "nombre": "ZZEstudiante",
+      "apellido": "Rollback",
+      "idParentesco": 3,
+      "fechaNacimiento": "2015-03-10",
+      "idNivelEducativo": 999
+    }
+  ]
+}
+
+### 2. La misma peticion de arriba es la prueba del rollback, y conviene verla
+###    aparte porque es la que justifica el diseno.
+###
+###    SP_RegistrarCliente_CRM abre transaccion, inserta el encargado, inserta su
+###    telefono y despues entra al ciclo de los estudiantes. El fallo pasa ahi, o
+###    sea DESPUES de dos inserciones buenas, y su EXIT HANDLER hace ROLLBACK y
+###    RESIGNAL. Entonces:
+###
+###      - TB_ENCARGADO, TB_TELEFONO y TB_BITACORA quedan como estaban. El
+###        encargado 'ZZPruebaLog' no existe: se revirtio.
+###      - La fila de TB_LOG_ERROR SI esta.
+###
+###    Si el log viviera dentro del procedimiento, el ROLLBACK se lo habria
+###    llevado y no quedaria rastro del fallo. Por eso se escribe desde la
+###    aplicacion y con su propia conexion.
+###
+###    Esperado al comparar los conteos: log_filas +1, todo lo demas igual.
+###    (El contador AUTO_INCREMENT de las tablas que alcanzo a tocar si avanza;
+###    eso no se devuelve con el rollback y no importa.)
+
+### 3. El log con la base caida: el API tiene que seguir contestando.
+###
+###    No se corre con este archivo. Hay que levantar una SEGUNDA instancia del
+###    API con la cadena de conexion apuntando a un puerto donde no escucha
+###    nadie, y pegarle a cualquier endpoint con un token valido:
+###
+###      ConnectionStrings__DefaultConnection="Server=localhost;Port=3399;Database=mente_activa;Uid=nadie;Pwd=nada;"
+###
+###    Esperado: 500 con el mensaje generico, no una pagina de excepcion ni una
+###    conexion colgada. En el registro del servidor quedan dos lineas: la del
+###    error original y "No se pudo guardar el error en TB_LOG_ERROR.".
+###
+###    La respuesta tarda unos segundos mas de lo normal porque la conexion del
+###    log espera su propio tiempo de espera, que esta puesto en 3 segundos a
+###    proposito (RepositorioLogError): con los 15 por omision de MySqlConnector
+###    la respuesta se quedaria colgada ese rato.
+
+### 4. Control: una respuesta buena NO escribe en el log. Esperado: 200.
+GET {{host}}/api/estudiantes
+Authorization: Bearer {{token}}
+
+### 5. Control: un error de regla de negocio NO escribe en el log. El encargado 6
+###    esta activo, asi que reactivarlo es invalido.
+###    Esperado: 400 { "mensaje": "El encargado ya esta activo." } y log_filas sin
+###    cambio: los 400 no son fallos tecnicos.
+PUT {{host}}/api/clientes/6/reactivar
+Authorization: Bearer {{token}}

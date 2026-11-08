@@ -49,7 +49,10 @@ Content-Type: application/json
 
 
 ### 5. Solicitar restablecimiento. Siempre 200, exista o no la cuenta.
-### En desarrollo la respuesta trae el token para poder seguir la prueba.
+### Manda el correo de recuperacion. Con el proveedor Registro el correo entero
+### queda en la consola del API. En desarrollo la respuesta tambien trae el token
+### para poder seguir la prueba sin leer la consola.
+### Los casos del flujo completo estan en los pasos 30 a 33.
 POST {{host}}/api/autenticacion/solicitar-restablecimiento
 Content-Type: application/json
 
@@ -59,7 +62,7 @@ Content-Type: application/json
 
 
 ### 6. Solicitar restablecimiento de un correo inexistente.
-### Tiene que responder exactamente igual que el 5, sin token.
+### Tiene que responder exactamente igual que el 5, sin token y sin correo.
 POST {{host}}/api/autenticacion/solicitar-restablecimiento
 Content-Type: application/json
 
@@ -287,4 +290,61 @@ Authorization: Bearer PEGAR_TOKEN_DE_ADMINISTRADOR
 
 {
   "idEncargado": 4
+}
+
+
+### ============================================================
+### Recuperacion de contrasenia de punta a punta
+### Con "Correo:Proveedor" en "Registro", que escribe el correo en la consola.
+### ============================================================
+
+### 30. Cuenta que existe y esta activa. Devuelve 200 con el mensaje de siempre.
+### En la consola del API sale el correo con asunto
+### "Restablezca su contraseña de Mente Activa" y el enlace a
+### /Cuenta/DefinirContrasena?token=... El enlace se abre en la Web, se define la
+### contrasenia nueva y se entra con ella por el paso 1.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}"
+}
+
+
+### 31. Correo que no tiene cuenta. La respuesta tiene que ser identica a la del
+### paso 30 palabra por palabra, salvo el token de desarrollo, que no viene.
+### En la consola no sale ningun correo.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "nadie@example.com"
+}
+
+
+### 32. Con el SMTP caido. Levantar el API apuntando el correo a un puerto de la
+### propia maquina donde no escucha nadie:
+###     Correo__Proveedor=Gmail Correo__Servidor=127.0.0.1 Correo__Puerto=2525
+###     Correo__Remitente=prueba@example.com Correo__Contrasena=no-importa dotnet run
+### Las dos ultimas claves hacen falta aunque no se use ninguna: CorreoGmail las
+### exige al construirse, y sin ellas el fallo seria del contenedor y no del SMTP.
+### Tiene que devolver el mismo 200 con el mismo mensaje, dejar el token guardado
+### (el paso 7 lo consume) y en la consola una advertencia de que el correo no
+### salio. La pantalla de la Web no se rompe.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}"
+}
+
+
+### 33. Cuenta que todavia no se activo. paula.prueba@example.com viene en estado
+### Pendiente desde 03_datos_prueba.sql. Le toca el texto de invitacion, no el de
+### recuperacion: asunto "Active su cuenta de Mente Activa" y vigencia de 48 horas.
+POST {{host}}/api/autenticacion/solicitar-restablecimiento
+Content-Type: application/json
+
+{
+  "correo": "paula.prueba@example.com"
 }

@@ -251,8 +251,15 @@
     document.getElementById("BotonGuardarNota")
         .addEventListener("click", () => cambiarEstado(solicitudActual.idEstadoSolicitud, "Nota guardada."));
 
-    document.getElementById("BotonDescartarSolicitud").addEventListener("click", function () {
-        if (!confirm("¿Descartar esta solicitud? Podrá volver a ponerla como pendiente después.")) return;
+    document.getElementById("BotonDescartarSolicitud").addEventListener("click", async function () {
+        const acepta = await Confirmar({
+            titulo: "Descartar solicitud",
+            texto: "¿Descartar esta solicitud? Podrá volver a ponerla como pendiente después.",
+            textoBoton: "Descartar",
+            tipo: "peligro"
+        });
+
+        if (!acepta) return;
         cambiarEstado(DESCARTADA, "Solicitud descartada.");
     });
 
@@ -263,7 +270,11 @@
         if (!boton) return;
 
         const nombre = boton.getAttribute("data-nombre");
-        if (!confirm(`¿Vincular esta solicitud al cliente ${nombre}?`)) return;
+        if (!await Confirmar({
+            titulo: "Vincular al cliente",
+            texto: `¿Vincular esta solicitud al cliente ${nombre}?`,
+            textoBoton: "Vincular"
+        })) return;
 
         const datos = new FormData();
         datos.append("__RequestVerificationToken", tokenAntifalsificacion());
@@ -355,7 +366,7 @@
             }
 
         } catch (error) {
-            alert(error.message);
+            MostrarToast(error.message, "error");
         } finally {
             boton.disabled = false;
         }

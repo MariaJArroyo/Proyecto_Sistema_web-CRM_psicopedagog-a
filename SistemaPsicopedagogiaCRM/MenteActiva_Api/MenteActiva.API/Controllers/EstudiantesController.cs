@@ -32,23 +32,12 @@ public class EstudiantesController : ControllerBase
         using var conexion = new MySqlConnection(
             _config.GetConnectionString("DefaultConnection"));
 
-        try
-        {
-            var estudiantes = conexion.Query<EstudianteResponse>(
-                "SP_ConsultarEstudiantes_CRM",
-                commandType: CommandType.StoredProcedure
-            ).ToList();
+        var estudiantes = conexion.Query<EstudianteResponse>(
+            "SP_ConsultarEstudiantes_CRM",
+            commandType: CommandType.StoredProcedure
+        ).ToList();
 
-            return Ok(estudiantes);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al consultar los estudiantes.",
-                detalle = ex.Message
-            });
-        }
+        return Ok(estudiantes);
     }
     #endregion
 

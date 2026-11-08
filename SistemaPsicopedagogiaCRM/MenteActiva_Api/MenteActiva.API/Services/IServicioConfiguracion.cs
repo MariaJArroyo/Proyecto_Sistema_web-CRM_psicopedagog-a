@@ -29,6 +29,11 @@ public interface IServicioConfiguracion
 
     Task<DatosConsultorioResponse> ObtenerDatosConsultorioAsync(CancellationToken cancelacion);
 
+    // Solo el codigo ISO de la moneda. Existe aparte de ObtenerDatosConsultorioAsync
+    // porque los datos del consultorio son del Administrador y la moneda la necesita
+    // cualquiera que vea un monto en pantalla, incluido el encargado en el portal.
+    Task<string> ObtenerMonedaAsync(CancellationToken cancelacion);
+
     Task GuardarDatosConsultorioAsync(
         int idUsuarioAccion, GuardarDatosConsultorioRequest peticion, CancellationToken cancelacion);
 }

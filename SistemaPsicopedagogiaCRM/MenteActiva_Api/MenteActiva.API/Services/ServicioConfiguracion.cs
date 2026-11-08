@@ -19,6 +19,7 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
     private const int DigitosTelefono = 8;
     private const int HorasRecordatorioPorDefecto = 24;
     private const int DiasVencimientoPagoPorDefecto = 8;
+    private const string MonedaPorDefecto = "CRC";
 
     private const string ClaveNombre = "NombreConsultorio";
     private const string ClaveCorreo = "CorreoContacto";
@@ -213,6 +214,18 @@ public sealed class ServicioConfiguracion : IServicioConfiguracion
     // =====================================================
     // DATOS DEL CONSULTORIO
     // =====================================================
+
+    // Si la fila no esta o quedo vacia se asume colones: es mejor mostrar el monto
+    // con un simbolo que dejar la pantalla sin numero por un dato de configuracion
+    public async Task<string> ObtenerMonedaAsync(CancellationToken cancelacion)
+    {
+        var filas = await _repositorio.ListarConfiguracionAsync(cancelacion);
+        var valores = filas.ToDictionary(f => f.Clave, f => f.Valor, StringComparer.OrdinalIgnoreCase);
+
+        var moneda = Valor(valores, ClaveMoneda).Trim();
+
+        return moneda.Length == 0 ? MonedaPorDefecto : moneda.ToUpperInvariant();
+    }
 
     public async Task<DatosConsultorioResponse> ObtenerDatosConsultorioAsync(CancellationToken cancelacion)
     {
