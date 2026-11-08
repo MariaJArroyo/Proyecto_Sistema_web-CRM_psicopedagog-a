@@ -1,3 +1,4 @@
+
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,10 +10,6 @@ namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
-// Los tres roles internos, como la pantalla del dashboard. Hoy nadie
-// llama a este endpoint: la vista es HTML fijo y el procedimiento que
-// busca no existe en la base. El rol queda puesto para que el dia que
-// se conecte no nazca abierto (RG-115).
 [Authorize(Roles = "Administrador,Psicopedagoga,Asistente")]
 public class DashboardController : ControllerBase
 {
@@ -26,13 +23,37 @@ public class DashboardController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos()
     {
-        using var conexion = new MySqlConnection(_config.GetConnectionString("DefaultConnection"));
+        using var conexion = new MySqlConnection(
+            _config.GetConnectionString("DefaultConnection"));
 
-        // TODO: reemplazar por el nombre real del SP cuando el equipo lo cree
-        var resultado = await conexion.QueryAsync<DashboardResponse>(
+        using var resultado = await conexion.QueryMultipleAsync(
             "SP_ConsultarDashboard",
             commandType: CommandType.StoredProcedure);
 
-        return Ok(resultado);
+        // 1. Indicadores generales
+        var dashboard = await resultado
+            .ReadFirstOrDefaultAsync<DashboardResponse>();
+
+        if (dashboard == null)
+        {
+            dashboard = new DashboardResponse();
+        }
+
+        // 2. Citas de la semana
+        dashboard.CitasSemanaDetalle = (
+            await resultado.ReadAsync<DashboardCitaResponse>()
+        ).ToList();
+
+        // 3. Alertas importantes
+        dashboard.Alertas = (
+            await resultado.ReadAsync<DashboardAlertaResponse>()
+        ).ToList();
+
+        // 4. Actividad reciente
+        dashboard.ActividadesRecientes = (
+            await resultado.ReadAsync<DashboardActividadResponse>()
+        ).ToList();
+
+        return Ok(dashboard);
     }
 }

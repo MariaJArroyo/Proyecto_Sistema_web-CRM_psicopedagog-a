@@ -8417,3 +8417,135 @@ BEGIN
     COMMIT;
 END$$
 DELIMITER ;
+
+
+
+
+/* =========================================================
+   DASHBOARD ADMINISTRATIVO
+   Devuelve los indicadores, citas, alertas y actividad reciente.
+   ========================================================= */
+
+DROP PROCEDURE IF EXISTS SP_ConsultarDashboard;
+DELIMITER $$
+
+CREATE PROCEDURE SP_ConsultarDashboard()
+BEGIN
+
+    /* 1. Indicadores generales */
+    SELECT
+        (SELECT COUNT(*)
+         FROM TB_ESTUDIANTE
+         WHERE Activo = 1) AS EstudiantesActivos,
+
+        (SELECT COUNT(*)
+         FROM TB_CITA
+         WHERE FechaHoraInicio >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+           AND FechaHoraInicio < DATE_ADD(
+               DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY),
+               INTERVAL 7 DAY
+           )
+           AND IdEstadoCita <> 4) AS CitasSemana,
+
+        (SELECT COUNT(*)
+         FROM TB_PAGO
+         WHERE IdEstadoPago IN (2, 3, 4)) AS PagosPendientes,
+
+        (SELECT COUNT(*)
+         FROM TB_SOLICITUD_CONTACTO
+         WHERE IdEstadoSolicitud = 1) AS SolicitudesSinAtender,
+
+        (SELECT COUNT(*)
+         FROM TB_REPORTE
+         WHERE Activo = 1
+           AND MONTH(FechaGeneracion) = MONTH(CURDATE())
+           AND YEAR(FechaGeneracion) = YEAR(CURDATE())) AS ReportesGenerados,
+
+        (SELECT COUNT(*)
+         FROM TB_SESION
+         WHERE Activo = 1
+           AND MONTH(FechaHoraInicio) = MONTH(CURDATE())
+           AND YEAR(FechaHoraInicio) = YEAR(CURDATE())) AS SesionesRealizadasMes;
+
+
+    /* 2. Citas de la semana */
+    SELECT
+        C.IdCita,
+        CONCAT(E.Nombre, ' ', E.PrimerApellido) AS NombreEstudiante,
+        TS.Nombre AS TipoSesion,
+        C.FechaHoraInicio,
+        EC.Nombre AS Estado
+    FROM TB_CITA C
+    INNER JOIN TB_ESTUDIANTE E
+        ON E.IdEstudiante = C.IdEstudiante
+    INNER JOIN TB_TIPO_SESION TS
+        ON TS.IdTipoSesion = C.IdTipoSesion
+    INNER JOIN TB_ESTADO_CITA EC
+        ON EC.IdEstadoCita = C.IdEstadoCita
+    WHERE C.FechaHoraInicio >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+      AND C.FechaHoraInicio < DATE_ADD(
+          DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY),
+          INTERVAL 7 DAY
+      )
+      AND C.IdEstadoCita <> 4
+    ORDER BY C.FechaHoraInicio
+    LIMIT 10;
+
+
+    /* 3. Alertas importantes */
+    SELECT
+        'Solicitud' AS Tipo,
+        'Solicitud de contacto pendiente' AS Titulo,
+        CONCAT('Solicitud de ', S.Nombre, ' ', S.Apellido) AS Detalle,
+        S.FechaRegistro AS Fecha
+    FROM TB_SOLICITUD_CONTACTO S
+    WHERE S.IdEstadoSolicitud = 1
+
+    UNION ALL
+
+    SELECT
+        'Pago' AS Tipo,
+        'Pago vencido' AS Titulo,
+        CONCAT('El pago #', P.IdPago, ' tiene fecha de vencimiento ',
+               DATE_FORMAT(P.FechaVencimiento, '%d/%m/%Y')) AS Detalle,
+        P.FechaVencimiento AS Fecha
+    FROM TB_PAGO P
+    WHERE P.IdEstadoPago IN (2, 4)
+      AND P.FechaVencimiento IS NOT NULL
+      AND P.FechaVencimiento < CURDATE()
+
+    UNION ALL
+
+    SELECT
+        'Cita' AS Tipo,
+        'Cita próxima' AS Titulo,
+        CONCAT('Cita de ', E.Nombre, ' ', E.PrimerApellido,
+               ' a las ', DATE_FORMAT(C.FechaHoraInicio, '%H:%i')) AS Detalle,
+        C.FechaHoraInicio AS Fecha
+    FROM TB_CITA C
+    INNER JOIN TB_ESTUDIANTE E
+        ON E.IdEstudiante = C.IdEstudiante
+    WHERE C.FechaHoraInicio >= NOW()
+      AND C.FechaHoraInicio < DATE_ADD(NOW(), INTERVAL 1 DAY)
+      AND C.IdEstadoCita IN (1, 2)
+
+    ORDER BY Fecha
+    LIMIT 10;
+
+
+    /* 4. Actividad reciente */
+    SELECT
+        B.Accion AS Tipo,
+        CONCAT(B.Accion, ' - ', B.Entidad) AS Titulo,
+        CONCAT('Registro #', B.IdRegistro, ' | Usuario: ',
+               U.NombreCompleto) AS Descripcion,
+        B.FechaHora
+    FROM TB_BITACORA B
+    INNER JOIN TB_USUARIO U
+        ON U.IdUsuario = B.IdUsuario
+    ORDER BY B.FechaHora DESC
+    LIMIT 10;
+
+END$$
+
+DELIMITER ;
