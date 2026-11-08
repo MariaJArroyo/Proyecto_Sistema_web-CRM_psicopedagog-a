@@ -147,14 +147,6 @@ public class ClientesController : ControllerBase
             {
                 return BadRequest(new { mensaje = ex.Message });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    mensaje = "Error al registrar el cliente.",
-                    detalle = ex.Message
-                });
-            }
         }
 
         // De aqui para abajo el cliente YA quedo guardado y la solicitud, si
@@ -435,10 +427,6 @@ public class ClientesController : ControllerBase
         catch (MySqlException ex) when (ex.SqlState == "45000")
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { mensaje = mensajeError, detalle = ex.Message });
         }
     }
 

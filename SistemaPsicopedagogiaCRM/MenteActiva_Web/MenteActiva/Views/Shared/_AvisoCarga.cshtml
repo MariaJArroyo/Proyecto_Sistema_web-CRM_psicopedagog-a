@@ -1,0 +1,12 @@
+@* Aviso de que la pantalla no pudo traer sus datos del API: el servicio no
+   contesta. Es distinto de la sesion vencida, que no llega hasta aqui porque el
+   controlador manda al login, y distinto de _AvisoGuardado, que cuenta como
+   salio una escritura y viaja en TempData.
+
+   La pantalla se dibuja igual: con el aviso arriba y sin datos, que es mas util
+   que una pagina de error. *@
+
+@if (ViewBag.ErrorCarga != null)
+{
+  <div class="alert alert-warning" role="alert">@ViewBag.ErrorCarga</div>
+}

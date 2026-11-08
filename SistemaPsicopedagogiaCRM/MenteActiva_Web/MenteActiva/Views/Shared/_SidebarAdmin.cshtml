@@ -99,27 +99,28 @@
           <i class="bi bi-folder2-open"></i><span>Materiales</span>
         </a>
         <!-- Razor: asp-controller="Usuarios" asp-action="Index" -->
-        <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace@(seccion == "Usuarios" ? " activo" : "")">
-          <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
-        </a>
+        @if (User.IsInRole("Administrador"))
+        {
+          <a href="/Admin/Usuarios" class="SidebarAdmin-Enlace@(seccion == "Usuarios" ? " activo" : "")">
+            <i class="bi bi-people-fill"></i><span>Usuarios internos</span>
+          </a>
+        }
         <!-- Razor: asp-controller="UsuariosExternos" asp-action="Index" -->
-        <!-- Burbuja: encargados con correo que todavia no tienen cuenta de portal.
-             Va dentro del rol que pide la pantalla, para no ensenar la cuenta de
-             algo que esa persona no puede abrir -->
-        <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace@(seccion == "UsuariosExternos" ? " activo" : "")">
-          <div class="SidebarAdmin-Icono">
-            <i class="bi bi-person-badge"></i>
-            @if (User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga"))
-            {
+        <!-- Burbuja: encargados con correo que todavia no tienen cuenta de portal -->
+        @if (User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga"))
+        {
+          <a href="/Admin/UsuariosExternos" class="SidebarAdmin-Enlace@(seccion == "UsuariosExternos" ? " activo" : "")">
+            <div class="SidebarAdmin-Icono">
+              <i class="bi bi-person-badge"></i>
               <sup class="SidebarAdmin-Contador d-none"
                    data-contador="/Admin/ContarEncargadosSinInvitar"
                    data-contador-nombre="sinInvitar"
                    data-contador-singular="encargado sin invitación al portal"
                    data-contador-plural="encargados sin invitación al portal"></sup>
-            }
-          </div>
-          <span>Acceso al portal</span>
-        </a>
+            </div>
+            <span>Acceso al portal</span>
+          </a>
+        }
 
          @if (User.IsInRole("Administrador"))
         {

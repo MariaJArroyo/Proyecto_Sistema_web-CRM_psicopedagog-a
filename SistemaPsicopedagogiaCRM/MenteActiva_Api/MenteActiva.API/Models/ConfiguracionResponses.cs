@@ -66,3 +66,10 @@ public sealed record DatosConsultorioResponse
     public int DiasVencimientoPago { get; init; }
 }
 
+// Respuesta de GET api/configuracion/moneda: codigo ISO de tres letras, por
+// ejemplo "CRC". Lo consume el formato de montos de la Web.
+public sealed record MonedaResponse
+{
+    public string Moneda { get; init; } = string.Empty;
+}
+

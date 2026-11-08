@@ -41,7 +41,6 @@ document.addEventListener("DOMContentLoaded", function () {
         buscarEstudiantes: "/Admin/BuscarEstudiantesCita"
     };
 
-    const moneda = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 });
     const esAdmin = document.getElementById("PaginaPagos").dataset.esAdmin === "true";
 
     // Filtro por estudiantes que llega en la URL desde el detalle del encargado:
@@ -166,7 +165,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function dinero(valor) {
-        return moneda.format(Number(valor) || 0);
+        return window.Formato.dinero(valor);
     }
 
     function chipEstado(idEstado) {
@@ -675,6 +674,11 @@ document.addEventListener("DOMContentLoaded", function () {
         notificar(mensaje, "exito");
         cerrarPaneles();
         await Promise.all([abrirDetalleSinAnimar(), cargar(true)]);
+
+        // Abonar, anular un abono y anular el cobro cambian cuantos quedan
+        // vencidos: la burbuja del menu tiene que reflejarlo sin esperar el
+        // refresco del minuto
+        if (window.actualizarContadores) window.actualizarContadores("pagosVencidos");
     }
 
     async function abrirDetalleSinAnimar() {

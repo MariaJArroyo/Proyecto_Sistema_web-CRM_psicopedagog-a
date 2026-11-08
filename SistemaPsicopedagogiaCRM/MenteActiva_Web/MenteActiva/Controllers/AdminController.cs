@@ -36,6 +36,11 @@ public class AdminController : Controller
             catalogos = await client.GetFromJsonAsync<CatalogosAgendaViewModel>(
                 UrlApi("citas/catalogos"), cancelacion) ?? catalogos;
         }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
         catch (HttpRequestException)
         {
             // Sin catalogos la agenda igual se ve; solo "Nueva cita" queda deshabilitado
@@ -249,38 +254,55 @@ public class AdminController : Controller
 
     #region Clientes
 
-    public IActionResult Clientes()
+    public async Task<IActionResult> Clientes()
     {
-        using var client = _http.CreateClient();
+        List<ClienteViewModel>? clientes = null;
 
-        var clientes = client
-            .GetFromJsonAsync<List<ClienteViewModel>>(UrlApi("clientes"))
-            .Result;
+        try
+        {
+            using var client = _http.CreateClient();
 
-        CargarCatalogosClientes();
+            clientes = await client
+                .GetFromJsonAsync<List<ClienteViewModel>>(UrlApi("clientes"));
+
+            await CargarCatalogosClientes();
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar la lista de encargados. El servicio no está disponible.";
+        }
 
         return View(clientes ?? new List<ClienteViewModel>());
     }
 
     #region catalogos de clientes
-    private void CargarCatalogosClientes()
+    private async Task CargarCatalogosClientes()
     {
         using var client = _http.CreateClient();
 
-        ViewBag.Servicios = client
-            .GetFromJsonAsync<List<ServicioViewModel>>(UrlApi("servicios")).Result
+        ViewBag.Servicios = await client
+            .GetFromJsonAsync<List<ServicioViewModel>>(UrlApi("servicios"))
             ?? new List<ServicioViewModel>();
 
-        ViewBag.EstadosCliente = client
-            .GetFromJsonAsync<List<EstadoClienteViewModel>>(UrlApi("clientes/estados")).Result
+        ViewBag.EstadosCliente = await client
+            .GetFromJsonAsync<List<EstadoClienteViewModel>>(UrlApi("clientes/estados"))
             ?? new List<EstadoClienteViewModel>();
 
-        ViewBag.Parentescos = client
-            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos")).Result
+        ViewBag.Parentescos = await client
+            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos"))
             ?? new List<ParentescoViewModel>();
 
-        ViewBag.NivelesEducativos = client
-            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles")).Result
+        ViewBag.NivelesEducativos = await client
+            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
             ?? new List<NivelEducativoViewModel>();
     }
     #endregion
@@ -375,18 +397,21 @@ public class AdminController : Controller
     #region desactivar cliente
 
     [HttpPost]
-    public IActionResult DesactivarCliente(int id)
+    public async Task<IActionResult> DesactivarCliente(int id)
     {
         using var client = _http.CreateClient();
 
-        var result = client.PutAsync(UrlApi("clientes/" + id + "/desactivar"), null).Result;
+        var result = await client.PutAsync(UrlApi("clientes/" + id + "/desactivar"), null);
 
         if (result.IsSuccessStatusCode)
         {
             return Ok();
         }
 
-        return BadRequest();
+        // Se devuelve el codigo del API y no un 400 fijo: con un 400 la pantalla
+        // no puede distinguir "no se pudo" de "su sesion ya no sirve" (401)
+        return StatusCode((int)result.StatusCode,
+            new { mensaje = "No se pudo desactivar el encargado." });
     }
 
     // La vuelta. Reenvia el cuerpo del API tal cual porque ahi viene el motivo
@@ -465,6 +490,14 @@ public class AdminController : Controller
     private string UrlApi(string ruta)
         => _config.GetValue<string>("Valores:UrlAPI") + ruta;
 
+    // El API contesto 401: la cookie de la Web sigue viva pero el token que lleva
+    // dentro ya no sirve. Quien cierra la sesion y arma el aviso es
+    // CuentaController.SesionVencida, para que el panel y el navegador caigan en
+    // el mismo lugar. Es distinto del API apagado, que sigue dando el mensaje de
+    // servicio no disponible y deja al usuario donde esta.
+    private IActionResult SesionVencida()
+        => RedirectToAction("SesionVencida", "Cuenta");
+
     // Junta los mensajes de validacion en un solo texto para mostrarlo en el modal
     private IActionResult ErrorDeModelo()
     {
@@ -508,20 +541,37 @@ public class AdminController : Controller
 
     #region Solicitudes
 
-    public IActionResult Solicitudes()
+    public async Task<IActionResult> Solicitudes()
     {
-        using var client = _http.CreateClient();
+        List<SolicitudViewModel>? solicitudes = null;
 
-        var solicitudes = client
-            .GetFromJsonAsync<List<SolicitudViewModel>>(UrlApi("solicitudes"))
-            .Result;
+        try
+        {
+            using var client = _http.CreateClient();
 
-        ViewBag.EstadosSolicitud = client
-            .GetFromJsonAsync<List<EstadoSolicitudViewModel>>(UrlApi("solicitudes/estados")).Result
-            ?? new List<EstadoSolicitudViewModel>();
+            solicitudes = await client
+                .GetFromJsonAsync<List<SolicitudViewModel>>(UrlApi("solicitudes"));
 
-        // El modal de Nuevo cliente (convertir) necesita servicios, parentescos y niveles
-        CargarCatalogosClientes();
+            ViewBag.EstadosSolicitud = await client
+                .GetFromJsonAsync<List<EstadoSolicitudViewModel>>(UrlApi("solicitudes/estados"))
+                ?? new List<EstadoSolicitudViewModel>();
+
+            // El modal de Nuevo cliente (convertir) necesita servicios, parentescos y niveles
+            await CargarCatalogosClientes();
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar la lista de solicitudes. El servicio no está disponible.";
+        }
 
         return View(solicitudes ?? new List<SolicitudViewModel>());
     }
@@ -589,27 +639,42 @@ public class AdminController : Controller
 
     #region Estudiantes
 
-    public IActionResult Estudiantes()
+    public async Task<IActionResult> Estudiantes()
     {
-        using var client = _http.CreateClient();
+        List<EstudianteViewModel>? estudiantes = null;
 
-        var url = _config.GetValue<string>("Valores:UrlAPI")
-                  + "estudiantes";
+        try
+        {
+            using var client = _http.CreateClient();
 
-        var estudiantes = client
-            .GetFromJsonAsync<List<EstudianteViewModel>>(url)
-            .Result;
+            var url = _config.GetValue<string>("Valores:UrlAPI")
+                      + "estudiantes";
 
-        // Catálogos para los selects del modal "Nuevo estudiante"
-        ViewBag.NivelesEducativos = client
-            .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
-            .Result
-            ?? new List<NivelEducativoViewModel>();
+            estudiantes = await client
+                .GetFromJsonAsync<List<EstudianteViewModel>>(url);
 
-        ViewBag.Parentescos = client
-            .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos"))
-            .Result
-            ?? new List<ParentescoViewModel>();
+            // Catálogos para los selects del modal "Nuevo estudiante"
+            ViewBag.NivelesEducativos = await client
+                .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
+                ?? new List<NivelEducativoViewModel>();
+
+            ViewBag.Parentescos = await client
+                .GetFromJsonAsync<List<ParentescoViewModel>>(UrlApi("clientes/parentescos"))
+                ?? new List<ParentescoViewModel>();
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar la lista de estudiantes. El servicio no está disponible.";
+        }
 
         return View(estudiantes ?? new List<EstudianteViewModel>());
     }
@@ -652,26 +717,41 @@ public class AdminController : Controller
 
     #region Ficha Estudiante
 
-    public IActionResult EstudianteFicha(int id)
+    public async Task<IActionResult> EstudianteFicha(int id)
     {
-        using var client = _http.CreateClient();
+        FichaEstudianteViewModel? estudiante;
 
-        var url = _config.GetValue<string>("Valores:UrlAPI")
-                  + "estudiantes/"
-                  + id;
-
-        var estudiante = client
-            .GetFromJsonAsync<FichaEstudianteViewModel>(url)
-            .Result;
-
-        if (estudiante == null)
+        try
         {
-            return RedirectToAction("Estudiantes");
+            using var client = _http.CreateClient();
+
+            var url = _config.GetValue<string>("Valores:UrlAPI")
+                      + "estudiantes/"
+                      + id;
+
+            estudiante = await client
+                .GetFromJsonAsync<FichaEstudianteViewModel>(url);
+
+            if (estudiante == null)
+            {
+                return RedirectToAction("Estudiantes");
+            }
+            ViewBag.NivelesEducativos = await client
+        .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
+        ?? new List<NivelEducativoViewModel>();
         }
-        ViewBag.NivelesEducativos = client
-    .GetFromJsonAsync<List<NivelEducativoViewModel>>(UrlApi("clientes/niveles"))
-    .Result
-    ?? new List<NivelEducativoViewModel>();
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // Esta pantalla no se puede dibujar sin la ficha: la vista recibe el
+            // estudiante como modelo. Se devuelve al listado, que avisa que el
+            // servicio no esta disponible.
+            return RedirectToAction(nameof(Estudiantes));
+        }
 
         return View(estudiante);
     }
@@ -882,6 +962,11 @@ public class AdminController : Controller
             // Una sola llamada trae destinatarios, plantillas activas y marcadores
             catalogos = await client.GetFromJsonAsync<CatalogosComunicacionViewModel>(
                 UrlApi("comunicacion/catalogos"), cancelacion) ?? catalogos;
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
         }
         catch (HttpRequestException)
         {
@@ -1243,15 +1328,33 @@ public class AdminController : Controller
     #region Planes de Intervencion
     public async Task<IActionResult> Planes()
     {
-        using var client = _http.CreateClient();
+        List<PlanViewModel>? planes = null;
 
-        var planes = await client.GetFromJsonAsync<List<PlanViewModel>>(
-            UrlApi("planes"));
+        try
+        {
+            using var client = _http.CreateClient();
 
-        var estudiantes = await client.GetFromJsonAsync<List<EstudianteViewModel>>(
-            UrlApi("estudiantes"));
+            planes = await client.GetFromJsonAsync<List<PlanViewModel>>(
+                UrlApi("planes"));
 
-        ViewBag.Estudiantes = estudiantes ?? new List<EstudianteViewModel>();
+            var estudiantes = await client.GetFromJsonAsync<List<EstudianteViewModel>>(
+                UrlApi("estudiantes"));
+
+            ViewBag.Estudiantes = estudiantes ?? new List<EstudianteViewModel>();
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar la lista de planes. El servicio no está disponible.";
+        }
 
         return View(planes ?? new List<PlanViewModel>());
     }
@@ -1438,7 +1541,8 @@ public class AdminController : Controller
 
         if (!respuesta.IsSuccessStatusCode)
         {
-            return BadRequest(new
+            // Igual que en DesactivarCliente: el codigo del API viaja tal cual
+            return StatusCode((int)respuesta.StatusCode, new
             {
                 mensaje = "No se pudo consultar el historial del plan."
             });
@@ -1822,6 +1926,11 @@ public class AdminController : Controller
             catalogos = await client.GetFromJsonAsync<CatalogosSesionViewModel>(
                 UrlApi("sesiones/catalogos"), cancelacion) ?? catalogos;
         }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
         catch (HttpRequestException)
         {
             // Sin catalogos el historial igual se ve; solo "Registrar sesion" queda deshabilitado
@@ -2051,11 +2160,29 @@ public class AdminController : Controller
     [Authorize(Roles = "Administrador")]
     public async Task<IActionResult> Usuarios()
     {
-        using var cliente = _http.CreateClient();
+        List<UsuarioViewModel>? usuarios = null;
 
-        var url = _config.GetValue<string>("Valores:UrlAPI") + "usuarios";
+        try
+        {
+            using var cliente = _http.CreateClient();
 
-        var usuarios = await cliente.GetFromJsonAsync<List<UsuarioViewModel>>(url);
+            var url = _config.GetValue<string>("Valores:UrlAPI") + "usuarios";
+
+            usuarios = await cliente.GetFromJsonAsync<List<UsuarioViewModel>>(url);
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar la lista de usuarios. El servicio no está disponible.";
+        }
 
         return View(usuarios ?? new List<UsuarioViewModel>());
     }
@@ -2095,11 +2222,29 @@ public class AdminController : Controller
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public async Task<IActionResult> UsuariosExternos()
     {
-        using var cliente = _http.CreateClient();
+        List<UsuarioExternoViewModel>? encargados = null;
 
-        var url = _config.GetValue<string>("Valores:UrlAPI") + "usuarios-externos";
+        try
+        {
+            using var cliente = _http.CreateClient();
 
-        var encargados = await cliente.GetFromJsonAsync<List<UsuarioExternoViewModel>>(url);
+            var url = _config.GetValue<string>("Valores:UrlAPI") + "usuarios-externos";
+
+            encargados = await cliente.GetFromJsonAsync<List<UsuarioExternoViewModel>>(url);
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // El API no contesta. La pantalla se dibuja con el aviso y sin datos,
+            // que es mas util que una pagina de error. Es el otro caso del 401: ahi
+            // la sesion murio y hay que volver a entrar; aqui la sesion sirve y lo
+            // que falta es el servicio.
+            ViewBag.ErrorCarga = "No se pudo cargar el acceso al portal. El servicio no está disponible.";
+        }
 
         return View(encargados ?? new List<UsuarioExternoViewModel>());
     }

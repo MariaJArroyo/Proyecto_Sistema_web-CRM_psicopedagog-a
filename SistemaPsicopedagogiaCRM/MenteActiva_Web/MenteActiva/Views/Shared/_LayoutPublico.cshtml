@@ -1,0 +1,186 @@
+@{
+  var titulo = ViewData["Title"] as string ?? "Tutorías y apoyo psicopedagógico";
+}<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <partial name="_CabeceraComun" model="titulo" />
+
+  @* La descripcion vive aqui y no en la parcial comun porque es lo unico que
+     buscan los motores de busqueda, y las otras tres areas del sistema piden
+     sesion: no hay nada que indexar en ellas *@
+  <meta name="description"
+        content="Consultorio de psicopedagogía: tutoría académica, apoyo psicopedagógico, evaluaciones y orientación a padres en Costa Rica.">
+</head>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg NavbarPublica sticky-top py-3">
+        <div class="container">
+            <a class="navbar-brand" href="#inicio">
+                <img src="~/img/LogoMenteActiva.jpeg"
+                     alt="Logo Mente Activa Psicopedagogía"
+                     class="LogoMarca">
+                Mente Activa Psicopedagogía
+            </a>
+
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#MenuPrincipal"
+                    aria-controls="MenuPrincipal"
+                    aria-expanded="false"
+                    aria-label="Abrir menú">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="MenuPrincipal">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#servicios">Servicios</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#testimonios">Testimonios</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contacto">Contacto</a>
+                    </li>
+
+                    <li class="nav-item ms-lg-2">
+                        <a class="btn btn-outline-primary btn-sm" href="/Cuenta/Login">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>
+                            Iniciar sesión
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    @RenderBody()
+
+
+    <!-- =========================
+         FOOTER
+    ========================== -->
+
+    <footer class="FooterPublico">
+
+        <div class="container">
+
+            <div class="row g-4">
+
+                <div class="col-md-4">
+
+                    <div class="d-flex align-items-center gap-2 mb-2">
+
+                        <img src="~/img/LogoMenteActiva.jpeg"
+                             alt="Logo Mente Activa Psicopedagogía"
+                             class="LogoMarca">
+
+                        <h5 class="mb-0">
+                            Mente Activa Psicopedagogía
+                        </h5>
+
+                    </div>
+
+                    <p class="mb-0">
+                        Tutoría académica y apoyo psicopedagógico infantil y adolescente
+                        en Costa Rica.
+                    </p>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <h5>Contacto</h5>
+
+                    <ul class="list-unstyled mb-0">
+
+                        <li class="mb-2">
+                            <i class="bi bi-telephone me-2"></i>
+                            8888-8888
+                        </li>
+
+                        <li class="mb-2">
+                            <i class="bi bi-envelope me-2"></i>
+                            contacto@@menteactiva.cr
+                        </li>
+
+                        <li class="mb-2">
+                            <i class="bi bi-geo-alt me-2"></i>
+                            San José, Costa Rica
+                        </li>
+
+                    </ul>
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <h5>Síganos</h5>
+
+                    <div class="d-flex gap-3 fs-4">
+
+                        <a href="#" aria-label="Facebook">
+                            <i class="bi bi-facebook"></i>
+                        </a>
+
+                        <a href="#" aria-label="Instagram">
+                            <i class="bi bi-instagram"></i>
+                        </a>
+
+                        <a href="https://wa.me/50688888888"
+                           aria-label="WhatsApp">
+
+                            <i class="bi bi-whatsapp"></i>
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <hr class="my-4">
+
+
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+
+                <small>
+                    &copy; 2026 Mente Activa Psicopedagogía. Todos los derechos reservados.
+                </small>
+
+                <a href="/Cuenta/Login" class="small">
+                    Acceso administrativo
+                </a>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+    <a href="https://wa.me/50688888888?text=Hola%2C%20quisiera%20más%20información%20sobre%20sus%20servicios"
+       class="BotonWhatsapp"
+       target="_blank"
+       rel="noopener"
+       aria-label="Escribir por WhatsApp">
+
+        <i class="bi bi-whatsapp"></i>
+
+    </a>
+
+  <partial name="_ScriptsComunes" />
+  <script src="~/js/Main.js"></script>
+  <script src="~/js/Validaciones.js"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+
+</html>

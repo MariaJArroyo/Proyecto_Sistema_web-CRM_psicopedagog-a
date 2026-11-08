@@ -412,7 +412,7 @@ function MostrarToast(mensaje, tipo) {
   toast.innerHTML =
     '<div class="d-flex">' +
     '<div class="toast-body">' + mensaje + "</div>" +
-    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>' +
+    '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>' +
     "</div>";
 
   contenedor.appendChild(toast);
@@ -422,4 +422,89 @@ function MostrarToast(mensaje, tipo) {
   toast.addEventListener("hidden.bs.toast", function () {
     toast.remove();
   });
+}
+
+// Confirmacion con los colores de la paleta, en vez del confirm() del navegador,
+// que no se puede estilizar, dice el nombre del servidor encima del mensaje y
+// bloquea la pestania entera. Devuelve una promesa: true si la persona acepta,
+// false si cancela, cierra o aprieta Escape. Se usa igual que confirm, con await:
+//   if (!await Confirmar({ texto: "Desactivar a " + nombre + "?" })) return;
+// Opciones: titulo, texto, textoBoton, textoCancelar y tipo ("peligro" pinta el
+// boton en rojo). El texto se escribe con textContent porque casi siempre lleva
+// el nombre de una persona.
+var ModalConfirmarComun = null;
+
+function Confirmar(opciones) {
+  opciones = opciones || {};
+
+  if (!ModalConfirmarComun) {
+    ModalConfirmarComun = CrearModalConfirmar();
+  }
+
+  var partes = ModalConfirmarComun;
+
+  partes.titulo.textContent = opciones.titulo || "Confirmar";
+  partes.texto.textContent = opciones.texto || "";
+  partes.aceptar.textContent = opciones.textoBoton || "Confirmar";
+  partes.aceptar.className = "btn " + (opciones.tipo === "peligro" ? "btn-danger" : "btn-primary");
+  partes.cancelar.textContent = opciones.textoCancelar || "Cancelar";
+
+  return new Promise(function (resolver) {
+    var acepto = false;
+
+    function AlAceptar() {
+      acepto = true;
+      partes.instancia.hide();
+    }
+
+    // Se resuelve cuando el modal ya cerro del todo. Si resolviera en el clic, la
+    // accion de quien llama (recargar, abrir otro modal) correria encima de la
+    // animacion de salida y el fondo gris se queda pegado.
+    function AlCerrar() {
+      partes.aceptar.removeEventListener("click", AlAceptar);
+      partes.elemento.removeEventListener("hidden.bs.modal", AlCerrar);
+      resolver(acepto);
+    }
+
+    partes.aceptar.addEventListener("click", AlAceptar);
+    partes.elemento.addEventListener("hidden.bs.modal", AlCerrar);
+
+    partes.instancia.show();
+  });
+}
+
+// El modal se arma una sola vez y se reusa. Va al final del body y no en una
+// vista, para que sirva en las cuatro areas sin que nadie tenga que incluirlo.
+function CrearModalConfirmar() {
+  var elemento = document.createElement("div");
+  elemento.className = "modal fade";
+  elemento.id = "ModalConfirmarComun";
+  elemento.tabIndex = -1;
+  elemento.setAttribute("aria-labelledby", "TituloConfirmarComun");
+  elemento.setAttribute("aria-hidden", "true");
+  elemento.innerHTML =
+    '<div class="modal-dialog modal-dialog-centered">' +
+      '<div class="modal-content">' +
+        '<div class="modal-header">' +
+          '<h5 class="modal-title" id="TituloConfirmarComun"></h5>' +
+          '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>' +
+        "</div>" +
+        '<div class="modal-body"><p class="mb-0" data-confirmar-texto></p></div>' +
+        '<div class="modal-footer">' +
+          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-confirmar-cancelar></button>' +
+          '<button type="button" class="btn btn-primary" data-confirmar-aceptar></button>' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+
+  document.body.appendChild(elemento);
+
+  return {
+    elemento: elemento,
+    instancia: bootstrap.Modal.getOrCreateInstance(elemento),
+    titulo: elemento.querySelector(".modal-title"),
+    texto: elemento.querySelector("[data-confirmar-texto]"),
+    cancelar: elemento.querySelector("[data-confirmar-cancelar]"),
+    aceptar: elemento.querySelector("[data-confirmar-aceptar]")
+  };
 }

@@ -1,9 +1,10 @@
 @model PortalInicioViewModel
-@using System.Globalization
+@using MenteActiva.Services
+@inject IProveedorMoneda ProveedorMoneda
 @{
     ViewData["Title"] = "Inicio del portal";
     var error = ViewBag.ErrorCarga as string;
-    var cultura = CultureInfo.GetCultureInfo("es-CR");
+    var moneda = await ProveedorMoneda.ObtenerAsync();
 }
 <main class="PrincipalPortal" id="PortalInicio" data-portal-estudiante="@Model.Resumen.IdEstudiante">
     <div class="container">
@@ -44,7 +45,7 @@
                 <div class="col-md-6 col-lg-3">
                     <article class="Tarjeta p-3 h-100">
                         <h3 class="h6">Saldo pendiente</h3>
-                        <p class="fs-4 fw-semibold">@Model.Resumen.SaldoPendiente.ToString("C", cultura)</p>
+                        <p class="fs-4 fw-semibold">@FormatoDinero.Escribir(Model.Resumen.SaldoPendiente, moneda)</p>
                         <a asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar pagos</a>
                     </article>
                 </div>

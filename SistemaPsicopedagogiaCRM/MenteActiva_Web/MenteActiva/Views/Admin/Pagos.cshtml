@@ -1,5 +1,11 @@
+@using MenteActiva.Services
+@inject IProveedorMoneda ProveedorMoneda
 @{
     ViewData["Title"] = "Pagos";
+
+    // El simbolo sale de TB_CONFIGURACION, igual que los montos: una etiqueta
+    // con el simbolo escrito a mano mentiria si manana la moneda cambia
+    var simboloMoneda = FormatoDinero.Simbolo(await ProveedorMoneda.ObtenerAsync());
 }
 
 <main class="PrincipalAdmin" id="PaginaPagos" data-es-admin="@(User.IsInRole("Administrador") ? "true" : "false")">
@@ -28,7 +34,7 @@
             <div class="TarjetaResumen d-flex align-items-center justify-content-between">
                 <div>
                     <div class="TextoSuave small">Total facturado</div>
-                    <div class="TarjetaResumen-Valor" id="TotalFacturado">₡0</div>
+                    <div class="TarjetaResumen-Valor" id="TotalFacturado">—</div>
                     <div class="TextoSuave small" id="DetalleFacturado">&nbsp;</div>
                 </div>
                 <div class="TarjetaResumen-Icono"><i class="bi bi-receipt" aria-hidden="true"></i></div>
@@ -38,7 +44,7 @@
             <div class="TarjetaResumen d-flex align-items-center justify-content-between">
                 <div>
                     <div class="TextoSuave small">Cobrado</div>
-                    <div class="TarjetaResumen-Valor ValorCobrado" id="TotalCobrado">₡0</div>
+                    <div class="TarjetaResumen-Valor ValorCobrado" id="TotalCobrado">—</div>
                     <div class="TextoSuave small" id="DetalleCobrado">&nbsp;</div>
                 </div>
                 <div class="TarjetaResumen-Icono IconoCobrado"><i class="bi bi-cash-coin" aria-hidden="true"></i></div>
@@ -48,7 +54,7 @@
             <div class="TarjetaResumen d-flex align-items-center justify-content-between">
                 <div>
                     <div class="TextoSuave small">Por cobrar</div>
-                    <div class="TarjetaResumen-Valor ValorPendiente" id="TotalPendiente">₡0</div>
+                    <div class="TarjetaResumen-Valor ValorPendiente" id="TotalPendiente">—</div>
                     <div class="TextoSuave small" id="DetallePendiente">&nbsp;</div>
                 </div>
                 <div class="TarjetaResumen-Icono IconoPendiente"><i class="bi bi-hourglass-split" aria-hidden="true"></i></div>
@@ -58,7 +64,7 @@
             <div class="TarjetaResumen d-flex align-items-center justify-content-between">
                 <div>
                     <div class="TextoSuave small">Vencido</div>
-                    <div class="TarjetaResumen-Valor ValorVencido" id="TotalVencido">₡0</div>
+                    <div class="TarjetaResumen-Valor ValorVencido" id="TotalVencido">—</div>
                     <div class="TextoSuave small" id="DetalleVencido">&nbsp;</div>
                 </div>
                 <div class="TarjetaResumen-Icono IconoVencido"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></div>
@@ -191,7 +197,7 @@
                                 </div>
 
                                 <div class="col-md-4">
-                                    <label for="MontoPago" class="form-label CampoObligatorio">Monto (₡)</label>
+                                    <label for="MontoPago" class="form-label CampoObligatorio">Monto (@simboloMoneda)</label>
                                     <input type="number" class="form-control" id="MontoPago" min="1" step="1" required>
                                     <div class="invalid-feedback">Indique un monto mayor que cero, sin decimales.</div>
                                 </div>
@@ -306,7 +312,7 @@
                             <div class="invalid-feedback">Seleccione el método de pago.</div>
                         </div>
                         <div class="col-6">
-                            <label for="MontoAbono" class="form-label CampoObligatorio">Monto (₡)</label>
+                            <label for="MontoAbono" class="form-label CampoObligatorio">Monto (@simboloMoneda)</label>
                             <input type="number" class="form-control" id="MontoAbono" min="1" step="1">
                             <div class="invalid-feedback" id="ErrorMontoAbono">Indique un monto válido.</div>
                         </div>

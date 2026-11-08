@@ -93,6 +93,11 @@ public sealed class ConfiguracionController : ControllerBase
     public async Task<ActionResult<DatosConsultorioResponse>> ObtenerDatosConsultorio(CancellationToken cancelacion)
         => Ok(await _servicio.ObtenerDatosConsultorioAsync(cancelacion));
 
+    // La moneda tambien sale de la configuracion, pero la necesita cualquier rol y
+    // este controlador es solo del Administrador. Vive en MonedaController, porque
+    // dos [Authorize] se suman y no se relevan: poner [Authorize] en la accion no
+    // le saca el rol de la clase.
+
     [HttpPut("consultorio")]
     public async Task<IActionResult> GuardarDatosConsultorio(
         [FromBody] GuardarDatosConsultorioRequest peticion, CancellationToken cancelacion)

@@ -19,10 +19,7 @@
     </button>
   </div>
 
-  @if (ViewBag.ErrorCarga is string errorCarga)
-  {
-    <div class="alert alert-warning">@errorCarga</div>
-  }
+  <partial name="_AvisoCarga" />
 
   <div class="Tarjeta p-3 p-md-4">
 

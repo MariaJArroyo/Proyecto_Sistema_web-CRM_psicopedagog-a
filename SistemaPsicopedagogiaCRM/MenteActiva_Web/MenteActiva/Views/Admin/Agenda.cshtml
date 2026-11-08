@@ -19,10 +19,7 @@
         </button>
     </div>
 
-    @if (ViewBag.ErrorCarga != null)
-    {
-        <div class="alert alert-warning">@ViewBag.ErrorCarga</div>
-    }
+    <partial name="_AvisoCarga" />
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
 

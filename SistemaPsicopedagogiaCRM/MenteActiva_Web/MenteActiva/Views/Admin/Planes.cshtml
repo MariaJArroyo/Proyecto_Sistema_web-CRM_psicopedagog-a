@@ -1,10 +1,18 @@
 @model IEnumerable<MenteActiva.Models.PlanViewModel>
 
+@using System.Globalization
 @{
     ViewData["Title"] = "Planes de intervención";
+
+    // "MMM" es el nombre corto del mes y sale en el idioma de la cultura. Sin
+    // cultura explicita usa la del sistema operativo, y en el Ubuntu de
+    // produccion los meses saldrian en ingles.
+    var culturaFechas = CultureInfo.GetCultureInfo("es-CR");
 }
 
 <main class="PrincipalAdmin">
+
+    <partial name="_AvisoCarga" />
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div>
             <h2 class="mb-1">Planes de intervención</h2>
@@ -69,12 +77,12 @@
                             </td>
 
                             <td data-campo="inicio">
-                                @plan.FechaInicio.ToString("dd MMM yyyy")
+                                @plan.FechaInicio.ToString("dd MMM yyyy", culturaFechas)
                             </td>
 
                             <td data-campo="fin">
                                 @(plan.FechaFin.HasValue
-                                    ? plan.FechaFin.Value.ToString("dd MMM yyyy")
+                                    ? plan.FechaFin.Value.ToString("dd MMM yyyy", culturaFechas)
                                     : "No definida")
                             </td>
 

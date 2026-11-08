@@ -120,14 +120,6 @@ public class ActividadesController : ControllerBase
                 mensaje = ex.Message
             });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al agregar la actividad.",
-                detalle = ex.Message
-            });
-        }
     }
 
 
@@ -149,24 +141,13 @@ public class ActividadesController : ControllerBase
         var parametros = new DynamicParameters();
         parametros.Add("p_IdEstrategia", idEstrategia);
 
-        try
-        {
-            var actividades = await conexion.QueryAsync<ActividadViewModel>(
-                "SP_Actividad_Listar",
-                parametros,
-                commandType: CommandType.StoredProcedure
-            );
+        var actividades = await conexion.QueryAsync<ActividadViewModel>(
+            "SP_Actividad_Listar",
+            parametros,
+            commandType: CommandType.StoredProcedure
+        );
 
-            return Ok(actividades);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al consultar las actividades.",
-                detalle = ex.Message
-            });
-        }
+        return Ok(actividades);
     }
 
 

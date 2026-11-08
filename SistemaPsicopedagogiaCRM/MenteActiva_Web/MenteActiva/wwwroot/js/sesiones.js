@@ -198,13 +198,13 @@
                   <td>${escaparHtml(s.temaTrabajado)}</td>
                   <td class="TablaAcciones">
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0"
-                            data-accion="ver" data-id="${s.idSesion}" title="Ver detalle">
+                            data-accion="ver" data-id="${s.idSesion}" title="Ver detalle" aria-label="Ver detalle">
                       <i class="bi bi-eye"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0"
-                            data-accion="editar" data-id="${s.idSesion}" title="Editar">
+                            data-accion="editar" data-id="${s.idSesion}" title="Editar" aria-label="Editar">
                       <i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                            data-accion="inactivar" data-id="${s.idSesion}" title="Eliminar registro">
+                            data-accion="inactivar" data-id="${s.idSesion}" title="Eliminar registro" aria-label="Eliminar registro">
                       <i class="bi bi-trash"></i></button>
                   </td>
                 </tr>`;
@@ -477,6 +477,10 @@
         modal("ModalNuevaSesion").hide();
         notificar("Sesión registrada correctamente.", "success");
         await cargar();
+
+        // La cita deja de estar pendiente de sesion, asi que la burbuja del
+        // menu baja sin esperar el refresco del minuto
+        if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
     }
 
     // =====================================================
@@ -550,6 +554,9 @@
         modal("ModalEditarSesion").hide();
         notificar("Sesión actualizada correctamente.", "success");
         await cargar(true);
+
+        // Editar puede cambiar a que cita pertenece la sesion
+        if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
     }
 
     // =====================================================
@@ -582,6 +589,9 @@
         notificar("Registro de sesión eliminado.", "success");
         idSesionInactivar = null;
         await cargar(true);
+
+        // La cita vuelve a quedar pendiente de sesion, asi que la burbuja sube
+        if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
     }
 
     // =====================================================

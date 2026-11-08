@@ -101,8 +101,14 @@
     </div>
 </div>
 @section Scripts {
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"></script>
+    @* Ver la nota de integrity en _CabeceraComun: version exacta y hash se cambian juntos.
+       Estos dos van en la misma version 0.3.3 que Admin/Reportes. *@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"
+            integrity="sha384-HsYB9F88cbFl+w8Pu5vyAezlEQxqQkPPj78NDtuRRjgl0t4YAfWS0Fy5pvJF80yI"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"
+            integrity="sha384-pkBUW1wxcm6m7ZjKDxADnNHqnz+Sx9sAL1ndsLNv/GZnWZgodPYsju1yxeyQnn0c"
+            crossorigin="anonymous"></script>
     <script src="~/js/reportesPdfPortal.js" asp-append-version="true"></script>
     <script src="~/js/progresoPortal.js" asp-append-version="true"></script>
 }

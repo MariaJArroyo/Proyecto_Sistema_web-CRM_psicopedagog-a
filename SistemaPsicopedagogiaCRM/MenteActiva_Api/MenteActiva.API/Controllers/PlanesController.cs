@@ -145,14 +145,6 @@ public class PlanesController : ControllerBase
                 mensaje = ex.Message
             });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al crear el plan.",
-                detalle = ex.Message
-            });
-        }
     }
 
     [HttpPut("{id:int}")]
@@ -255,14 +247,6 @@ public class PlanesController : ControllerBase
                 mensaje = ex.Message
             });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al editar el plan.",
-                detalle = ex.Message
-            });
-        }
     }
 
 
@@ -335,14 +319,6 @@ public class PlanesController : ControllerBase
             return BadRequest(new
             {
                 mensaje = ex.Message
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al inactivar el plan.",
-                detalle = ex.Message
             });
         }
     }

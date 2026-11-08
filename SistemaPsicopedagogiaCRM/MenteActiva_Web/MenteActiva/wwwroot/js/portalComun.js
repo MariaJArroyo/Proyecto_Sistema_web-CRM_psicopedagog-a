@@ -14,9 +14,7 @@
     }
 
     function dinero(valor) {
-        return new Intl.NumberFormat("es-CR", {
-            style: "currency", currency: "CRC"
-        }).format(Number(valor) || 0);
+        return window.Formato.dinero(valor);
     }
 
     function avisar(elemento, texto, tipo = "danger") {

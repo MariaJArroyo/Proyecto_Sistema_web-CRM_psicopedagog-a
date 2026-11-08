@@ -86,6 +86,20 @@ function iniciarFormularioNuevoEstudiante(formulario) {
     const lista = document.getElementById("ResultadosEncargado");
     const aviso = document.getElementById("EncargadoSeleccionado");
 
+    const avisoFormulario = document.getElementById("NuevoEstudianteError");
+
+    // Mismo molde que el resto del panel: el texto se escribe con textContent
+    // porque varias veces viene del API.
+    function mostrarAvisoFormulario(mensaje) {
+        avisoFormulario.className = "alert alert-danger";
+        avisoFormulario.textContent = mensaje;
+    }
+
+    function ocultarAvisoFormulario() {
+        avisoFormulario.className = "alert d-none";
+        avisoFormulario.textContent = "";
+    }
+
     aplicarMascaraFecha(campoFecha);
 
     let temporizador = null;
@@ -197,8 +211,6 @@ function iniciarFormularioNuevoEstudiante(formulario) {
             lista.classList.remove("d-none");
 
         } catch (error) {
-            console.error("Error al buscar encargados:", error);
-
             mostrarTextoEnLista(
                 "No se pudo cargar la lista de encargados."
             );
@@ -235,6 +247,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
     // Limpia el formulario al cerrar el modal.
     modal.addEventListener("hidden.bs.modal", function () {
         formulario.reset();
+        ocultarAvisoFormulario();
 
         formulario.querySelectorAll(".is-invalid").forEach(function (campo) {
             campo.classList.remove("is-invalid");
@@ -253,6 +266,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
 
     formulario.addEventListener("submit", async function (evento) {
         evento.preventDefault();
+        ocultarAvisoFormulario();
 
         if (!campoNombre.value.trim()) {
             marcarInvalido(campoNombre);
@@ -277,7 +291,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
 
         if (!campoParentesco.value) {
             if (campoParentesco.options.length <= 1) {
-                alert(
+                mostrarAvisoFormulario(
                     "No se cargó la lista de parentescos. "
                     + "Recargue la página; si sigue igual, "
                     + "avise al equipo técnico."
@@ -291,7 +305,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
         const fechaIso = fechaAIso(campoFecha.value.trim());
 
         if (fechaIso === null) {
-            alert(
+            mostrarAvisoFormulario(
                 "Ingrese la fecha de nacimiento con el formato dd/mm/aaaa."
             );
             campoFecha.focus();
@@ -299,7 +313,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
         }
 
         if (fechaIso && new Date(fechaIso + "T00:00:00") > new Date()) {
-            alert("La fecha de nacimiento no puede ser futura.");
+            mostrarAvisoFormulario("La fecha de nacimiento no puede ser futura.");
             campoFecha.focus();
             return;
         }
@@ -363,7 +377,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
                     // Mantener el mensaje predeterminado.
                 }
 
-                alert(mensaje);
+                mostrarAvisoFormulario(mensaje);
                 return;
             }
 
@@ -375,9 +389,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
             window.location.reload();
 
         } catch (error) {
-            console.error("Error al registrar el estudiante:", error);
-
-            alert("Ocurrió un error de conexión. Intente de nuevo.");
+            mostrarAvisoFormulario("Ocurrió un error de conexión. Intente de nuevo.");
 
         } finally {
             botonGuardar.disabled = false;

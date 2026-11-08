@@ -6,6 +6,12 @@
   <div class="alert alert-success" role="alert">@aviso</div>
 }
 
+@* La sesion vencida no es un exito: va en amarillo y no en verde *@
+@if (TempData["Aviso"] is string advertencia)
+{
+  <div class="alert alert-warning" role="alert">@advertencia</div>
+}
+
 @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
 {
   <div class="alert alert-danger" role="alert">

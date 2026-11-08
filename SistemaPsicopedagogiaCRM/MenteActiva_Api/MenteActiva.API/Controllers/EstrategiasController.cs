@@ -106,14 +106,6 @@ public class EstrategiasController : ControllerBase
                 mensaje = ex.Message
             });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al agregar la estrategia.",
-                detalle = ex.Message
-            });
-        }
     }
 
 
@@ -186,14 +178,6 @@ public class EstrategiasController : ControllerBase
         catch (MySqlException ex) when (ex.SqlState == "45000")
         {
             return BadRequest(new { mensaje = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new
-            {
-                mensaje = "Error al eliminar la estrategia.",
-                detalle = ex.Message
-            });
         }
     }
 

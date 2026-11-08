@@ -1115,7 +1115,11 @@
     });
  
     document.getElementById("BotonNoAsistio").addEventListener("click", async function () {
-        if (!confirm(`¿Marcar que ${citaActual.estudiante} no asistió a esta cita?`)) return;
+        if (!await Confirmar({
+            titulo: "Marcar como no asistió",
+            texto: `¿Marcar que ${citaActual.estudiante} no asistió a esta cita?`,
+            textoBoton: "Sí, no asistió"
+        })) return;
  
         this.disabled = true;
         const resultado = await enviar(`/Admin/MarcarNoAsistioCita/${citaActual.idCita}`, datosConToken({}));
@@ -1188,12 +1192,12 @@
                 <td class="text-end text-nowrap">
                     ${m.puedeCancelar ? `
                         <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                                data-cancelar-miembro="${m.idCita}" title="Cancelar solo a este estudiante">
+                                data-cancelar-miembro="${m.idCita}" title="Cancelar solo a este estudiante" aria-label="Cancelar solo a este estudiante">
                             <i class="bi bi-person-dash"></i>
                         </button>` : ""}
                     ${m.puedeMarcarNoAsistio ? `
                         <button type="button" class="btn btn-sm btn-outline-warning border-0"
-                                data-no-asistio-miembro="${m.idCita}" title="Marcar como no asistió">
+                                data-no-asistio-miembro="${m.idCita}" title="Marcar como no asistió" aria-label="Marcar como no asistió">
                             <i class="bi bi-person-x"></i>
                         </button>` : ""}
                 </td>
@@ -1398,7 +1402,11 @@
  
         if (botonNoAsistio) {
             const cita = citas.find(c => c.idCita === Number(botonNoAsistio.dataset.noAsistioMiembro));
-            if (!confirm(`¿Marcar que ${cita.estudiante} no asistió?`)) return;
+            if (!await Confirmar({
+                titulo: "Marcar como no asistió",
+                texto: `¿Marcar que ${cita.estudiante} no asistió?`,
+                textoBoton: "Sí, no asistió"
+            })) return;
  
             botonNoAsistio.disabled = true;
             const resultado = await enviar(`/Admin/MarcarNoAsistioCita/${cita.idCita}`, datosConToken({}));
