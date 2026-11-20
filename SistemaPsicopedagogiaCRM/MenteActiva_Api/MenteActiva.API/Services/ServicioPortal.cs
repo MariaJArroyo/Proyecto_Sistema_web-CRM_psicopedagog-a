@@ -41,18 +41,17 @@ public class ServicioPortal : IServicioPortal
         }
 
         var filtroNormalizado = string.IsNullOrWhiteSpace(filtro)
-            ? "proximas"
+            ? "todas"
             : filtro.Trim().ToLowerInvariant();
 
         var filtrosPermitidos = new[]
         {
-        "proximas",
-        "futuras",
-        "pasadas",
-        "canceladas",
-        "completadas",
-        "todas"
-    };
+            "futuras",
+            "pasadas",
+            "canceladas",
+            "completadas",
+            "todas"
+        };
 
         if (!filtrosPermitidos.Contains(filtroNormalizado))
         {
@@ -80,10 +79,10 @@ public class ServicioPortal : IServicioPortal
 
         var filtrosPermitidos = new[]
         {
-        "nuevos",
-        "viejos",
-        "todos"
-    };
+            "nuevos",
+            "viejos",
+            "todos"
+        };
 
         if (!filtrosPermitidos.Contains(filtroNormalizado))
         {
@@ -106,16 +105,16 @@ public class ServicioPortal : IServicioPortal
         }
 
         var filtroNormalizado = string.IsNullOrWhiteSpace(filtro)
-            ? "pendientes"
+            ? "todas"
             : filtro.Trim().ToLowerInvariant();
 
         var filtrosPermitidos = new[]
         {
-        "pendientes",
-        "asignadas",
-        "entregadas",
-        "todas"
-    };
+            "pendientes",
+            "asignadas",
+            "entregadas",
+            "todas"
+        };
 
         if (!filtrosPermitidos.Contains(filtroNormalizado))
         {
@@ -138,15 +137,15 @@ public class ServicioPortal : IServicioPortal
         }
 
         var filtroNormalizado = string.IsNullOrWhiteSpace(filtro)
-            ? "pendientes"
+            ? "todos"
             : filtro.Trim().ToLowerInvariant();
 
         var filtrosPermitidos = new[]
         {
-        "pendientes",
-        "pagados",
-        "todos"
-    };
+            "pendientes",
+            "pagados",
+            "todos"
+        };
 
         if (!filtrosPermitidos.Contains(filtroNormalizado))
         {
@@ -210,8 +209,7 @@ public class ServicioPortal : IServicioPortal
 
         var reporte = await _repositorio.ObtenerReporteAsync(idUsuario, idEstudiante, idReporte, cancelacion);
 
-        return reporte ?? throw new ReglaNegocioException(
-            "El reporte solicitado no está disponible en el portal.");
+        return reporte ?? throw new ReglaNegocioException("El reporte solicitado no está disponible en el portal.");
     }
 
 }

@@ -4,10 +4,7 @@
 
   <main class="PrincipalPortal">
     <div class="container">
-      <div class="mb-4">
-        <h2 class="mb-1">Mi perfil</h2>
-        <p class="TextoSuave mb-0">Sus datos de contacto, contraseña y los estudiantes a su cargo.</p>
-      </div>
+      @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-person-circle", "Mi perfil", "Sus datos de contacto, contraseña y los estudiantes a su cargo."))
 
       <div class="row g-3">
         <div class="col-lg-7">

@@ -67,6 +67,8 @@ public class UsuariosController : ControllerBase
             : Ok(usuario);
     }
 
+    
+
     // Nombre, correo y rol. Si le cambian el correo, el procedimiento anula los
     // enlaces vivos: se mandaron a la direccion anterior.
     [HttpPut("{id:int}")]

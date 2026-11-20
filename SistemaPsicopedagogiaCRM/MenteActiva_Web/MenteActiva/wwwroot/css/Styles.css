@@ -1767,3 +1767,685 @@ button.TopbarAdmin-Usuario {
 #PanelConversacion .TextoSuave.small {
   font-size: 0.8rem;
 }
+
+/* ============================================================
+   Portal de familias: navbar, encabezados, inicio y pie
+   ============================================================ */
+
+/* ---------- Navbar ---------- */
+.NavbarPortal {
+    border-bottom: 0;
+    border-top: 3px solid var(--color-primario);
+    box-shadow: var(--sombra-suave);
+}
+
+    .NavbarPortal .navbar-brand .LogoMarca {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+
+    .NavbarPortal .nav-link {
+        color: var(--color-texto-suave);
+        font-weight: 500;
+        border-radius: 999px;
+        padding: 0.45rem 0.9rem;
+        white-space: nowrap;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+        .NavbarPortal .nav-link:hover,
+        .NavbarPortal .nav-link:focus-visible {
+            background-color: var(--color-fondo);
+            color: var(--color-primario-oscuro);
+        }
+
+        .NavbarPortal .nav-link.active {
+            background-color: #E4EBFA;
+            color: #35528F;
+            font-weight: 600;
+        }
+
+    .NavbarPortal .dropdown-toggle.nav-link,
+    .NavbarPortal .navbar-text {
+        border-radius: var(--radio-boton);
+        background-color: var(--color-fondo);
+        border: 1px solid var(--color-borde);
+    }
+
+/* ---------- Fondo de las pantallas ---------- */
+.PrincipalPortal {
+    background: linear-gradient(180deg, #EEF3FB 0, var(--color-fondo) 280px);
+}
+
+    .PrincipalPortal article.Tarjeta {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+        .PrincipalPortal article.Tarjeta:hover {
+            transform: translateY(-2px);
+            box-shadow:
+        }
+
+
+/* =====================================================
+   PORTAL DE FAMILIAS - DISEÑO VISUAL
+   ===================================================== */
+
+.PrincipalPortal {
+    min-height: calc(100vh - 150px);
+    padding: 38px 0 55px;
+    background: linear-gradient(180deg, #edf3fc 0%, #f7f9fd 340px, #f7f9fd 100%);
+}
+
+.PortalContenido {
+    max-width: 1320px;
+}
+
+/* ---------- Bienvenida ---------- */
+
+.HeroPortal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 30px;
+    padding: 34px 38px;
+    margin-bottom: 38px;
+    background: linear-gradient(115deg, #ffffff 0%, #eef4ff 100%);
+    border: 1px solid #dce6f5;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px rgba(43, 75, 125, 0.07);
+}
+
+.HeroPortal-Etiqueta,
+.ResumenPortal-Subtitulo,
+.RecomendacionPortal-Etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #5575ad;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.HeroPortal-Titulo {
+    margin: 12px 0 8px;
+    color: #263f69;
+    font-size: clamp(1.7rem, 3vw, 2.2rem);
+    font-weight: 800;
+}
+
+.HeroPortal-Texto p {
+    max-width: 650px;
+    margin: 0;
+    color: #64748b;
+    line-height: 1.7;
+}
+
+.HeroPortal-Acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.BotonHero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    color: #fff;
+    background: #4169a9;
+    border: 1px solid #4169a9;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+    .BotonHero:hover {
+        color: #fff;
+        background: #304f86;
+        transform: translateY(-2px);
+    }
+
+.BotonHero-Borde {
+    color: #4169a9;
+    background: #fff;
+}
+
+    .BotonHero-Borde:hover {
+        color: #fff;
+        background: #4169a9;
+    }
+
+/* ---------- Encabezado de indicadores ---------- */
+
+.ResumenPortal-Seccion {
+    margin-bottom: 36px;
+}
+
+.ResumenPortal-Encabezado {
+    margin-bottom: 20px;
+}
+
+    .ResumenPortal-Encabezado h3 {
+        margin: 5px 0;
+        color: #263f69;
+        font-size: 1.35rem;
+        font-weight: 750;
+    }
+
+    .ResumenPortal-Encabezado p {
+        margin: 0;
+        color: #7b8799;
+    }
+
+/* ---------- Tarjetas de resumen ---------- */
+
+.PrincipalPortal article.ResumenPortal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 230px;
+    height: 100%;
+    padding: 23px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e1e8f2;
+    border-radius: 17px;
+    box-shadow: 0 5px 16px rgba(42, 66, 105, 0.055);
+}
+
+    .PrincipalPortal article.ResumenPortal::before {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        content: "";
+        background: var(--resumen-color);
+    }
+
+.ResumenPortal-Citas {
+    --resumen-color: #5483ca;
+    --resumen-fondo: #eaf2ff;
+}
+
+.ResumenPortal-Tareas {
+    --resumen-color: #36a58b;
+    --resumen-fondo: #e6f7f1;
+}
+
+.ResumenPortal-Reportes {
+    --resumen-color: #9673cb;
+    --resumen-fondo: #f1ebfb;
+}
+
+.ResumenPortal-Pagos {
+    --resumen-color: #d69a43;
+    --resumen-fondo: #fff4e4;
+}
+
+.ResumenPortal-Superior {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.ResumenPortal-Icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    color: var(--resumen-color);
+    background: var(--resumen-fondo);
+    border-radius: 14px;
+    font-size: 1.35rem;
+}
+
+.ResumenPortal-MiniEtiqueta {
+    padding: 6px 10px;
+    color: var(--resumen-color);
+    background: var(--resumen-fondo);
+    border-radius: 30px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.ResumenPortal-Etiqueta {
+    margin: 0 0 4px;
+    color: #718096;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.ResumenPortal-Valor {
+    margin: 0 0 18px;
+    color: #263f69;
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.ResumenPortal-Valor-Monto {
+    font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.ResumenPortal-Enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-top: auto;
+    color: #426ba8;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+    .ResumenPortal-Enlace:hover {
+        color: #263f69;
+        text-decoration: underline;
+    }
+
+/* ---------- Recomendaciones ---------- */
+
+.PrincipalPortal .RecomendacionPortal {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 25px 28px;
+    margin-top: 0 !important;
+    background: linear-gradient(110deg, #fff 0%, #f0f5ff 100%);
+    border: 1px solid #dce6f5;
+    border-radius: 17px;
+    box-shadow: 0 5px 16px rgba(42, 66, 105, 0.05);
+}
+
+.RecomendacionPortal-Icono {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    color: #9873c9;
+    background: #f0eafd;
+    border-radius: 17px;
+    font-size: 1.6rem;
+}
+
+.RecomendacionPortal-Texto {
+    flex: 1;
+}
+
+    .RecomendacionPortal-Texto h3 {
+        margin: 5px 0;
+        color: #263f69;
+        font-size: 1.15rem;
+        font-weight: 750;
+    }
+
+    .RecomendacionPortal-Texto p {
+        margin: 0;
+        color: #718096;
+        line-height: 1.6;
+    }
+
+.RecomendacionPortal-Boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    color: #4169a9;
+    background: #fff;
+    border: 1px solid #b9cce9;
+    border-radius: 10px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+    .RecomendacionPortal-Boton:hover {
+        color: #fff;
+        background: #4169a9;
+        border-color: #4169a9;
+    }
+
+/* ---------- Tarjetas internas ---------- */
+
+.PrincipalPortal article.Tarjeta:not(.ResumenPortal) {
+    padding: 22px;
+    border: 1px solid #e3eaf3;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(42, 66, 105, 0.045);
+}
+
+.PrincipalPortal article.Tarjeta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 9px 22px rgba(42, 66, 105, 0.09);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 767.98px) {
+    .PrincipalPortal {
+        padding: 24px 0 40px;
+    }
+
+    .HeroPortal {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 25px 22px;
+        margin-bottom: 28px;
+    }
+
+    .HeroPortal-Acciones {
+        width: 100%;
+    }
+
+        .HeroPortal-Acciones .btn {
+            flex: 1;
+        }
+
+    .PrincipalPortal article.ResumenPortal {
+        min-height: 205px;
+    }
+
+    .PrincipalPortal .RecomendacionPortal {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 22px;
+    }
+
+    .RecomendacionPortal-Boton {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+
+/* =====================================================
+   ETIQUETAS DE ESTADO
+   ===================================================== */
+
+.EstadoBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.EstadoBadge-Confirmada {
+    color: #2463a5;
+    background: #e5f0ff;
+    border-color: #c9defa;
+}
+
+.EstadoBadge-Programada {
+    color: #856016;
+    background: #fff4d9;
+    border-color: #f5e1a9;
+}
+
+.EstadoBadge-Pendiente {
+    color: #94620c;
+    background: #fff3d5;
+    border-color: #f2dfa9;
+}
+
+.EstadoBadge-Completada {
+    color: #237653;
+    background: #e2f5eb;
+    border-color: #c5e8d4;
+}
+
+.EstadoBadge-Cancelada {
+    color: #a63f48;
+    background: #fde8e9;
+    border-color: #f4cbd0;
+}
+
+.EstadoBadge-Neutro {
+    color: #58677c;
+    background: #edf1f6;
+    border-color: #dce3ec;
+}
+
+/* Tabla de pagos */
+
+#PortalPagos .table {
+    margin-bottom: 0;
+    vertical-align: middle;
+}
+
+    #PortalPagos .table thead th {
+        padding: 15px 12px;
+        color: #526783;
+        background: #f1f5fb;
+        font-size: 0.82rem;
+        font-weight: 750;
+        white-space: nowrap;
+        border-bottom: 1px solid #dce5f1;
+    }
+
+    #PortalPagos .table tbody td,
+    #PortalPagos .table tbody th {
+        padding: 16px 12px;
+        color: #526174;
+        border-bottom: 1px solid #edf0f5;
+    }
+
+    #PortalPagos .table tbody tr:hover {
+        background: #f7f9fd;
+    }
+
+    #PortalPagos .table tbody tr:last-child td,
+    #PortalPagos .table tbody tr:last-child th {
+        border-bottom: 0;
+    }
+
+
+/* ---------- Panel único del portal ---------- */
+
+.PanelResumenPortal {
+    max-width: 1250px;
+    margin: 0 auto;
+    padding: 34px;
+    background: #ffffff;
+    border: 1px solid #e0e8f3;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px rgba(43, 75, 125, 0.07);
+}
+
+    /* Bienvenida dentro del panel */
+
+    .PanelResumenPortal .HeroPortal {
+        padding: 5px 0 25px;
+        margin: 0;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+/* Separador */
+
+.PanelResumenPortal-Divisor {
+    height: 1px;
+    margin: 5px 0 28px;
+    background: #e9eef5;
+}
+
+/* Tarjetas */
+
+.PanelResumenPortal .ResumenPortal-Seccion {
+    margin-bottom: 0;
+}
+
+.PanelResumenPortal article.ResumenPortal {
+    min-height: 215px;
+    box-shadow: 0 3px 12px rgba(42, 66, 105, 0.05);
+}
+
+    .PanelResumenPortal article.ResumenPortal:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 7px 18px rgba(42, 66, 105, 0.09);
+    }
+
+/* Responsive */
+
+@media (max-width: 767.98px) {
+    .PanelResumenPortal {
+        padding: 22px 18px;
+        border-radius: 16px;
+    }
+
+        .PanelResumenPortal .HeroPortal {
+            align-items: flex-start;
+            flex-direction: column;
+            padding-bottom: 22px;
+        }
+
+        .PanelResumenPortal .HeroPortal-Acciones {
+            width: 100%;
+        }
+
+            .PanelResumenPortal .HeroPortal-Acciones .btn {
+                flex: 1;
+            }
+
+    .PanelResumenPortal-Divisor {
+        margin: 0 0 22px;
+    }
+}
+
+
+/*Filtros del portal*/
+
+
+/* ==========================================
+   SELECT PERSONALIZADO - PORTAL
+   ========================================== */
+
+.FiltroPortal-Contenedor {
+    position: relative;
+    width: 100%;
+    max-width: 425px;
+}
+
+.FiltroPortal-Nativo {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.FiltroPortal-Boton {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 13px;
+    background: #ffffff;
+    color: #29466f;
+    border: 1px solid #cbd8e9;
+    border-radius: 8px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+    .FiltroPortal-Boton:hover,
+    .FiltroPortal-Boton[aria-expanded="true"] {
+        border-color: #86aee8;
+    }
+
+    .FiltroPortal-Boton:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(91, 139, 207, .18);
+    }
+
+.FiltroPortal-Flecha {
+    transition: transform .2s ease;
+}
+
+.FiltroPortal-Boton[aria-expanded="true"] .FiltroPortal-Flecha {
+    transform: rotate(180deg);
+}
+
+.FiltroPortal-Opciones {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    z-index: 1050;
+    width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 5px;
+    background: #ffffff;
+    border: 1px solid #d9e4f3;
+    border-radius: 9px;
+    box-shadow: 0 6px 18px rgba(41, 70, 111, .12);
+}
+
+.FiltroPortal-Opcion {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #29466f;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+
+    /* Color celeste al pasar el mouse */
+
+    .FiltroPortal-Opcion:hover,
+    .FiltroPortal-Opcion:focus-visible {
+        background: #dceaff;
+        color: #29466f;
+        outline: none;
+    }
+
+    /* Opción actualmente seleccionada */
+
+    .FiltroPortal-Opcion[aria-selected="true"] {
+        background: #edf4ff;
+        color: #315f9d;
+        font-weight: 600;
+    }
+
+        .FiltroPortal-Opcion[aria-selected="true"]:hover {
+            background: #dceaff;
+        }
+
+.FiltroPortal-Opciones[hidden] {
+    display: none;
+}
+
+@media (max-width: 576px) {
+    .FiltroPortal-Contenedor {
+        max-width: 100%;
+    }
+}
+
+
+

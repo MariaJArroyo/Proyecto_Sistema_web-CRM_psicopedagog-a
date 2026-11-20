@@ -5,8 +5,7 @@
 }
 <main class="PrincipalPortal" id="PortalTareas" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        <h2 class="mb-2">Tareas del estudiante</h2>
-        <p class="TextoSuave mb-4">Consulte las actividades asignadas y sus materiales.</p>
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-journal-check", "Tareas del estudiante", "Consulte las actividades asignadas y sus materiales."))
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
@@ -21,11 +20,11 @@
                 <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
                 <div class="col-md-6 col-lg-4">
                     <label asp-for="Filtro" class="form-label">Mostrar</label>
-                    <select asp-for="Filtro" class="form-select">
-                        <option value="pendientes">Pendientes</option>
-                        <option value="asignadas">Asignadas</option>
-                        <option value="entregadas">Entregadas</option>
-                        <option value="todas">Todas</option>
+                    <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="pendientes">Tareas Pendientes</option>
+                        <option value="asignadas">Tareas Asignadas</option>
+                        <option value="entregadas">Tareas Entregadas</option>
+                        <option value="todas">Todas las Tareas</option>
                     </select>
                 </div>
             </form>
@@ -43,7 +42,18 @@
                             <article class="Tarjeta p-3 h-100">
                                 <div class="d-flex justify-content-between gap-2 mb-3">
                                     <h3 class="h5">@tarea.Titulo</h3>
-                                    <span class="badge bg-secondary align-self-start">@tarea.Estado</span>
+                                    @{
+                                        var claseEstado = tarea.Estado.ToLowerInvariant() switch
+                                        {
+                                            "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
+                                            "asignada" => "EstadoBadge EstadoBadge-Programada",
+                                            "entregada" => "EstadoBadge EstadoBadge-Completada",
+                                            "completada" => "EstadoBadge EstadoBadge-Completada",
+                                            "vencida" => "EstadoBadge EstadoBadge-Cancelada",
+                                            _ => "EstadoBadge EstadoBadge-Neutro"
+                                        };
+                                    }
+                                    <span class="@claseEstado align-self-start">@tarea.Estado</span>
                                 </div>
                                 <p style="white-space: pre-wrap">@tarea.Descripcion</p>
                                 <p><strong>Fecha límite:</strong> @tarea.FechaLimite.ToString("dd/MM/yyyy")</p>
@@ -63,15 +73,25 @@
                                 {
                                     <p><strong>Material:</strong> @tarea.Material</p>
                                 }
-                                <div class="d-flex flex-wrap gap-2">
+                                <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
                                     @if (tarea.TieneArchivo)
                                     {
-                                        <button type="button" class="btn btn-outline-primary" data-descargar-tarea data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">Descargar archivo</button>
+                                        <button type="button" class="btn btn-outline-primary"
+                                                data-descargar-tarea
+                                                data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">
+                                            Descargar archivo
+                                        </button>
                                     }
+
                                     @if (Uri.TryCreate(tarea.MaterialUrl, UriKind.Absolute, out var enlaceMaterial)
                                         && (enlaceMaterial.Scheme == Uri.UriSchemeHttps || enlaceMaterial.Scheme == Uri.UriSchemeHttp))
                                     {
-                                        <a href="@enlaceMaterial.AbsoluteUri" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary">Abrir material</a>
+                                        <a href="@enlaceMaterial.AbsoluteUri"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           class="btn btn-outline-secondary">
+                                            Abrir material
+                                        </a>
                                     }
                                 </div>
                             </article>

@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     "use strict";
 
     const RUTAS = {
@@ -58,14 +58,14 @@
     }
 
     function fechaParaApi(texto) {
-        const partes = /^(\d{2})-(\d{2})-(\d{4})$/.exec(texto.trim());
+        const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(texto ?? "").trim());
 
         if (!partes) return null;
 
-        const [, dia, mes, anio] = partes;
-        const d = Number(dia);
-        const m = Number(mes);
+        const [, anio, mes, dia] = partes;
         const a = Number(anio);
+        const m = Number(mes);
+        const d = Number(dia);
 
         if (a < 1000 || m < 1 || m > 12 || d < 1) return null;
         if (d > new Date(Date.UTC(a, m, 0)).getUTCDate()) return null;
@@ -831,7 +831,7 @@
         const hasta = fechaParaApi($("FinReporte").value);
 
         if (!desde || !hasta) {
-            alertaGeneracion("Ingrese fechas válidas en formato dd-mm-aaaa.");
+            alertaGeneracion("Seleccione fechas válidas.");
             return;
         }
 

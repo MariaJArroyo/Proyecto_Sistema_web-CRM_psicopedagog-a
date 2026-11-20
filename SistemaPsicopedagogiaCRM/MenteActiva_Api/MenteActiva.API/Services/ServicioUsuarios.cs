@@ -88,6 +88,12 @@ public class ServicioUsuarios : IServicioUsuarios
     public Task<UsuarioDetalleResponse?> ObtenerAsync(int idUsuario)
         => _repositorio.ObtenerPorIdAsync(idUsuario);
 
+    public Task<UsuarioPerfilResponse?> ObtenerPerfilAsync(int idUsuario)
+    => _repositorio.ObtenerPerfilAsync(idUsuario);
+
+    public Task ActualizarPerfilAsync(int idUsuario,string nombreCompleto, string correo, string? telefono)
+        => _repositorio.ActualizarPerfilAsync(idUsuario, nombreCompleto, correo, telefono);
+
     public Task<IEnumerable<UsuarioResponse>> ListarAsync(
         string? busqueda, int? idEstadoUsuario, bool? soloInternos, int pagina, int tamanoPagina)
         => _repositorio.ListarAsync(busqueda, idEstadoUsuario, soloInternos, pagina, tamanoPagina);

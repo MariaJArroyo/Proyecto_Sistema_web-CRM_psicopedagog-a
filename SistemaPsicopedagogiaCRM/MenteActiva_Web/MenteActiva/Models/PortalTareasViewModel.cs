@@ -6,7 +6,7 @@ public class PortalTareasViewModel
 
     public int IdEstudiante { get; set; }
 
-    public string Filtro { get; set; } = "pendientes";
+    public string Filtro { get; set; } = "todas";
 
     public List<PortalTareaViewModel> Tareas { get; set; } = [];
 }

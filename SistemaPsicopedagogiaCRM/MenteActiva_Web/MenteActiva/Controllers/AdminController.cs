@@ -5,7 +5,8 @@ using MenteActiva.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
-using System.Text.Json; 
+using System.Text.Json;
+using MenteActiva.Seguridad;
 using System.Globalization;
 
 namespace MenteActiva.Controllers;
@@ -22,6 +23,7 @@ public class AdminController : Controller
         _http = http;
         _config = config;
     }
+
 
     #region Agenda
 
@@ -1262,7 +1264,6 @@ public class AdminController : Controller
     }
 
     public IActionResult Materiales() => View();
-    public IActionResult MiPerfil() => View();
     #region Pagos
 
     // Los 3 roles del panel: el Asistente tambien lleva los pagos
@@ -2458,4 +2459,132 @@ public class AdminController : Controller
 
     #endregion
 
+    #region perfil Admin
+
+
+    #region perfil Admin
+
+    [HttpGet]
+    public async Task<IActionResult> MiPerfil(CancellationToken cancelacion)
+    {
+        try
+        {
+            using var cliente = _http.CreateClient();
+
+            using var respuesta = await cliente.GetAsync(
+                UrlApi("mi-perfil"),
+                cancelacion);
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+                ViewBag.ErrorCarga =
+                    $"No se pudo cargar el perfil. Código: {(int)respuesta.StatusCode}";
+
+                Console.WriteLine($"Respuesta de la API: {contenido}");
+
+                return View(new MiPerfilViewModel());
+            }
+
+            var perfil = await respuesta.Content.ReadFromJsonAsync<MiPerfilViewModel>(
+                cancellationToken: cancelacion);
+
+            if (perfil is null)
+            {
+                ViewBag.ErrorCarga = "No se encontró la información del perfil.";
+                return View(new MiPerfilViewModel());
+            }
+
+            return View(perfil);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Error HTTP al cargar el perfil: {ex.Message}");
+
+            ViewBag.ErrorCarga = "No se pudo conectar con el servicio del perfil.";
+
+            return View(new MiPerfilViewModel());
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ActualizarMiPerfil(
+        EditarMiPerfilViewModel modelo)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Revise los datos ingresados.";
+            return RedirectToAction(nameof(MiPerfil));
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var respuesta = await cliente.PutAsJsonAsync(
+            UrlApi("mi-perfil"),
+            new
+            {
+                modelo.NombreCompleto,
+                modelo.Correo,
+                modelo.Telefono
+            });
+
+        await GuardarAvisoAsync(
+            respuesta,
+            "No se pudo actualizar el perfil.");
+
+        return RedirectToAction(nameof(MiPerfil));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarContrasena(
+        CambiarContrasenaViewModel modelo)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Revise los datos de la contraseña.";
+            return RedirectToAction(nameof(MiPerfil));
+        }
+
+        if (modelo.ContrasenaNueva != modelo.ConfirmarContrasena)
+        {
+            TempData["Error"] =
+                "La nueva contraseña y su confirmación no coinciden.";
+
+            return RedirectToAction(nameof(MiPerfil));
+        }
+
+        if (modelo.ContrasenaNueva.Length < 8)
+        {
+            TempData["Error"] =
+                "La nueva contraseña debe tener al menos 8 caracteres.";
+
+            return RedirectToAction(nameof(MiPerfil));
+        }
+
+        using var cliente = _http.CreateClient();
+
+        using var respuesta = await cliente.PostAsJsonAsync(
+            UrlApi("autenticacion/cambiar-contrasena"),
+            new
+            {
+                modelo.ContrasenaActual,
+                modelo.ContrasenaNueva
+            });
+
+        await GuardarAvisoAsync(
+            respuesta,
+            "No se pudo cambiar la contraseña.");
+
+        return RedirectToAction(nameof(MiPerfil));
+    }
+
+    #endregion
+
+
+
+
+    #endregion
 }

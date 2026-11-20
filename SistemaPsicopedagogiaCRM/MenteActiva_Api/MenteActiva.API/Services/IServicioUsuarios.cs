@@ -11,6 +11,9 @@ public interface IServicioUsuarios
     Task<ResultadoInvitacion> ReenviarEnlaceAsync(int idUsuario);
 
     Task<UsuarioDetalleResponse?> ObtenerAsync(int idUsuario);
+    Task<UsuarioPerfilResponse?> ObtenerPerfilAsync(int idUsuario);
+
+    Task ActualizarPerfilAsync(int idUsuario,string nombreCompleto, string correo, string? telefono);
 
     Task<IEnumerable<UsuarioResponse>> ListarAsync(
         string? busqueda, int? idEstadoUsuario, bool? soloInternos, int pagina, int tamanoPagina);

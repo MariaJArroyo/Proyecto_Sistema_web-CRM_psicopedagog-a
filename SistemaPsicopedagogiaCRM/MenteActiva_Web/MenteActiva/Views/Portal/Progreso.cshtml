@@ -1,12 +1,15 @@
+
 @model PortalProgresoViewModel
+
 @{
     ViewData["Title"] = "Progreso";
     var error = ViewBag.ErrorCarga as string;
 }
+
 <main class="PrincipalPortal" id="PortalProgreso" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        <h2 class="mb-2">Progreso del estudiante</h2>
-        <p class="TextoSuave mb-4">Reportes, avances y recomendaciones de la profesora.</p>
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-graph-up-arrow", "Progreso del estudiante", "Reportes, avances y recomendaciones de la profesora."))
+
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
@@ -19,22 +22,31 @@
         {
             <form asp-controller="Portal" asp-action="Progreso" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
                 <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+
                 <div class="col-md-6 col-lg-4">
                     <label asp-for="FiltroReportes" class="form-label">Reportes</label>
-                    <select asp-for="FiltroReportes" class="form-select" aria-describedby="AyudaFiltroReportes">
-                        <option value="todos">Todos</option>
-                        <option value="nuevos">Nuevos: últimos 30 días</option>
-                        <option value="viejos">Anteriores a los últimos 30 días</option>
+                    <select asp-for="FiltroReportes" class="form-select FiltroPortal" aria-describedby="AyudaFiltroReportes">
+                        <option value="todos">Todos los Reportes</option>
+                        <option value="nuevos">Reportes Nuevos: últimos 30 días</option>
+                        <option value="viejos">Reportes Pasados a los últimos 30 días</option>
                     </select>
                 </div>
-                <p id="AyudaFiltroReportes" class="TextoSuave small mb-0">El filtro usa la fecha de generación del reporte; no modifica las sesiones ni las recomendaciones.</p>
+
+                <p id="AyudaFiltroReportes" class="TextoSuave small mb-0">
+                    El filtro usa la fecha de generación del reporte; no modifica las sesiones ni las recomendaciones.
+                </p>
             </form>
+
             <div id="AlertaProgreso" class="alert" role="status" aria-live="polite" hidden></div>
+
             <section aria-labelledby="TituloReportes" class="mb-5">
                 <h3 id="TituloReportes" class="h4 mb-3">Reportes disponibles</h3>
+
                 @if (Model.Reportes.Count == 0)
                 {
-                    <div class="EstadoVacio"><p class="mb-0">No hay reportes disponibles para el filtro seleccionado.</p></div>
+                    <div class="EstadoVacio">
+                        <p class="mb-0">No hay reportes disponibles para el filtro seleccionado.</p>
+                    </div>
                 }
                 else
                 {
@@ -44,11 +56,28 @@
                             <div class="col-md-6">
                                 <article class="Tarjeta p-3 h-100">
                                     <h4 class="h5">@reporte.Titulo</h4>
-                                    <p><strong>Período:</strong> @reporte.PeriodoInicio.ToString("dd/MM/yyyy") al @reporte.PeriodoFin.ToString("dd/MM/yyyy")</p>
-                                    <p class="TextoSuave">Generado: @reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</p>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button type="button" class="btn btn-outline-primary" data-reporte-accion="detalle" data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">Ver detalle</button>
-                                        <button type="button" class="btn btn-outline-secondary" data-reporte-accion="pdf" data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">Descargar PDF</button>
+
+                                    <p>
+                                        <strong>Período:</strong>
+                                        @reporte.PeriodoInicio.ToString("dd/MM/yyyy") al @reporte.PeriodoFin.ToString("dd/MM/yyyy")
+                                    </p>
+
+                                    <p class="TextoSuave">
+                                        Generado: @reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+                                    </p>
+
+                                    <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                                        <button type="button" class="btn btn-outline-primary"
+                                                data-reporte-accion="detalle"
+                                                data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
+                                            Ver detalle
+                                        </button>
+
+                                        <button type="button" class="btn btn-outline-secondary"
+                                                data-reporte-accion="pdf"
+                                                data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
+                                            Descargar PDF
+                                        </button>
                                     </div>
                                 </article>
                             </div>
@@ -56,38 +85,66 @@
                     </div>
                 }
             </section>
-            <section aria-labelledby="TituloAvances" class="mb-5">
-                <h3 id="TituloAvances" class="h4 mb-3">Avances por sesión</h3>
-                @if (Model.Sesiones.Count == 0)
-                {
-                    <div class="EstadoVacio"><p class="mb-0">No hay sesiones disponibles.</p></div>
-                }
-                @foreach (var sesion in Model.Sesiones)
-                {
-                    <article class="Tarjeta p-3 mb-3">
-                        <h4 class="h5">@sesion.TemaTrabajado</h4>
-                        <p class="TextoSuave">@sesion.Fecha.ToString("dd/MM/yyyy") · @sesion.TipoAtencion</p>
-                        <p class="mb-0">@(string.IsNullOrWhiteSpace(sesion.Avances) ? "No hay avances registrados para esta sesión." : sesion.Avances)</p>
-                    </article>
-                }
-            </section>
-            <section id="Recomendaciones" aria-labelledby="TituloRecomendaciones">
-                <h3 id="TituloRecomendaciones" class="h4 mb-3">Recomendaciones para casa</h3>
-                @if (!Model.Sesiones.Any(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
-                {
-                    <div class="EstadoVacio"><p class="mb-0">No hay recomendaciones registradas.</p></div>
-                }
-                @foreach (var sesion in Model.Sesiones.Where(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
-                {
-                    <details class="Tarjeta p-3 mb-3">
-                        <summary>@sesion.TemaTrabajado · @sesion.Fecha.ToString("dd/MM/yyyy")</summary>
-                        <p class="mt-3 mb-0" style="white-space: pre-wrap">@sesion.Recomendaciones</p>
-                    </details>
-                }
-            </section>
+
+            <div class="row g-4 mb-5">
+                <div class="col-lg-6">
+                    <section aria-labelledby="TituloAvances" class="h-100">
+                        <h3 id="TituloAvances" class="h4 mb-3">Avances por sesión</h3>
+
+                        @if (Model.Sesiones.Count == 0)
+                        {
+                            <div class="EstadoVacio">
+                                <p class="mb-0">No hay sesiones disponibles.</p>
+                            </div>
+                        }
+
+                        @foreach (var sesion in Model.Sesiones)
+                        {
+                            <article class="Tarjeta p-3 mb-3">
+                                <h4 class="h5">@sesion.TemaTrabajado</h4>
+
+                                <p class="TextoSuave">
+                                    @sesion.Fecha.ToString("dd/MM/yyyy") · @sesion.TipoAtencion
+                                </p>
+
+                                <p class="mb-0">
+                                    @(string.IsNullOrWhiteSpace(sesion.Avances)
+                                        ? "No hay avances registrados para esta sesión."
+                                        : sesion.Avances)
+                                </p>
+                            </article>
+                        }
+                    </section>
+                </div>
+
+                <div class="col-lg-6">
+                    <section id="Recomendaciones" aria-labelledby="TituloRecomendaciones" class="h-100">
+                        <h3 id="TituloRecomendaciones" class="h4 mb-3">Recomendaciones para casa</h3>
+
+                        @if (!Model.Sesiones.Any(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
+                        {
+                            <div class="EstadoVacio">
+                                <p class="mb-0">No hay recomendaciones registradas.</p>
+                            </div>
+                        }
+
+                        @foreach (var sesion in Model.Sesiones.Where(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
+                        {
+                            <details class="Tarjeta p-3 mb-3">
+                                <summary>
+                                    @sesion.TemaTrabajado · @sesion.Fecha.ToString("dd/MM/yyyy")
+                                </summary>
+
+                                <p class="mt-3 mb-0" style="white-space: pre-wrap">@sesion.Recomendaciones</p>
+                            </details>
+                        }
+                    </section>
+                </div>
+            </div>
         }
     </div>
 </main>
+
 <div class="modal fade" id="ModalReportePortal" tabindex="-1" aria-labelledby="TituloDetalleReportePortal" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -95,20 +152,30 @@
                 <h2 class="modal-title fs-5" id="TituloDetalleReportePortal">Detalle del reporte</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
+
             <div class="modal-body" id="ContenidoDetalleReportePortal"></div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>
+
 @section Scripts {
     @* Ver la nota de integrity en _CabeceraComun: version exacta y hash se cambian juntos.
        Estos dos van en la misma version 0.3.3 que Admin/Reportes. *@
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js" referrerpolicy="no-referrer"
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/pdfmake.min.js"
+            referrerpolicy="no-referrer"
             integrity="sha384-HsYB9F88cbFl+w8Pu5vyAezlEQxqQkPPj78NDtuRRjgl0t4YAfWS0Fy5pvJF80yI"
             crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js" referrerpolicy="no-referrer"
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.3.3/vfs_fonts.js"
+            referrerpolicy="no-referrer"
             integrity="sha384-pkBUW1wxcm6m7ZjKDxADnNHqnz+Sx9sAL1ndsLNv/GZnWZgodPYsju1yxeyQnn0c"
             crossorigin="anonymous"></script>
-    <script src="~/js/reportesPdfPortal.js" asp-append-version="true"></script>
+
+    <script src="~/js/reportePdf.js" asp-append-version="true"></script>
     <script src="~/js/progresoPortal.js" asp-append-version="true"></script>
 }

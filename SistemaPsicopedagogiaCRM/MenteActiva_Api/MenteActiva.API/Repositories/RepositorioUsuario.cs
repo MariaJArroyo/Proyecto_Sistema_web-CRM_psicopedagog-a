@@ -22,13 +22,10 @@ public class RepositorioUsuario : IRepositorioUsuario
     {
         using var conexion = new MySqlConnection(_cadenaConexion);
 
-        var parametros = new DynamicParameters();
-        parametros.Add("p_Correo", correo);
+        var parametros = new DynamicParameters();parametros.Add("p_Correo", correo);
 
         return await conexion.QueryFirstOrDefaultAsync<UsuarioAutenticado>(
-            "SP_Usuario_ObtenerPorCorreo",
-            parametros,
-            commandType: CommandType.StoredProcedure);
+            "SP_Usuario_ObtenerPorCorreo",parametros,commandType: CommandType.StoredProcedure);
     }
 
     public async Task<UsuarioDetalleResponse?> ObtenerPorIdAsync(int idUsuario)
@@ -43,6 +40,21 @@ public class RepositorioUsuario : IRepositorioUsuario
             parametros,
             commandType: CommandType.StoredProcedure);
     }
+
+    public async Task<UsuarioPerfilResponse?> ObtenerPerfilAsync(int idUsuario)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+
+        return await conexion.QueryFirstOrDefaultAsync<UsuarioPerfilResponse>(
+            "SP_Usuario_ObtenerPerfil",
+            parametros,
+            commandType: CommandType.StoredProcedure);
+    }
+
+
 
     public async Task RegistrarIngresoAsync(int idUsuario)
     {
@@ -220,5 +232,32 @@ public class RepositorioUsuario : IRepositorioUsuario
             "SP_UsuarioExterno_SuspenderAcceso",
             parametros,
             commandType: CommandType.StoredProcedure);
+    }
+
+
+
+    public async Task ActualizarPerfilAsync(int idUsuario, string nombreCompleto, string correo, string? telefono)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_NombreCompleto", nombreCompleto);
+        parametros.Add("p_Correo", correo);
+        parametros.Add("p_Telefono", telefono);
+
+        await conexion.ExecuteAsync("SP_Usuario_ActualizarPerfil",parametros, commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task ActualizarContrasenaAsync(int idUsuario, string contrasenaHash)
+    {
+        using var conexion = new MySqlConnection(_cadenaConexion);
+
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_ContrasenaHash", contrasenaHash);
+
+        await conexion.ExecuteAsync(
+            "SP_Usuario_ActualizarContrasena",parametros, commandType: CommandType.StoredProcedure);
     }
 }

@@ -5,8 +5,7 @@
 }
 <main class="PrincipalPortal" id="PortalCitas" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        <h2 class="mb-2">Citas del estudiante</h2>
-        <p class="TextoSuave mb-4">Consulte las próximas citas y el historial.</p>
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-calendar-event", "Citas del estudiante", "Consulte las próximas citas y el historial."))
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
@@ -21,13 +20,12 @@
                 <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
                 <div class="col-md-6 col-lg-4">
                     <label asp-for="Filtro" class="form-label">Mostrar</label>
-                    <select asp-for="Filtro" class="form-select">
-                        <option value="proximas">Próximas programadas o confirmadas</option>
-                        <option value="futuras">Todas las futuras</option>
-                        <option value="pasadas">Pasadas</option>
-                        <option value="canceladas">Canceladas</option>
-                        <option value="completadas">Completadas</option>
-                        <option value="todas">Todas</option>
+                    <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="futuras">Citas Futuras</option>
+                        <option value="pasadas">Citas Pasadas</option>
+                        <option value="canceladas">Citas Canceladas</option>
+                        <option value="completadas">Citas Completadas</option>
+                        <option value="todas">Todas las citas</option>
                     </select>
                 </div>
             </form>
@@ -44,7 +42,17 @@
                             <article class="Tarjeta p-3 h-100">
                                 <div class="d-flex justify-content-between gap-2 mb-3">
                                     <h3 class="h5 mb-0">@cita.TipoSesion</h3>
-                                    <span class="badge bg-secondary align-self-start">@cita.Estado</span>
+                                    @{
+                                        var claseEstado = cita.Estado.ToLowerInvariant() switch
+                                        {
+                                            "confirmada" => "EstadoBadge EstadoBadge-Confirmada",
+                                            "programada" => "EstadoBadge EstadoBadge-Programada",
+                                            "completada" => "EstadoBadge EstadoBadge-Completada",
+                                            "cancelada" => "EstadoBadge EstadoBadge-Cancelada",
+                                            _ => "EstadoBadge EstadoBadge-Neutro"
+                                        };
+                                    }
+                                    <span class="@claseEstado align-self-start">@cita.Estado</span>
                                 </div>
                                 <p><strong>Fecha:</strong> @cita.FechaHoraInicio.ToString("dd/MM/yyyy")</p>
                                 <p><strong>Inicio:</strong> @cita.FechaHoraInicio.ToString("HH:mm")</p>

@@ -6,7 +6,7 @@ public class PortalPagosViewModel
 
     public int IdEstudiante { get; set; }
 
-    public string Filtro { get; set; } = "pendientes";
+    public string Filtro { get; set; } = "todos";
 
     public List<PortalPagoViewModel> Pagos { get; set; } = [];
 }

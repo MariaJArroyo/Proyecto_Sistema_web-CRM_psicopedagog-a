@@ -17,8 +17,11 @@
 
   @RenderBody()
 
-  <footer class="text-center TextoSuave small py-4 border-top mt-5">
-    &copy; 2026 Mente Activa Psicopedagogía — Portal de familias
+  <footer class="PiePortal">
+    <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="PiePortal-Marca"><i class="bi bi-heart-pulse me-2" aria-hidden="true"></i>Mente Activa Psicopedagogía</span>
+      <span class="TextoSuave small">&copy; 2026 · Portal de familias</span>
+    </div>
   </footer>
 
   <!-- Contenedor de toasts de confirmacion -->
@@ -35,6 +38,9 @@
 
   <script src="~/js/contadores.js"
           asp-append-version="true"></script>
+
+   <script src="~/js/filtros-portal.js"
+        asp-append-version="true"></script>
 
   @await RenderSectionAsync("Scripts", required: false)
 </body>
