@@ -116,6 +116,31 @@ public class ServicioAutenticacion : IServicioAutenticacion
         return await _repositorio.ConsumirTokenAsync(peticion.Token, hash);
     }
 
+    public async Task<bool> CambiarContrasenaAsync(string correo, CambiarContrasenaRequest peticion)
+    {
+        // Obtener el usuario y su hash actual desde la BD.
+        var usuario = await _repositorio.ObtenerPorCorreoAsync(correo);
+
+        if (usuario is null)
+        {
+            return false;
+        }
+
+        // Verificar la contraseña actual contra el hash almacenado.
+        if (!ContrasenaCoincide(usuario, peticion.ContrasenaActual))
+        {
+            return false;
+        }
+
+        // Generar el hash de la nueva contraseña.
+        var nuevoHash = _hasher.HashPassword(usuario, peticion.ContrasenaNueva);
+
+        // Guardar el nuevo hash en la BD.
+        await _repositorio.ActualizarContrasenaAsync(usuario.IdUsuario,nuevoHash);
+
+        return true;
+    }
+
     private bool ContrasenaCoincide(UsuarioAutenticado usuario, string contrasena)
     {
         try

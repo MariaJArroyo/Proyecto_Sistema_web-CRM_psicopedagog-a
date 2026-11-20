@@ -92,15 +92,15 @@
                     }
                 }
 
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Inicio" ? " active" : "")" asp-controller="Portal" asp-action="Inicio" asp-route-idEstudiante="@idActual">Inicio</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Citas" ? " active" : "")" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@idActual">Citas</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Progreso" ? " active" : "")" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@idActual">Progreso</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Tareas" ? " active" : "")" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@idActual">Tareas</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Pagos" ? " active" : "")" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@idActual">Pagos</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Inicio" ? " active" : "")" asp-controller="Portal" asp-action="Inicio" asp-route-idEstudiante="@idActual"><i class="bi bi-house me-1" aria-hidden="true"></i>Inicio</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Citas" ? " active" : "")" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@idActual"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Citas</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Progreso" ? " active" : "")" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@idActual"><i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Progreso</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Tareas" ? " active" : "")" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@idActual"><i class="bi bi-journal-check me-1" aria-hidden="true"></i>Tareas</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Pagos" ? " active" : "")" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@idActual"><i class="bi bi-wallet2 me-1" aria-hidden="true"></i>Pagos</a></li>
                 <li class="nav-item">
                     <a class="nav-link@(accionPortal == "Mensajes" ? " active" : "")"
                        asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@idActual">
-                        Mensajes
+                        <i class="bi bi-chat-dots me-1" aria-hidden="true"></i>Mensajes
                         <span class="badge badge-estado-nuevo ms-1 d-none" id="ContadorMensajesPortal"
                               data-contador="/Portal/MensajesSinLeer"
                               data-contador-campo="sinLeer"
@@ -109,7 +109,7 @@
                               data-contador-plural="mensajes sin leer"></span>
                     </a>
                 </li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil">Mi perfil</a></li>
+                <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil"><i class="bi bi-person-circle me-1" aria-hidden="true"></i>Mi perfil</a></li>
                 <li class="nav-item ms-xl-2">
                     <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="m-0">
                         <button type="submit" class="btn btn-outline-secondary btn-sm">

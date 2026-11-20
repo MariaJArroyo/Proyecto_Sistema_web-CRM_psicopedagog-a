@@ -8,8 +8,7 @@
 }
 <main class="PrincipalPortal" id="PortalPagos" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        <h2 class="mb-2">Estado de pagos</h2>
-        <p class="TextoSuave mb-4">Consulte los cargos, saldos y abonos del estudiante.</p>
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-wallet2", "Estado de pagos", "Consulte los cargos, saldos y abonos del estudiante."))
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
@@ -23,11 +22,11 @@
             <form asp-controller="Portal" asp-action="Pagos" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
                 <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
                 <div class="col-md-6 col-lg-4">
-                    <label asp-for="Filtro" class="form-label">Mostrar</label>
+                    <label asp-for="Filtro" class="form-label FiltroPortal">Mostrar</label>
                     <select asp-for="Filtro" class="form-select">
-                        <option value="pendientes">Pendientes, vencidos y parciales</option>
-                        <option value="pagados">Pagados</option>
-                        <option value="todos">Todos, incluidos anulados</option>
+                        <option value="pendientes">Pagos Pendientes, Vencidos y Parciales</option>
+                        <option value="pagados">Pagos ya Pagados</option>
+                        <option value="todos">Todos los Pagos, incluidos anulados</option>
                     </select>
                 </div>
             </form>
@@ -54,7 +53,21 @@
                                         <td>@FormatoDinero.Escribir(pago.Monto, moneda)</td>
                                         <td>@FormatoDinero.Escribir(pago.Abonado, moneda)</td>
                                         <td>@FormatoDinero.Escribir(pago.Saldo, moneda)</td>
-                                        <td><span class="badge bg-secondary">@pago.Estado</span></td>
+                                        <td>
+                                            @{
+                                                var claseEstado = pago.Estado.ToLowerInvariant() switch
+                                                {
+                                                    "pagado" => "EstadoBadge EstadoBadge-Completada",
+                                                    "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
+                                                    "vencido" => "EstadoBadge EstadoBadge-Cancelada",
+                                                    "parcial" => "EstadoBadge EstadoBadge-Programada",
+                                                    "anulado" => "EstadoBadge EstadoBadge-Neutro",
+                                                    _ => "EstadoBadge EstadoBadge-Neutro"
+                                                };
+                                            }<span class="@claseEstado">@pago.Estado</span>
+                                        </td>
+
+
                                         <td><button type="button" class="btn btn-sm btn-outline-primary" data-detalle-pago data-url="@Url.Action("DetallePago", "Portal", new { idEstudiante = Model.IdEstudiante, idPago = pago.IdPago })" aria-label="Ver detalle de @pago.Concepto">Ver detalle</button></td>
                                     </tr>
                                 }

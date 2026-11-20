@@ -6172,7 +6172,6 @@ BEGIN
          (SELECT COUNT(*)
           FROM TB_REPORTE
           WHERE IdEstudiante = v_IdEstudiante
-            AND VisibleEnPortal = 1
             AND Activo = 1) AS ReportesDisponibles,
 
          (SELECT IFNULL(SUM(
@@ -6191,8 +6190,8 @@ BEGIN
           WHERE p.IdEstudiante = v_IdEstudiante
             AND p.IdEstadoPago IN (2, 3, 4)) AS SaldoPendiente;
 END$$
+DELIMITER $$
 
-DELIMITER ;
 
 
 -- =====================================================
@@ -6214,7 +6213,7 @@ BEGIN
   DECLARE v_Ahora DATETIME;
 
   SET v_Filtro = LOWER(
-    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'proximas')
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'todas')
   );
 
   SET v_Ahora = NOW();
@@ -6289,140 +6288,9 @@ END$$
 
 DELIMITER ;
 
-
 -- =====================================================
--- PROGRESO Y RECOMENDACIONES
--- Filtros de reportes: nuevos, viejos, todos.
--- Nuevos: generados en los últimos 30 días.
--- =====================================================
+-- Filtro de Tareas
 
-DROP PROCEDURE IF EXISTS SP_Portal_ListarProgreso;
-DELIMITER $$
-
-CREATE PROCEDURE SP_Portal_ListarProgreso(
-  IN p_IdUsuario INT,
-  IN p_IdEstudiante INT,
-  IN p_FiltroReportes VARCHAR(20)
-)
-BEGIN
-  DECLARE v_Filtro VARCHAR(20);
-  DECLARE v_FechaLimite DATETIME;
-
-  SET v_Filtro = LOWER(
-    COALESCE(NULLIF(TRIM(p_FiltroReportes), ''), 'todos')
-  );
-
-  SET v_FechaLimite = DATE_SUB(NOW(), INTERVAL 30 DAY);
-
-  IF v_Filtro NOT IN ('nuevos', 'viejos', 'todos') THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El filtro de reportes no es válido.';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM TB_ESTUDIANTE_ENCARGADO ee
-    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
-    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
-    WHERE u.IdUsuario = p_IdUsuario
-      AND ee.IdEstudiante = p_IdEstudiante
-      AND en.Activo = 1
-      AND e.Activo = 1
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
-  END IF;
-
-  -- Primer resultado: sesiones activas, avances y recomendaciones.
-  SELECT s.IdSesion,
-         DATE(s.FechaHoraInicio) AS Fecha,
-         ta.Nombre AS TipoAtencion,
-         s.TemaTrabajado,
-         s.Avances,
-         s.Recomendaciones
-  FROM TB_SESION s
-  JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
-  WHERE s.IdEstudiante = p_IdEstudiante
-    AND s.Activo = 1
-  ORDER BY s.FechaHoraInicio DESC, s.IdSesion DESC;
-
-  -- Segundo resultado: reportes activos y visibles en el portal.
-  SELECT r.IdReporte,
-         r.Titulo,
-         r.PeriodoInicio,
-         r.PeriodoFin,
-         r.FechaGeneracion
-  FROM TB_REPORTE r
-  WHERE r.IdEstudiante = p_IdEstudiante
-    AND r.VisibleEnPortal = 1
-    AND r.Activo = 1
-    AND (
-      v_Filtro = 'todos'
-
-      OR (v_Filtro = 'nuevos'
-          AND r.FechaGeneracion >= v_FechaLimite)
-
-      OR (v_Filtro = 'viejos'
-          AND r.FechaGeneracion < v_FechaLimite)
-    )
-  ORDER BY r.FechaGeneracion DESC, r.IdReporte DESC;
-END$$
-
-DELIMITER ;
-
-
--- =====================================================
--- DETALLE DEL REPORTE
--- Reutiliza SP_Reporte_ObtenerDetalle.
--- =====================================================
-
-DROP PROCEDURE IF EXISTS SP_Portal_ObtenerReporte;
-DELIMITER $$
-
-CREATE PROCEDURE SP_Portal_ObtenerReporte(
-  IN p_IdUsuario INT,
-  IN p_IdEstudiante INT,
-  IN p_IdReporte INT
-)
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM TB_ESTUDIANTE_ENCARGADO ee
-    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
-    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
-    WHERE u.IdUsuario = p_IdUsuario
-      AND ee.IdEstudiante = p_IdEstudiante
-      AND en.Activo = 1
-      AND e.Activo = 1
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM TB_REPORTE r
-    WHERE r.IdReporte = p_IdReporte
-      AND r.IdEstudiante = p_IdEstudiante
-      AND r.Activo = 1
-      AND r.VisibleEnPortal = 1
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El reporte solicitado no está disponible en el portal.';
-  END IF;
-
-  CALL SP_Reporte_ObtenerDetalle(p_IdReporte);
-END$$
-
-DELIMITER ;
-
-
--- =====================================================
--- TAREAS DEL ESTUDIANTE
--- Filtros: pendientes, asignadas, entregadas, todas.
--- Pendientes: Asignada (1) y Vencida (4).
 -- =====================================================
 
 DROP PROCEDURE IF EXISTS SP_Portal_ListarTareas;
@@ -6437,7 +6305,7 @@ BEGIN
   DECLARE v_Filtro VARCHAR(20);
 
   SET v_Filtro = LOWER(
-    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'pendientes')
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'todas')
   );
 
   IF v_Filtro NOT IN (
@@ -6506,6 +6374,204 @@ END$$
 
 DELIMITER ;
 
+
+
+DROP PROCEDURE IF EXISTS SP_Portal_ListarPagos;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ListarPagos(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_Filtro VARCHAR(20)
+)
+BEGIN
+  DECLARE v_Filtro VARCHAR(20);
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'todos')
+  );
+
+  IF v_Filtro NOT IN ('pendientes', 'pagados', 'todos') THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de pagos no es válido.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  SELECT p.IdPago,
+         p.Concepto,
+         p.Monto,
+         IFNULL(ab.Abonado, 0) AS Abonado,
+         CASE
+           WHEN p.IdEstadoPago = 5 THEN 0
+           ELSE GREATEST(p.Monto - IFNULL(ab.Abonado, 0), 0)
+         END AS Saldo,
+         p.FechaEmision,
+         p.FechaVencimiento,
+         p.IdEstadoPago,
+         ep.Nombre AS Estado
+  FROM TB_PAGO p
+  JOIN TB_ESTADO_PAGO ep ON ep.IdEstadoPago = p.IdEstadoPago
+  LEFT JOIN (
+    SELECT a.IdPago, SUM(a.Monto) AS Abonado
+    FROM TB_ABONO a
+    WHERE a.Activo = 1
+    GROUP BY a.IdPago
+  ) ab ON ab.IdPago = p.IdPago
+  WHERE p.IdEstudiante = p_IdEstudiante
+    AND (
+      v_Filtro = 'todos'
+
+      OR (v_Filtro = 'pendientes'
+          AND p.IdEstadoPago IN (2, 3, 4))
+
+      OR (v_Filtro = 'pagados'
+          AND p.IdEstadoPago = 1)
+    )
+  ORDER BY p.FechaEmision DESC, p.IdPago DESC;
+END$$
+
+DELIMITER ;
+
+
+-- =====================================================
+-- PROGRESO Y RECOMENDACIONES
+-- Filtros de reportes: nuevos, viejos, todos.
+-- Nuevos: generados en los últimos 30 días.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ListarProgreso;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ListarProgreso(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_FiltroReportes VARCHAR(20)
+)
+BEGIN
+  DECLARE v_Filtro VARCHAR(20);
+  DECLARE v_FechaLimite DATETIME;
+
+  SET v_Filtro = LOWER(
+    COALESCE(NULLIF(TRIM(p_FiltroReportes), ''), 'todos')
+  );
+
+  SET v_FechaLimite = DATE_SUB(NOW(), INTERVAL 30 DAY);
+
+  IF v_Filtro NOT IN ('nuevos', 'viejos', 'todos') THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El filtro de reportes no es válido.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  -- Primer resultado: sesiones activas, avances y recomendaciones.
+  SELECT s.IdSesion,
+         DATE(s.FechaHoraInicio) AS Fecha,
+         ta.Nombre AS TipoAtencion,
+         s.TemaTrabajado,
+         s.Avances,
+         s.Recomendaciones
+  FROM TB_SESION s
+  JOIN TB_TIPO_ATENCION ta ON ta.IdTipoAtencion = s.IdTipoAtencion
+  WHERE s.IdEstudiante = p_IdEstudiante
+    AND s.Activo = 1
+  ORDER BY s.FechaHoraInicio DESC, s.IdSesion DESC;
+
+  -- Segundo resultado: reportes activos.
+  SELECT r.IdReporte,
+         r.Titulo,
+         r.PeriodoInicio,
+         r.PeriodoFin,
+         r.FechaGeneracion
+  FROM TB_REPORTE r
+  WHERE r.IdEstudiante = p_IdEstudiante
+    AND r.Activo = 1
+    AND (
+      v_Filtro = 'todos'
+
+      OR (v_Filtro = 'nuevos'
+          AND r.FechaGeneracion >= v_FechaLimite)
+
+      OR (v_Filtro = 'viejos'
+          AND r.FechaGeneracion < v_FechaLimite)
+    )
+  ORDER BY r.FechaGeneracion DESC, r.IdReporte DESC;
+END$$
+
+DELIMITER ;
+
+
+-- =====================================================
+-- DETALLE DEL REPORTE
+-- Reutiliza SP_Reporte_ObtenerDetalle.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerReporte;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ObtenerReporte(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_IdReporte INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_REPORTE r
+    WHERE r.IdReporte = p_IdReporte
+      AND r.IdEstudiante = p_IdEstudiante
+      AND r.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El reporte solicitado no está disponible en el portal.';
+  END IF;
+
+  CALL SP_Reporte_ObtenerDetalle(p_IdReporte);
+END$$
+
+DELIMITER ;
 
 -- =====================================================
 -- ARCHIVO ADJUNTO DE UNA TAREA
@@ -8546,6 +8612,164 @@ BEGIN
     ORDER BY B.FechaHora DESC
     LIMIT 10;
 
+END$$
+
+DELIMITER ;
+
+
+/* =========================================================
+   Perfil Administrador
+   Trae los datos del Adminitrador, se puede editar el perfil 
+   y cambiar la contra
+   ========================================================= */
+   
+   DROP PROCEDURE IF EXISTS SP_Usuario_ObtenerPerfil;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Usuario_ObtenerPerfil(
+    IN p_IdUsuario INT
+)
+BEGIN
+    SELECT
+        u.IdUsuario,
+        u.NombreCompleto,
+        u.Correo,
+        u.Telefono,
+        r.IdRol,
+        r.Nombre AS Rol
+    FROM TB_USUARIO u
+    LEFT JOIN TB_USUARIO_ROL ur
+        ON ur.IdUsuario = u.IdUsuario
+    LEFT JOIN TB_ROL r
+        ON r.IdRol = ur.IdRol
+    WHERE u.IdUsuario = p_IdUsuario;
+END$$
+
+DELIMITER ;
+
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS SP_Usuario_ActualizarPerfil$$
+
+CREATE PROCEDURE SP_Usuario_ActualizarPerfil(
+    IN p_IdUsuario INT,
+    IN p_NombreCompleto VARCHAR(150),
+    IN p_Correo VARCHAR(150),
+    IN p_Telefono VARCHAR(15)
+)
+BEGIN
+    DECLARE v_Anterior JSON DEFAULT NULL;
+    DECLARE v_CorreoAnterior VARCHAR(150) DEFAULT NULL;
+    DECLARE v_TelefonoNuevo VARCHAR(15) DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT
+        Correo,
+        JSON_OBJECT(
+            'NombreCompleto', NombreCompleto,
+            'Correo', Correo,
+            'Telefono', Telefono
+        )
+    INTO v_CorreoAnterior, v_Anterior
+    FROM TB_USUARIO
+    WHERE IdUsuario = p_IdUsuario;
+
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM TB_USUARIO
+        WHERE Correo = p_Correo
+          AND IdUsuario <> p_IdUsuario
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Ya existe otro usuario con ese correo.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_USUARIO
+    SET
+        NombreCompleto = p_NombreCompleto,
+        Correo = p_Correo,
+        Telefono = COALESCE(
+            NULLIF(TRIM(p_Telefono), ''),
+            Telefono
+        ),
+        FechaModificacion = NOW()
+    WHERE IdUsuario = p_IdUsuario;
+
+    SELECT Telefono
+    INTO v_TelefonoNuevo
+    FROM TB_USUARIO
+    WHERE IdUsuario = p_IdUsuario;
+
+    IF v_CorreoAnterior <> p_Correo THEN
+        UPDATE TB_TOKEN_RECUPERACION
+        SET Usado = 1
+        WHERE IdUsuario = p_IdUsuario
+          AND Usado = 0;
+    END IF;
+
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuario,
+        'TB_USUARIO',
+        p_IdUsuario,
+        'Editar',
+        v_Anterior,
+        JSON_OBJECT(
+            'NombreCompleto', p_NombreCompleto,
+            'Correo', p_Correo,
+            'Telefono', v_TelefonoNuevo
+        )
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Usuario_ActualizarContrasena;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Usuario_ActualizarContrasena(
+    IN p_IdUsuario INT,
+    IN p_ContrasenaHash VARCHAR(255)
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_USUARIO
+        WHERE IdUsuario = p_IdUsuario
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+    END IF;
+
+    UPDATE TB_USUARIO
+    SET
+        ContrasenaHash = p_ContrasenaHash,
+        ContrasenaSalt = NULL,
+        FechaModificacion = NOW()
+    WHERE IdUsuario = p_IdUsuario;
 END$$
 
 DELIMITER ;

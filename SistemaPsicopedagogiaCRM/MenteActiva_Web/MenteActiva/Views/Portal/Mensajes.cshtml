@@ -6,13 +6,7 @@
 <main class="container py-4">
     @Html.AntiForgeryToken()
 
-    <div class="mb-4">
-        <h1 class="h3 mb-1">Mensajes</h1>
-        <p class="TextoSuave mb-0">
-            Escríbale al consultorio y vea sus respuestas. Los mensajes no son por
-            estudiante: la conversación es con la persona que le atiende.
-        </p>
-    </div>
+    @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-chat-dots", "Mensajes", "Escríbale al consultorio y vea sus respuestas. Los mensajes no son por estudiante: la conversación es con la persona que le atiende."))
 
     @if (ViewBag.ErrorCarga is string errorCarga)
     {

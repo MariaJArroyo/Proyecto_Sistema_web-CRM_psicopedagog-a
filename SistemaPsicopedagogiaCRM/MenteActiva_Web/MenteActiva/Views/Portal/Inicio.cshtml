@@ -5,55 +5,81 @@
     ViewData["Title"] = "Inicio del portal";
     var error = ViewBag.ErrorCarga as string;
     var moneda = await ProveedorMoneda.ObtenerAsync();
+    var nombreEstudiante = Model.Estudiantes
+        .FirstOrDefault(e => e.IdEstudiante == Model.Resumen.IdEstudiante)?.Estudiante;
 }
 <main class="PrincipalPortal" id="PortalInicio" data-portal-estudiante="@Model.Resumen.IdEstudiante">
     <div class="container">
-        <h2 class="mb-2">Portal de familias</h2>
-        <p class="TextoSuave mb-4">Consulte la información del estudiante seleccionado en el menú superior.</p>
         @if (!string.IsNullOrWhiteSpace(error))
         {
+            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-house-heart", "Portal de familias", "Consulte la información del estudiante seleccionado en el menú superior."))
             <div class="alert alert-danger" role="alert">@error</div>
         }
         else if (Model.Estudiantes.Count == 0)
         {
+            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-house-heart", "Portal de familias", "Consulte la información del estudiante seleccionado en el menú superior."))
             <div class="alert alert-info">No hay estudiantes disponibles. Consulte con el centro.</div>
         }
         else
         {
+            <section class="HeroPortal mb-4" aria-labelledby="TituloHeroPortal">
+                <div class="HeroPortal-Texto">
+                    <span class="HeroPortal-Etiqueta"><i class="bi bi-house-heart" aria-hidden="true"></i>Portal de familias</span>
+                    <h2 class="HeroPortal-Titulo" id="TituloHeroPortal">Resumen de @nombreEstudiante</h2>
+                    <p>Aquí encuentra las próximas citas, las tareas y el avance del estudiante, todo en un solo lugar.</p>
+                </div>
+                <div class="HeroPortal-Acciones">
+                    <a class="btn BotonHero" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">
+                        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Ver citas
+                    </a>
+                    <a class="btn BotonHero BotonHero-Borde" asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@Model.Resumen.IdEstudiante">
+                        <i class="bi bi-chat-dots me-1" aria-hidden="true"></i>Escribir al consultorio
+                    </a>
+                </div>
+            </section>
+
             <div class="row g-3">
                 <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta p-3 h-100">
-                        <h3 class="h6">Próximas citas</h3>
-                        <p class="fs-3 fw-semibold">@Model.Resumen.CitasProximas</p>
-                        <a asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">Consultar citas</a>
+                    <article class="Tarjeta ResumenPortal ResumenPortal-Citas">
+                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-calendar-check"></i></span>
+                        <h3 class="ResumenPortal-Etiqueta">Próximas citas</h3>
+                        <p class="ResumenPortal-Valor">@Model.Resumen.CitasProximas</p>
+                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">Consultar citas <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </article>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta p-3 h-100">
-                        <h3 class="h6">Tareas pendientes</h3>
-                        <p class="fs-3 fw-semibold">@Model.Resumen.TareasPendientes</p>
-                        <a asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar tareas</a>
+                    <article class="Tarjeta ResumenPortal ResumenPortal-Tareas">
+                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-journal-check"></i></span>
+                        <h3 class="ResumenPortal-Etiqueta">Tareas pendientes</h3>
+                        <p class="ResumenPortal-Valor">@Model.Resumen.TareasPendientes</p>
+                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar tareas <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </article>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta p-3 h-100">
-                        <h3 class="h6">Reportes disponibles</h3>
-                        <p class="fs-3 fw-semibold">@Model.Resumen.ReportesDisponibles</p>
-                        <a asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtroReportes="todos">Consultar progreso</a>
+                    <article class="Tarjeta ResumenPortal ResumenPortal-Reportes">
+                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
+                        <h3 class="ResumenPortal-Etiqueta">Reportes disponibles</h3>
+                        <p class="ResumenPortal-Valor">@Model.Resumen.ReportesDisponibles</p>
+                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtroReportes="todos">Consultar progreso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </article>
                 </div>
                 <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta p-3 h-100">
-                        <h3 class="h6">Saldo pendiente</h3>
-                        <p class="fs-4 fw-semibold">@FormatoDinero.Escribir(Model.Resumen.SaldoPendiente, moneda)</p>
-                        <a asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar pagos</a>
+                    <article class="Tarjeta ResumenPortal ResumenPortal-Pagos">
+                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
+                        <h3 class="ResumenPortal-Etiqueta">Saldo pendiente</h3>
+                        <p class="ResumenPortal-Valor ResumenPortal-Valor-Monto">@FormatoDinero.Escribir(Model.Resumen.SaldoPendiente, moneda)</p>
+                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar pagos <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </article>
                 </div>
             </div>
-            <div class="Tarjeta p-3 mt-4">
-                <h3 class="h5">Recomendaciones para casa</h3>
-                <p>Consulte las recomendaciones que la profesora registra para apoyar al estudiante.</p>
-                <a asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-fragment="Recomendaciones">Ver recomendaciones</a>
+
+            <div class="Tarjeta RecomendacionPortal mt-4">
+                <span class="RecomendacionPortal-Icono" aria-hidden="true"><i class="bi bi-lightbulb"></i></span>
+                <div class="flex-grow-1">
+                    <h3 class="h5 mb-1">Recomendaciones para casa</h3>
+                    <p class="TextoSuave mb-0">Consulte las recomendaciones que la profesora registra para apoyar al estudiante.</p>
+                </div>
+                <a class="btn btn-outline-primary" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-fragment="Recomendaciones">Ver recomendaciones</a>
             </div>
         }
     </div>

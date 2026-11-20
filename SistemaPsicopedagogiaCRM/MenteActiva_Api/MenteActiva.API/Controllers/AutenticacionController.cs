@@ -3,12 +3,12 @@ using MenteActiva.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Security.Claims;
 
 namespace MenteActiva.Api.Controllers;
 
 [ApiController]
 [Route("api/autenticacion")]
-[AllowAnonymous]
 public class AutenticacionController : ControllerBase
 {
     // Las reglas que rechaza un procedimiento llegan con este numero de error
@@ -23,6 +23,7 @@ public class AutenticacionController : ControllerBase
         _entorno = entorno;
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest peticion)
     {
@@ -38,6 +39,7 @@ public class AutenticacionController : ControllerBase
 
     // Siempre responde igual, exista o no la cuenta. Si distinguiera, cualquiera
     // podria averiguar que correos estan registrados.
+    [AllowAnonymous]
     [HttpPost("solicitar-restablecimiento")]
     public async Task<IActionResult> SolicitarRestablecimiento(
         [FromBody] SolicitarRestablecimientoRequest peticion)
@@ -60,6 +62,7 @@ public class AutenticacionController : ControllerBase
         return Ok(respuesta);
     }
 
+    [AllowAnonymous]
     [HttpPost("restablecer")]
     public Task<IActionResult> Restablecer([FromBody] RestablecerRequest peticion)
         => DefinirContrasena(peticion);
@@ -68,6 +71,7 @@ public class AutenticacionController : ControllerBase
     // consumir el token y guardar la contrasena nueva. Se dejan separados porque
     // la Web los presenta distinto y porque van a divergir cuando el token lleve
     // su tipo.
+    [AllowAnonymous]
     [HttpPost("activar")]
     public Task<IActionResult> Activar([FromBody] RestablecerRequest peticion)
         => DefinirContrasena(peticion);
@@ -88,5 +92,33 @@ public class AutenticacionController : ControllerBase
         {
             return BadRequest(new { mensaje = ex.Message });
         }
+    }
+
+    [Authorize]
+    [HttpPost("cambiar-contrasena")]
+    public async Task<IActionResult> CambiarContrasena(
+    [FromBody] CambiarContrasenaRequest peticion)
+    {
+        var correo = User.FindFirst(ClaimTypes.Email)?.Value;
+
+        if (string.IsNullOrWhiteSpace(correo))
+        {
+            return Unauthorized(new { mensaje = "No se pudo identificar al usuario." });
+        }
+
+        var resultado = await _servicio.CambiarContrasenaAsync(correo, peticion);
+
+        if (!resultado)
+        {
+            return BadRequest(new
+            {
+                mensaje = "La contraseña actual es incorrecta."
+            });
+        }
+
+        return Ok(new
+        {
+            mensaje = "La contraseña se actualizó correctamente."
+        });
     }
 }

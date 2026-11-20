@@ -81,10 +81,10 @@
             const reporte = await comun.consultarJson(boton.dataset.url);
             if (!reporte || !reporte.idReporte) throw new Error("No se recibió el reporte solicitado.");
             if (boton.dataset.reporteAccion === "pdf") {
-                if (!window.pdfMake || !window.PortalPdf) throw new Error("No se cargó la herramienta PDF. Revise la conexión y recargue la página.");
+                if (!window.pdfMake || !window.ReportePdf) throw new Error("No se cargó la herramienta PDF. Revise la conexión y recargue la página.");
                 const nombre = String(reporte.titulo || "Reporte")
                     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "").trim().slice(0, 150).replace(/[. ]+$/, "") || "Reporte";
-                await window.pdfMake.createPdf(window.PortalPdf.crearDefinicion(reporte)).download(`${nombre}.pdf`);
+                await window.pdfMake.createPdf(window.ReportePdf.crearDefinicion(reporte)).download(`${nombre}.pdf`);
                 comun.avisar(alerta, "El PDF se envió al navegador para descargar.", "success");
             } else {
                 mostrarDetalle(reporte);

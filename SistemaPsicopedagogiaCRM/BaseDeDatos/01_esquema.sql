@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS TB_USUARIO (
   IdEstadoUsuario INT NOT NULL,
   NombreCompleto VARCHAR(150) NOT NULL,
   Correo VARCHAR(150) NOT NULL,
+  Telefono VARCHAR(15) NULL,
   ContrasenaHash VARCHAR(255) NOT NULL,
   ContrasenaSalt VARCHAR(100) NULL,
   UltimoAcceso DATETIME NULL,

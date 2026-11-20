@@ -8,6 +8,12 @@ public interface IRepositorioUsuario
 
     Task<UsuarioDetalleResponse?> ObtenerPorIdAsync(int idUsuario);
 
+    Task<UsuarioPerfilResponse?> ObtenerPerfilAsync(int idUsuario);
+
+    Task ActualizarPerfilAsync( int idUsuario, string nombreCompleto, string correo, string? telefono);
+
+    Task ActualizarContrasenaAsync( int idUsuario, string contrasenaHash);
+
     Task RegistrarIngresoAsync(int idUsuario);
 
     Task RegistrarFalloAsync(string correo);
@@ -20,8 +26,7 @@ public interface IRepositorioUsuario
 
     Task<int> CrearExternoAsync(int idUsuarioAccion, int idEncargado);
 
-    Task<IEnumerable<UsuarioResponse>> ListarAsync(
-        string? busqueda, int? idEstadoUsuario, bool? soloInternos, int pagina, int tamanoPagina);
+    Task<IEnumerable<UsuarioResponse>> ListarAsync(string? busqueda, int? idEstadoUsuario, bool? soloInternos, int pagina, int tamanoPagina);
 
     Task<IEnumerable<UsuarioExternoResponse>> ListarExternosAsync(string? busqueda);
 

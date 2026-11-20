@@ -96,7 +96,7 @@ public class PortalController : Controller
         var modelo = new PortalCitasViewModel
         {
             Filtro = string.IsNullOrWhiteSpace(filtro)
-                ? "proximas"
+                ? "todas"
                 : filtro.Trim().ToLowerInvariant()
         };
 
@@ -268,7 +268,7 @@ public class PortalController : Controller
         var modelo = new PortalTareasViewModel
         {
             Filtro = string.IsNullOrWhiteSpace(filtro)
-                ? "pendientes"
+                ? "todas"
                 : filtro.Trim().ToLowerInvariant()
         };
 
@@ -403,7 +403,7 @@ public class PortalController : Controller
         var modelo = new PortalPagosViewModel
         {
             Filtro = string.IsNullOrWhiteSpace(filtro)
-                ? "pendientes"
+                ? "todos"
                 : filtro.Trim().ToLowerInvariant()
         };
 

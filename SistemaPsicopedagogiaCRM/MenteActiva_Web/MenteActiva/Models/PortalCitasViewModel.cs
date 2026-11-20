@@ -6,7 +6,7 @@ public class PortalCitasViewModel
 
     public int IdEstudiante { get; set; }
 
-    public string Filtro { get; set; } = "proximas";
+    public string Filtro { get; set; } = "todas";
 
     public List<PortalCitaViewModel> Citas { get; set; } = [];
 }

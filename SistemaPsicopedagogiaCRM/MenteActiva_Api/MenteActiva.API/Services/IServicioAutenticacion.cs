@@ -13,6 +13,8 @@ public interface IServicioAutenticacion
     Task<string?> SolicitarRestablecimientoAsync(string correo);
 
     Task<int> RestablecerContrasenaAsync(RestablecerRequest peticion);
+
+    Task<bool> CambiarContrasenaAsync(string correo, CambiarContrasenaRequest peticion);
 }
 
 public record ResultadoInicioSesion(bool Exito, string Mensaje, LoginResponse? Datos);
