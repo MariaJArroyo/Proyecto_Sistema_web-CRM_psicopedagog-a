@@ -51,11 +51,13 @@
         </button>
     </div>
 
-    <!-- Datos generales y personas encargadas -->
-    <div class="row g-3 mb-3">
+    <!-- Layout de 2 columnas según boceto -->
+    <div class="row g-3 align-items-start">
 
-        <div class="col-lg-7">
-            <div class="Tarjeta p-3 p-md-4 h-100">
+        <!-- Columna izquierda: Datos generales (+ Necesidades de apoyo) e Información académica -->
+        <div class="col-lg-7 d-flex flex-column gap-3">
+
+            <div class="Tarjeta p-3 p-md-4">
                 <h3 class="mb-3">Datos generales</h3>
 
                 <dl class="row mb-0">
@@ -80,15 +82,49 @@
                     </dd>
 
                     <dt class="col-sm-4 TextoSuave fw-normal">Institución</dt>
-                    <dd id="FichaDatoInstitucion" class="col-sm-8 mb-0">
+                    <dd id="FichaDatoInstitucion" class="col-sm-8">
                         @(Model.Institucion ?? "-")
                     </dd>
                 </dl>
+
+                <hr class="my-3">
+
+                <div>
+                    <h4 class="h6 fw-semibold mb-2">Necesidades de apoyo</h4>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
+                    {
+                        <p id="FichaDatoNecesidades" class="mb-0">@Model.NecesidadesApoyo</p>
+                    }
+                    else
+                    {
+                        <p id="FichaDatoNecesidades" class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
+                    }
+                </div>
             </div>
+
+            <div class="Tarjeta p-3 p-md-4">
+                <h3 class="mb-3">Información académica</h3>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
+                    <dd id="FichaDatoMateria" class="col-sm-8">
+                        @(Model.AreasDificultad ?? "No registradas")
+                    </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
+                    <dd id="FichaDatoResumen" class="col-sm-8 mb-0">
+                        @(Model.Observaciones ?? "No hay observaciones registradas.")
+                    </dd>
+                </dl>
+            </div>
+
         </div>
 
-        <div class="col-lg-5">
-            <div class="Tarjeta p-3 p-md-4 h-100">
+        <!-- Columna derecha: Persona encargada y Áreas de dificultad -->
+        <div class="col-lg-5 d-flex flex-column gap-3">
+
+            <div class="Tarjeta p-3 p-md-4">
                 <h3 class="mb-3">Persona encargada</h3>
 
                 @if (Model.Encargados != null && Model.Encargados.Any())
@@ -132,70 +168,39 @@
                     <p class="TextoSuave mb-0">No hay persona encargada asociada.</p>
                 }
             </div>
-        </div>
 
-    </div>
+            <section id="AreasEstado" class="Tarjeta p-3 p-md-4" data-id-estudiante="@Model.IdEstudiante" data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")" data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
 
-    <!-- Información académica -->
-    <div class="Tarjeta p-3 p-md-4 mb-3">
-        <h3 class="mb-3">Información académica</h3>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <h3 class="mb-0">Áreas de dificultad</h3>
 
-        <dl class="row mb-0">
-            <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
-            <dd id="FichaDatoMateria" class="col-sm-8">
-                @(Model.AreasDificultad ?? "No registradas")
-            </dd>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ModalAreasInactivas">
+                            Áreas inactivas
+                            <span id="CantidadAreasInactivas" class="badge bg-secondary">0</span>
+                        </button>
 
-            <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
-            <dd id="FichaDatoResumen" class="col-sm-8 mb-0">
-                @(Model.Observaciones ?? "No hay observaciones registradas.")
-            </dd>
-        </dl>
-    </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarArea">
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                            Agregar área
+                        </button>
+                    </div>
+                </div>
 
-    <!-- Áreas actuales -->
-    <section id="AreasEstado" class="Tarjeta p-3 p-md-4 mb-3" data-id-estudiante="@Model.IdEstudiante" data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")" data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
-        @Html.AntiForgeryToken()
+                <div id="AvisoAreasEstado" class="alert d-none" role="status" aria-live="polite"></div>
 
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-            <h3 class="mb-0">Áreas de dificultad actuales</h3>
+                <div id="ListaAreasDificultad" class="list-group list-group-flush" aria-busy="true">
+                    Cargando áreas…
+                </div>
 
-            <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ModalAreasInactivas">
-                    Áreas inactivas
-                    <span id="CantidadAreasInactivas" class="badge bg-secondary">0</span>
+                <button id="RecargarAreasEstado" type="button" class="btn btn-sm btn-link mt-2 px-0">
+                    Actualizar áreas
                 </button>
+            </section>
 
-                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarArea">
-                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
-                    Agregar área
-                </button>
-            </div>
         </div>
 
-        <div id="AvisoAreasEstado" class="alert d-none" role="status" aria-live="polite"></div>
-
-        <div id="ListaAreasDificultad" class="list-group list-group-flush" aria-busy="true">
-            Cargando áreas…
-        </div>
-
-        <button id="RecargarAreasEstado" type="button" class="btn btn-sm btn-link mt-2">
-            Actualizar áreas
-        </button>
-    </section>
-
-    <!-- Necesidades de apoyo -->
-    <div class="Tarjeta p-3 p-md-4">
-        <h3 class="mb-3">Necesidades de apoyo</h3>
-
-        @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
-        {
-            <p class="mb-0">@Model.NecesidadesApoyo</p>
-        }
-        else
-        {
-            <p class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
-        }
     </div>
 
 </main>
@@ -417,3 +422,5 @@
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
     <script src="~/js/areasEstado.js" asp-append-version="true"></script>
 }
+
+

@@ -25,6 +25,9 @@ public static class CascaronCorreo
     // fuentes externas, asi que se cae a las del sistema.
     public const string Fuente = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+    // Identificador con el que CorreoGmail adjunta el logo dentro del mensaje
+    public const string IdLogo = "logo@menteactiva";
+
     // subEncabezado es la segunda linea chica de la banda. Va nula cuando el
     // encabezado ya trae el nombre completo del consultorio.
     public static string Armar(
@@ -34,14 +37,35 @@ public static class CascaronCorreo
         string contenido,
         string pie)
     {
-        var marca =
+        var textoMarca =
             $"""<p style="margin:0; font-family:{Fuente}; font-size:20px; font-weight:bold; color:#FFFFFF;">{encabezado}</p>""";
 
         if (!string.IsNullOrWhiteSpace(subEncabezado))
         {
-            marca +=
+            textoMarca +=
                 $"""<p style="margin:4px 0 0 0; font-family:{Fuente}; font-size:13px; color:#DCE5F4;">{subEncabezado}</p>""";
         }
+
+        // El logo es negro sobre gris claro, asi que va dentro de un cuadro del
+        // mismo gris para que se vea bien sobre la banda azul.
+        var marca = $"""
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding-right:16px; vertical-align:middle;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background-color:#F7F7F7; border-radius:12px; padding:4px;">
+                        <img src="cid:{IdLogo}" width="64" height="64" alt="Mente Activa Psicopedagogía" style="display:block; width:64px; height:64px; border:0; border-radius:10px;">
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td style="vertical-align:middle;">
+                  {textoMarca}
+                </td>
+              </tr>
+            </table>
+            """;
 
         return $"""
             <!DOCTYPE html>

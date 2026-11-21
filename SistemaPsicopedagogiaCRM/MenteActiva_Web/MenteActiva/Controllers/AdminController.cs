@@ -650,7 +650,7 @@ public class AdminController : Controller
             using var client = _http.CreateClient();
 
             var url = _config.GetValue<string>("Valores:UrlAPI")
-                      + "estudiantes";
+          + "estudiantes?incluirInactivos=true";
 
             estudiantes = await client
                 .GetFromJsonAsync<List<EstudianteViewModel>>(url);
@@ -757,6 +757,37 @@ public class AdminController : Controller
 
         return View(estudiante);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> ObtenerFichaEstudiante(
+    int id,
+    CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        using var respuesta = await client.GetAsync(
+            UrlApi($"estudiantes/{id}"),
+            cancelacion);
+
+        var contenido = await respuesta.Content.ReadAsStringAsync(
+            cancelacion);
+
+        return new ContentResult
+        {
+            Content = contenido,
+            ContentType = respuesta.Content.Headers.ContentType?.ToString()
+                ?? "application/json",
+            StatusCode = (int)respuesta.StatusCode
+        };
+    }
     #endregion
 
     #region Editar Ficha Estudiante
@@ -790,6 +821,31 @@ public class AdminController : Controller
             "No se pudo actualizar la ficha del estudiante.");
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DesactivarEstudiante(
+    int idEstudiante,
+    CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsync(
+            UrlApi($"estudiantes/{idEstudiante}/desactivar"),
+            null,
+            cancelacion);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo desactivar al estudiante.");
+    }
     #endregion
 
     #region Agregar Area Estudiante

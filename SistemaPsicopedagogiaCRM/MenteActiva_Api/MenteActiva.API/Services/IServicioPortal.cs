@@ -14,15 +14,13 @@ public interface IServicioPortal
     Task<PortalArchivoTareaResponse> ObtenerArchivoTareaAsync(int idUsuario,int idEstudiante,int idTareaAsignacion,CancellationToken cancelacion);
     Task<PortalReporteDetalleResponse> ObtenerReporteAsync(int idUsuario, int idEstudiante, int idReporte, CancellationToken cancelacion);
 
-    // Lo publicado y activo. Lanza ReglaNegocioException si el usuario no tiene
-    // estudiantes activos a su cargo.
+
+    Task<PortalPerfilResponse> ObtenerPerfilAsync(int idUsuario, CancellationToken cancelacion);
+    Task ActualizarPerfilAsync(int idUsuario, EditarMiPerfilRequest peticion, CancellationToken cancelacion);
+
+    // Lo publicado y activo.
     Task<IReadOnlyList<PortalRecursoResponse>> ListarRecursosAsync(int idUsuario, CancellationToken cancelacion);
 
-    // Nulo si el archivo ya no esta en disco. Las demas faltas (no es PDF, no
-    // esta publicado, el usuario no tiene estudiantes activos) lanzan
-    // ReglaNegocioException.
-    // El PDF del material de la tarea, por el mismo control de ruta que los
-    // recursos (AlmacenMateriales). Nulo si el archivo no esta en disco.
     Task<ArchivoDescarga?> AbrirArchivoTareaAsync(int idUsuario, int idEstudiante, int idTareaAsignacion, CancellationToken cancelacion);
 
     Task<ArchivoDescarga?> ObtenerArchivoRecursoAsync(int idUsuario, int idMaterial, CancellationToken cancelacion);

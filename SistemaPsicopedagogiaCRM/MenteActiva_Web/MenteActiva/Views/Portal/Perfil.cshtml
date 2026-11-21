@@ -1,126 +1,127 @@
+@model PortalPerfilViewModel
 @{
     ViewData["Title"] = "Mi perfil";
 }
 
-  <main class="PrincipalPortal">
+<main class="PrincipalPortal">
     <div class="container">
-      @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-person-circle", "Mi perfil", "Sus datos de contacto, contraseña y los estudiantes a su cargo."))
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-person-circle", "Mi perfil", "Sus datos de contacto, contraseña y los estudiantes a su cargo."))
 
-      <div class="row g-3">
-        <div class="col-lg-7">
+        @if (TempData["Mensaje"] is string mensaje)
+        {
+            <div class="alert alert-success" role="alert">@mensaje</div>
+        }
+        @if (TempData["Error"] is string error)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        @if (ViewBag.ErrorCarga is string errorCarga)
+        {
+            <div class="alert alert-warning" role="alert">@errorCarga</div>
+        }
 
-          <div class="Tarjeta p-3 p-md-4 mb-3">
-            <h3 class="h5 mb-3">Datos personales</h3>
-            <form id="FormularioDatosPersonales" novalidate>
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="NombrePerfil" class="form-label CampoObligatorio">Nombre completo</label>
-                  <input type="text" class="form-control" id="NombrePerfil" name="Nombre" value="Carlos Jiménez">
-                  <div class="invalid-feedback"></div>
-                </div>
-                <div class="col-md-6">
-                  <label for="TelefonoPerfil" class="form-label CampoObligatorio">Teléfono</label>
-                  <input type="tel" class="form-control" id="TelefonoPerfil" name="Telefono" value="8888-1111">
-                  <div class="invalid-feedback"></div>
-                </div>
-                <div class="col-md-6">
-                  <label for="CorreoPerfil" class="form-label CampoObligatorio">Correo electrónico</label>
-                  <input type="email" class="form-control" id="CorreoPerfil" name="CorreoElectronico"
-                    value="carlos.jimenez@@example.com">
-                  <div class="invalid-feedback"></div>
-                </div>
-              </div>
-              <button type="submit" class="btn btn-primary mt-3">
-                <i class="bi bi-save me-1"></i>Guardar cambios
-              </button>
-            </form>
-          </div>
+        <div class="row g-3">
+            <div class="col-lg-7">
 
-          <div class="Tarjeta p-3 p-md-4">
-            <h3 class="h5 mb-3">Cambiar contraseña</h3>
-            <form id="FormularioCambiarContrasena" novalidate>
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="ContrasenaActual" class="form-label CampoObligatorio">Contraseña actual</label>
-                  <input type="password" class="form-control" id="ContrasenaActual" autocomplete="current-password">
-                  <div class="invalid-feedback"></div>
+                <div class="Tarjeta p-3 p-md-4 mb-3">
+                    <h3 class="h5 mb-3">Datos personales</h3>
+                    <form id="FormularioDatosPersonales" asp-controller="Portal" asp-action="ActualizarPerfil" method="post" novalidate>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="NombrePerfil" class="form-label CampoObligatorio">Nombre completo</label>
+                                <input type="text" class="form-control" id="NombrePerfil" name="NombreCompleto" value="@Model.NombreCompleto">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="TelefonoPerfil" class="form-label">Teléfono</label>
+                                <input type="tel" class="form-control" id="TelefonoPerfil" name="Telefono" value="@Model.Telefono" maxlength="15">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="CorreoPerfil" class="form-label CampoObligatorio">Correo electrónico</label>
+                                <input type="email" class="form-control" id="CorreoPerfil" name="Correo" value="@Model.Correo">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="bi bi-save me-1"></i>Guardar cambios
+                        </button>
+                    </form>
                 </div>
-                <div class="col-md-6">
-                  <label for="ContrasenaNueva" class="form-label CampoObligatorio">Nueva contraseña</label>
-                  <input type="password" class="form-control" id="ContrasenaNueva" autocomplete="new-password">
-                  <div class="invalid-feedback"></div>
+
+                <div class="Tarjeta p-3 p-md-4">
+                    <h3 class="h5 mb-3">Cambiar contraseña</h3>
+                    <form id="FormularioCambiarContrasena" asp-controller="Portal" asp-action="CambiarContrasena" method="post" novalidate>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="ContrasenaActual" class="form-label CampoObligatorio">Contraseña actual</label>
+                                <input type="password" class="form-control" id="ContrasenaActual" name="ContrasenaActual" autocomplete="current-password">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ContrasenaNueva" class="form-label CampoObligatorio">Nueva contraseña</label>
+                                <input type="password" class="form-control" id="ContrasenaNueva" name="ContrasenaNueva" autocomplete="new-password">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ContrasenaConfirmar" class="form-label CampoObligatorio">Confirmar nueva contraseña</label>
+                                <input type="password" class="form-control" id="ContrasenaConfirmar" name="ConfirmarContrasena" autocomplete="new-password">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="bi bi-key me-1"></i>Actualizar contraseña
+                        </button>
+                    </form>
                 </div>
-                <div class="col-md-6">
-                  <label for="ContrasenaConfirmar" class="form-label CampoObligatorio">Confirmar nueva
-                    contraseña</label>
-                  <input type="password" class="form-control" id="ContrasenaConfirmar" autocomplete="new-password">
-                  <div class="invalid-feedback"></div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="Tarjeta p-3 p-md-4">
+                    <h3 class="h5 mb-3">Estudiantes a mi cargo</h3>
+                    <p class="TextoSuave small">
+                        Puede cambiar entre sus estudiantes desde el menú "Viendo al estudiante" en la parte superior.
+                    </p>
+
+                    @if (!Model.EstudiantesACargo.Any())
+                    {
+                        <p class="TextoSuave mb-0">No tiene estudiantes activos vinculados a su cuenta.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var e in Model.EstudiantesACargo)
+                            {
+                                <li class="mb-3">
+                                    <div class="fw-semibold">
+                                        <i class="bi bi-mortarboard me-2 text-primary"></i>@e.Estudiante 
+                                    </div>
+                                    <div class="small TextoSuave ms-4">
+                                        @e.Parentesco
+                                        @if (!string.IsNullOrWhiteSpace(e.NivelEducativo))
+                                        {
+                                            <text> · @e.NivelEducativo</text>
+                                        }
+                                        @if (e.Edad is not null)
+                                        {
+                                            <text> · @e.Edad años</text>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(e.Institucion))
+                                    {
+                                        <div class="small TextoSuave ms-4"><i class="bi bi-building me-1"></i>@e.Institucion</div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
                 </div>
-              </div>
-              <button type="submit" class="btn btn-primary mt-3">
-                <i class="bi bi-key me-1"></i>Actualizar contraseña
-              </button>
-            </form>
-          </div>
+            </div>
         </div>
-
-        <div class="col-lg-5">
-          <div class="Tarjeta p-3 p-md-4">
-            <h3 class="h5 mb-3">Estudiantes a mi cargo</h3>
-            <p class="TextoSuave small">
-              Puede cambiar entre sus estudiantes desde el menú "Viendo a" en la parte superior.
-            </p>
-            <ul class="list-unstyled mb-0">
-              <li class="mb-2"><i class="bi bi-mortarboard me-2 text-primary"></i>María Rodríguez — Primaria</li>
-              <li><i class="bi bi-mortarboard me-2 text-primary"></i>Andrés Jiménez — Preescolar</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
-  </main>
+</main>
 
 @section Scripts {
-  <script src="~/js/Validaciones.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      document.getElementById("FormularioDatosPersonales").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var esValido = true;
-        esValido = ValidarObligatorio(document.getElementById("NombrePerfil"), "Ingrese su nombre completo.") && esValido;
-        esValido = ValidarTelefono(document.getElementById("TelefonoPerfil")) && esValido;
-        esValido = ValidarCorreo(document.getElementById("CorreoPerfil")) && esValido;
-        if (!esValido) {
-          return;
-        }
-        MostrarToast("Datos actualizados correctamente.");
-      });
-      document.getElementById("FormularioCambiarContrasena").addEventListener("submit", function (evento) {
-        evento.preventDefault();
-        var campoActual = document.getElementById("ContrasenaActual");
-        var campoNueva = document.getElementById("ContrasenaNueva");
-        var campoConfirmar = document.getElementById("ContrasenaConfirmar");
-        var esValido = true;
-        esValido = ValidarObligatorio(campoActual, "Ingrese su contraseña actual.") && esValido;
-        if (!campoNueva.value || campoNueva.value.length < 8) {
-          MarcarCampoInvalido(campoNueva, "La nueva contraseña debe tener al menos 8 caracteres.");
-          esValido = false;
-        } else {
-          MarcarCampoValido(campoNueva);
-        }
-        if (!campoConfirmar.value || campoConfirmar.value !== campoNueva.value) {
-          MarcarCampoInvalido(campoConfirmar, "Las contraseñas no coinciden.");
-          esValido = false;
-        } else {
-          MarcarCampoValido(campoConfirmar);
-        }
-        if (!esValido) {
-          return;
-        }
-        evento.target.reset();
-        evento.target.querySelectorAll(".is-valid").forEach(function (campo) { campo.classList.remove("is-valid"); });
-        MostrarToast("Contraseña actualizada correctamente.");
-      });
-    });
-  </script>
+    <script src="~/js/Validaciones.js"></script>
+    <script src="~/js/PerfilPortal.js"></script>
 }

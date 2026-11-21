@@ -230,12 +230,44 @@ public class ServicioPortal : IServicioPortal
         return reporte ?? throw new ReglaNegocioException("El reporte solicitado no está disponible en el portal.");
     }
 
+  
+    public async Task<PortalPerfilResponse> ObtenerPerfilAsync(int idUsuario, CancellationToken cancelacion)
+    {
+        if (idUsuario <= 0)
+            throw new ReglaNegocioException("El usuario indicado no es válido.");
+
+        return await _repositorio.ObtenerPerfilAsync(idUsuario, cancelacion)
+            ?? throw new ReglaNegocioException("No se encontró el perfil del usuario.");
+    }
+
+    public Task ActualizarPerfilAsync(int idUsuario, EditarMiPerfilRequest peticion, CancellationToken cancelacion)
+    {
+        if (idUsuario <= 0)
+            throw new ReglaNegocioException("El usuario indicado no es válido.");
+
+        var nombre = peticion.NombreCompleto?.Trim() ?? string.Empty;
+        var correo = peticion.Correo?.Trim() ?? string.Empty;
+        var telefono = string.IsNullOrWhiteSpace(peticion.Telefono)
+            ? null
+            : peticion.Telefono.Trim();
+
+        if (nombre.Length == 0)
+            throw new ReglaNegocioException("Ingrese su nombre completo.");
+
+        if (correo.Length == 0 || !correo.Contains('@'))
+            throw new ReglaNegocioException("Ingrese un correo electrónico válido.");
+
+        if (telefono is { Length: > 15 })
+            throw new ReglaNegocioException("El teléfono no puede tener más de 15 caracteres.");
+
+        return _repositorio.ActualizarPerfilAsync(
+            idUsuario, nombre, correo, telefono, cancelacion);
+    }
+
     public Task<IReadOnlyList<PortalRecursoResponse>> ListarRecursosAsync(int idUsuario, CancellationToken cancelacion)
     {
         if (idUsuario <= 0)
-        {
             throw new ReglaNegocioException("El usuario indicado no es válido.");
-        }
 
         return _repositorio.ListarRecursosAsync(idUsuario, cancelacion);
     }
@@ -245,9 +277,7 @@ public class ServicioPortal : IServicioPortal
         var recurso = await ObtenerRecursoAsync(idUsuario, idMaterial, cancelacion);
 
         if (recurso.IdTipoMaterial != TipoPdf)
-        {
             throw new ReglaNegocioException("El recurso no tiene un archivo para descargar.");
-        }
 
         return _almacen.AbrirParaDescarga(recurso.RutaArchivo, recurso.Titulo);
     }
@@ -257,9 +287,7 @@ public class ServicioPortal : IServicioPortal
         var recurso = await ObtenerRecursoAsync(idUsuario, idMaterial, cancelacion);
 
         if (recurso.IdTipoMaterial != TipoEnlace || recurso.Url is null)
-        {
             throw new ReglaNegocioException("El recurso no es un enlace.");
-        }
 
         return await _verificador.VerificarAsync(recurso.Url, cancelacion);
     }
@@ -267,18 +295,15 @@ public class ServicioPortal : IServicioPortal
     private async Task<PortalRecursoDetalleResponse> ObtenerRecursoAsync(int idUsuario, int idMaterial, CancellationToken cancelacion)
     {
         if (idUsuario <= 0)
-        {
             throw new ReglaNegocioException("El usuario indicado no es válido.");
-        }
 
         if (idMaterial <= 0)
-        {
             throw new ReglaNegocioException("El recurso no está disponible.");
-        }
 
         var recurso = await _repositorio.ObtenerRecursoAsync(idUsuario, idMaterial, cancelacion);
 
         return recurso ?? throw new ReglaNegocioException("El recurso no está disponible.");
     }
+
 
 }

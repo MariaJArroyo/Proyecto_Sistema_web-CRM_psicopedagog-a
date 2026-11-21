@@ -800,12 +800,114 @@ public class PortalController : Controller
 
     #endregion
 
-    #region Otras pantallas
+    #region perfin portal
+    [HttpGet]
+    public async Task<IActionResult> Perfil(int? idEstudiante, CancellationToken cancelacion)
+    {
+        var modelo = new PortalPerfilViewModel();
 
+        try
+        {
+            using var client = _http.CreateClient();
 
+            var perfil = await client.GetFromJsonAsync<PortalPerfilViewModel>(
+                UrlApi("portal/perfil"), cancelacion);
 
-    public IActionResult Perfil() => View();
+            if (perfil is not null)
+            {
+                modelo.NombreCompleto = perfil.NombreCompleto;
+                modelo.Correo = perfil.Correo;
+                modelo.Telefono = perfil.Telefono;
+                modelo.EstudiantesACargo = perfil.EstudiantesACargo;
+            }
 
+            // Estudiantes para el selector del navbar
+            var ruta = "portal/inicio";
+            if (idEstudiante.HasValue)
+            {
+                ruta += $"?idEstudiante={idEstudiante.Value}";
+            }
+
+            var inicio = await client.GetFromJsonAsync<PortalInicioViewModel>(UrlApi(ruta), cancelacion);
+
+            if (inicio is not null)
+            {
+                modelo.Estudiantes = inicio.Estudiantes;
+                modelo.IdEstudiante = inicio.Resumen.IdEstudiante;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            ViewBag.ErrorCarga = "No se pudo cargar su perfil. Intente nuevamente.";
+        }
+
+        return View(modelo);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ActualizarPerfil(EditarMiPerfilViewModel modelo, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi("portal/perfil"),
+            new { modelo.NombreCompleto, modelo.Correo, modelo.Telefono },
+            cancelacion);
+
+        await GuardarAvisoAsync(respuesta, "No se pudo actualizar el perfil.", cancelacion);
+        return RedirectToAction(nameof(Perfil));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CambiarContrasena(CambiarContrasenaViewModel modelo, CancellationToken cancelacion)
+    {
+        if (modelo.ContrasenaNueva != modelo.ConfirmarContrasena)
+        {
+            TempData["Error"] = "La nueva contraseña y su confirmación no coinciden.";
+            return RedirectToAction(nameof(Perfil));
+        }
+
+        if (modelo.ContrasenaNueva.Length < 8)
+        {
+            TempData["Error"] = "La nueva contraseña debe tener al menos 8 caracteres.";
+            return RedirectToAction(nameof(Perfil));
+        }
+
+        using var client = _http.CreateClient();
+
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("autenticacion/cambiar-contrasena"),
+            new { modelo.ContrasenaActual, modelo.ContrasenaNueva },
+            cancelacion);
+
+        await GuardarAvisoAsync(respuesta, "No se pudo cambiar la contraseña.", cancelacion);
+        return RedirectToAction(nameof(Perfil));
+    }
+
+    private async Task GuardarAvisoAsync(HttpResponseMessage respuesta, string textoPorDefecto, CancellationToken cancelacion)
+    {
+        string? mensaje = null;
+
+        try
+        {
+            var cuerpo = await respuesta.Content
+                .ReadFromJsonAsync<Dictionary<string, JsonElement>>(cancellationToken: cancelacion);
+
+            if (cuerpo is not null
+                && cuerpo.TryGetValue("mensaje", out var texto)&& texto.ValueKind == JsonValueKind.String)
+            {
+                mensaje = texto.GetString();
+            }
+        }
+        catch (JsonException) { }
+
+        if (respuesta.IsSuccessStatusCode)
+            TempData["Mensaje"] = mensaje ?? "Listo.";
+        else
+            TempData["Error"] = mensaje ?? textoPorDefecto;
+    }
     #endregion
 
     private string UrlApi(string ruta)

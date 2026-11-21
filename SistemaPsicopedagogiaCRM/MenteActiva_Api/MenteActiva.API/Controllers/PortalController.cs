@@ -157,4 +157,22 @@ public class PortalController : ControllerBase
         return Ok(resultado);
     }
 
+    #region Perfil
+
+    [HttpGet("perfil")]
+    public async Task<ActionResult<PortalPerfilResponse>> ObtenerPerfil(CancellationToken cancelacion)
+    {
+        var resultado = await _servicio.ObtenerPerfilAsync(User.ObtenerIdUsuario(), cancelacion);
+        return Ok(resultado);
+    }
+
+    [HttpPut("perfil")]
+    public async Task<IActionResult> ActualizarPerfil([FromBody] EditarMiPerfilRequest peticion, CancellationToken cancelacion)
+    {
+        await _servicio.ActualizarPerfilAsync(User.ObtenerIdUsuario(), peticion, cancelacion);
+        return Ok(new { mensaje = "Sus datos se actualizaron correctamente." });
+    }
+
+    #endregion
+
 }

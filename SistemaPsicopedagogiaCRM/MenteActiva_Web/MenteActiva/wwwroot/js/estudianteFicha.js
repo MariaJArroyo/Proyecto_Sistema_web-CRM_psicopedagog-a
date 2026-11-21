@@ -775,10 +775,219 @@ function iniciarFormularioNuevoEstudiante(formulario) {
     }
 })();
 
+// ---------- acciones de la tabla: editar y desactivar ----------
+
+function iniciarAccionesTabla() {
+
+    const tabla = document.getElementById("TablaEstudiantes");
+    const formEditar = document.getElementById("FormularioEditarEstudiante");
+    const formDesactivar = document.getElementById("FormularioDesactivarEstudiante");
+
+    if (!tabla || !formEditar || !formDesactivar) return;
+
+    const campo = id => document.getElementById(id);
+
+    const modalEditar = bootstrap.Modal.getOrCreateInstance(campo("ModalEditarEstudiante"));
+    const modalDesactivar = bootstrap.Modal.getOrCreateInstance(campo("ModalDesactivarEstudiante"));
+
+    const avisoEditar = campo("EditarEstError");
+    const avisoDesactivar = campo("DesactivarEstError");
+    const botonGuardar = campo("BotonGuardarEdicionEstudiante");
+    const botonDesactivar = campo("BotonConfirmarDesactivar");
+
+    let idEditando = 0;
+    let ocupado = false;
+
+    aplicarMascaraFecha(campo("EditarEstFecha"));
+
+    function mostrarAviso(aviso, texto, tipo) {
+        aviso.className = "alert alert-" + (tipo || "danger");
+        aviso.textContent = texto;
+    }
+
+    function ocultarAviso(aviso) {
+        aviso.className = "alert d-none";
+        aviso.textContent = "";
+    }
+
+    function fechaParaMostrar(valor) {
+        if (!valor) return "";
+        const partes = String(valor).slice(0, 10).split("-");
+        return partes.length === 3 ? partes[2] + "/" + partes[1] + "/" + partes[0] : "";
+    }
+
+    // Envía el formulario y lanza el error legible si algo falla
+    async function enviar(url, datos, mensajePorDefecto) {
+
+        const respuesta = await fetch(url, {
+            method: "POST",
+            body: datos,
+            headers: { Accept: "application/json" }
+        });
+
+        if (respuesta.redirected) {
+            throw new Error("La sesión pudo haber vencido. Recargue la página e intente nuevamente.");
+        }
+
+        if (!respuesta.ok) {
+            let mensaje = mensajePorDefecto;
+            try {
+                const error = await respuesta.json();
+                mensaje = error.mensaje || mensaje;
+            } catch {
+                // Conserva el mensaje general.
+            }
+            throw new Error(mensaje);
+        }
+    }
+
+    // --- abrir edición: trae la ficha para llenar el modal ---
+    async function abrirEdicion(id) {
+
+        idEditando = id;
+        formEditar.reset();
+        ocultarAviso(avisoEditar);
+        botonGuardar.disabled = true;
+        modalEditar.show();
+
+        try {
+            const respuesta = await fetch(
+                formEditar.dataset.urlFicha + "?id=" + encodeURIComponent(id),
+                { headers: { Accept: "application/json" } });
+
+            if (!respuesta.ok) {
+                throw new Error("No se pudo cargar la información del estudiante.");
+            }
+
+            const ficha = await respuesta.json();
+            const encargados = ficha.encargados || [];
+            const principal = encargados.find(e => e.esPrincipal) || encargados[0];
+
+            campo("EditarEstNombre").value = ficha.nombre || "";
+            campo("EditarEstPrimerApellido").value = ficha.primerApellido || "";
+            campo("EditarEstSegundoApellido").value = ficha.segundoApellido || "";
+            campo("EditarEstFecha").value = fechaParaMostrar(ficha.fechaNacimiento);
+            campo("EditarEstNivel").value = ficha.idNivelEducativo || "";
+            campo("EditarEstInstitucion").value = ficha.institucion || "";
+            campo("EditarEstEncargado").value = principal ? principal.nombreCompleto : "";
+            campo("EditarEstParentesco").value = principal ? principal.parentesco : "";
+            campo("EditarEstObservaciones").value = ficha.observaciones || "";
+            campo("EditarEstNecesidades").value = ficha.necesidadesApoyo || "";
+
+            botonGuardar.disabled = false;
+
+        } catch (error) {
+            mostrarAviso(avisoEditar, error.message || "No se pudo cargar la información del estudiante.");
+        }
+    }
+
+    // --- clics en la tabla (delegados, para que funcionen con la paginación) ---
+    tabla.addEventListener("click", function (evento) {
+
+        const editar = evento.target.closest("[data-editar-estudiante]");
+
+        if (editar) {
+            abrirEdicion(Number(editar.dataset.editarEstudiante));
+            return;
+        }
+
+        const desactivar = evento.target.closest("[data-desactivar-estudiante]");
+
+        if (desactivar) {
+            campo("DesactivarIdEstudiante").value = desactivar.dataset.desactivarEstudiante;
+            campo("DesactivarNombreEstudiante").textContent = desactivar.dataset.nombre || "";
+            ocultarAviso(avisoDesactivar);
+            modalDesactivar.show();
+        }
+    });
+
+    // --- guardar edición ---
+    formEditar.addEventListener("submit", async function (evento) {
+
+        evento.preventDefault();
+
+        if (ocupado || idEditando <= 0) return;
+
+        ocultarAviso(avisoEditar);
+
+        const nombre = campo("EditarEstNombre").value.trim();
+        const apellido = campo("EditarEstPrimerApellido").value.trim();
+        const nacimiento = fechaAIso(campo("EditarEstFecha").value.trim());
+
+        if (!nombre || !apellido) {
+            mostrarAviso(avisoEditar, "El nombre y el primer apellido son obligatorios.", "warning");
+            return;
+        }
+
+        if (nacimiento === null) {
+            mostrarAviso(avisoEditar, "Ingrese una fecha de nacimiento válida en formato dd/mm/aaaa.", "warning");
+            return;
+        }
+
+        const datos = new FormData(formEditar); // incluye el token antiforgery
+
+        datos.set("IdEstudiante", String(idEditando));
+        datos.set("Nombre", nombre);
+        datos.set("PrimerApellido", apellido);
+        datos.set("SegundoApellido", campo("EditarEstSegundoApellido").value.trim());
+        datos.set("FechaNacimiento", nacimiento);
+        datos.set("IdNivelEducativo", campo("EditarEstNivel").value);
+        datos.set("Institucion", campo("EditarEstInstitucion").value.trim());
+        datos.set("Observaciones", campo("EditarEstObservaciones").value.trim());
+        datos.set("NecesidadesApoyo", campo("EditarEstNecesidades").value);
+
+        ocupado = true;
+        botonGuardar.disabled = true;
+
+        try {
+            await enviar(formEditar.dataset.url, datos, "No se pudo actualizar al estudiante.");
+
+            sessionStorage.setItem("EstudiantesMensaje", "Estudiante actualizado correctamente.");
+            window.location.reload();
+
+        } catch (error) {
+            mostrarAviso(avisoEditar, error.message || "No se pudo actualizar al estudiante.");
+            botonGuardar.disabled = false;
+        } finally {
+            ocupado = false;
+        }
+    });
+
+    // --- confirmar desactivación ---
+    formDesactivar.addEventListener("submit", async function (evento) {
+
+        evento.preventDefault();
+
+        if (ocupado) return;
+
+        ocultarAviso(avisoDesactivar);
+
+        ocupado = true;
+        botonDesactivar.disabled = true;
+
+        try {
+            await enviar(
+                formDesactivar.dataset.url,
+                new FormData(formDesactivar), // idEstudiante + token antiforgery
+                "No se pudo desactivar al estudiante.");
+
+            sessionStorage.setItem("EstudiantesMensaje", "Estudiante desactivado correctamente.");
+            window.location.reload();
+
+        } catch (error) {
+            mostrarAviso(avisoDesactivar, error.message || "No se pudo desactivar al estudiante.");
+            botonDesactivar.disabled = false;
+        } finally {
+            ocupado = false;
+        }
+    });
+}
+
 // ---------- inicialización ----------
 
 document.addEventListener("DOMContentLoaded", function () {
     mostrarMensajePendiente();
+    iniciarAccionesTabla();
 
     // Main.js inicializa filtros, paginación y tooltips.
 

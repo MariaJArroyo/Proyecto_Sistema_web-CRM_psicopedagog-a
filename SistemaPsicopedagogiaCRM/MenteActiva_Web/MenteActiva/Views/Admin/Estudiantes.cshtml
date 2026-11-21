@@ -51,7 +51,7 @@
              data-tabla-buscador="TablaEstudiantes"
              data-tabla-paginar="10">
 
-            <div class="col-md-8">
+            <div class="col-md-6">
 
                 <label for="BuscarEstudiante" class="form-label">
                     Buscar estudiante
@@ -73,7 +73,7 @@
 
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-3">
 
                 <label for="FiltroNivel" class="form-label">
                     Nivel educativo
@@ -98,13 +98,32 @@
 
             </div>
 
+            <div class="col-md-3">
+
+                <label for="FiltroEstadoEstudiante" class="form-label">
+                    Estado
+                </label>
+
+                <select id="FiltroEstadoEstudiante"
+                        class="form-select"
+                        data-buscar-extra>
+
+                    <option value="activo" selected>Activos</option>
+                    <option value="inactivo">Inactivos</option>
+                    <option value="">Todos</option>
+
+                </select>
+
+            </div>
+
         </div>
 
         <!-- Tabla -->
         <div class="table-responsive">
 
             <table class="table table-hover align-middle mb-0"
-                   id="TablaEstudiantes">
+                   id="TablaEstudiantes"
+                   data-url-activar="@Url.Action("CambiarEstadoEstudianteCliente", "Admin")">
 
                 <thead>
                     <tr>
@@ -137,11 +156,16 @@
                         }
 
                         <tr data-fila
-                            data-estado="@estudiante.NivelEducativo">
+                            data-estado="@estudiante.NivelEducativo"
+                            data-extra="@(estudiante.Activo ? "activo" : "inactivo")">
 
                             <td>
                                 <div class="fw-semibold">
                                     @estudiante.Estudiante
+                                    @if (!estudiante.Activo)
+                                    {
+                                        <span class="badge text-bg-secondary ms-1">Inactivo</span>
+                                    }
                                 </div>
                             </td>
 
@@ -165,15 +189,47 @@
 
                             <td class="TablaAcciones text-center">
 
-                                <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
-                                   class="btn btn-sm btn-outline-secondary border-0"
-                                   data-bs-toggle="tooltip"
-                                   title="Ver ficha"
-                                   aria-label="Ver ficha de @estudiante.Estudiante">
+                                @if (estudiante.Activo)
+                                {
+                                    <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
+                                       class="btn btn-sm btn-outline-secondary border-0"
+                                       data-bs-toggle="tooltip"
+                                       title="Ver ficha"
+                                       aria-label="Ver ficha de @estudiante.Estudiante">
+                                        <i class="bi bi-file-earmark-person"></i>
+                                    </a>
 
-                                    <i class="bi bi-file-earmark-person"></i>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary border-0"
+                                            data-editar-estudiante="@estudiante.IdEstudiante"
+                                            data-bs-toggle="tooltip"
+                                            title="Editar"
+                                            aria-label="Editar a @estudiante.Estudiante">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
 
-                                </a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger border-0"
+                                            data-desactivar-estudiante="@estudiante.IdEstudiante"
+                                            data-nombre="@estudiante.Estudiante"
+                                            data-bs-toggle="tooltip"
+                                            title="Inactivar"
+                                            aria-label="Inactivar a @estudiante.Estudiante">
+                                        <i class="bi bi-slash-circle"></i>
+                                    </button>
+                                }
+                                else if (estudiante.IdEncargado.HasValue)
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary border-0"
+                                            data-activar-estudiante="@estudiante.IdEstudiante"
+                                            data-encargado="@estudiante.IdEncargado"
+                                            data-bs-toggle="tooltip"
+                                            title="Reactivar"
+                                            aria-label="Reactivar a @estudiante.Estudiante">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
+                                }
 
                             </td>
 
@@ -463,6 +519,118 @@
 
     </div>
 
+</div>
+
+<!-- Modal editar estudiante -->
+<div class="modal fade" id="ModalEditarEstudiante" tabindex="-1" aria-labelledby="ModalEditarEstudianteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="FormularioEditarEstudiante" novalidate
+                  data-url="@Url.Action("EditarFichaEstudiante", "Admin")"
+                  data-url-ficha="@Url.Action("ObtenerFichaEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ModalEditarEstudianteLabel">Editar estudiante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert d-none" id="EditarEstError" role="alert"></div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="EditarEstNombre" class="form-label">Nombre</label>
+                            <input type="text" id="EditarEstNombre" class="form-control" maxlength="100" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="EditarEstPrimerApellido" class="form-label">Primer apellido</label>
+                            <input type="text" id="EditarEstPrimerApellido" class="form-control" maxlength="100" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="EditarEstSegundoApellido" class="form-label">Segundo apellido</label>
+                            <input type="text" id="EditarEstSegundoApellido" class="form-control" maxlength="100">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarEstFecha" class="form-label">Fecha de nacimiento</label>
+                            <input type="text" id="EditarEstFecha" class="form-control" inputmode="numeric"
+                                   maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="EditarEstNivel" class="form-label">Nivel educativo</label>
+                            <select id="EditarEstNivel" class="form-select">
+                                <option value="">Sin especificar</option>
+                                @foreach (var nivel in niveles)
+                                {
+                                    <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="EditarEstInstitucion" class="form-label">Institución</label>
+                            <input type="text" id="EditarEstInstitucion" class="form-control" maxlength="100">
+                        </div>
+
+                        <div class="col-md-8">
+                            <label for="EditarEstEncargado" class="form-label">Persona encargada</label>
+                            <input type="text" id="EditarEstEncargado" class="form-control" disabled>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="EditarEstParentesco" class="form-label">Parentesco</label>
+                            <input type="text" id="EditarEstParentesco" class="form-control" disabled>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="EditarEstObservaciones" class="form-label">Observaciones</label>
+                            <textarea id="EditarEstObservaciones" class="form-control" maxlength="1000" rows="3"></textarea>
+                        </div>
+
+                        <!-- Se conserva tal cual para no perderlo al guardar; se edita desde la ficha -->
+                        <input type="hidden" id="EditarEstNecesidades">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="BotonGuardarEdicionEstudiante">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal inactivar estudiante -->
+<div class="modal fade" id="ModalDesactivarEstudiante" tabindex="-1" aria-labelledby="ModalDesactivarEstudianteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="FormularioDesactivarEstudiante" novalidate
+                  data-url="@Url.Action("DesactivarEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="idEstudiante" id="DesactivarIdEstudiante">
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ModalDesactivarEstudianteLabel">Inactivar estudiante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert d-none" id="DesactivarEstError" role="alert"></div>
+                    <p class="mb-0">
+                        ¿Desea inactivar a <strong id="DesactivarNombreEstudiante"></strong>?
+                        Pasará a la lista de estudiantes inactivos y podrá reactivarlo de nuevo.
+                    </p>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger" id="BotonConfirmarDesactivar">Inactivar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
