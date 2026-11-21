@@ -124,89 +124,101 @@ function InicializarModalesDetalle() {
 // Opcional: data-tabla-paginar="10" pagina las filas que pasan el filtro.
 // El filtro se aplica tambien al cargar la pagina, para respetar la opcion
 // marcada como "selected" en el filtro de estado (por ejemplo, Activo).
+
 function InicializarTablasBuscables() {
-  var contenedores = document.querySelectorAll("[data-tabla-buscador]");
+    var contenedores = document.querySelectorAll("[data-tabla-buscador]");
 
-  contenedores.forEach(function (contenedor) {
-    var tablaId = contenedor.getAttribute("data-tabla-buscador");
-    var tabla = document.getElementById(tablaId);
-    if (!tabla) {
-      return;
-    }
-
-    var campoTexto = contenedor.querySelector("[data-buscar-texto]");
-    var campoEstado = contenedor.querySelector("[data-buscar-estado]");
-    var estadoVacio = document.querySelector('[data-tabla-vacio="' + tablaId + '"]');
-
-    var tamanoInicial = parseInt(contenedor.getAttribute("data-tabla-paginar"), 10) || 0;
-    var paginador = tamanoInicial > 0 ? CrearPaginador(tabla, tablaId, tamanoInicial) : null;
-    var paginaActual = 1;
-
-    function Filtrar() {
-      var texto = campoTexto ? campoTexto.value.trim().toLowerCase() : "";
-      var estado = campoEstado ? campoEstado.value : "";
-      var filas = Array.prototype.slice.call(tabla.querySelectorAll("tbody tr"));
-
-      var coincidentes = filas.filter(function (fila) {
-        var coincideTexto = !texto || fila.textContent.toLowerCase().indexOf(texto) !== -1;
-        var coincideEstado = !estado || fila.getAttribute("data-estado") === estado;
-        return coincideTexto && coincideEstado;
-      });
-
-      // Sin paginador se muestran todas las que coinciden
-      var tamano = paginador ? parseInt(paginador.tamano.value, 10) : Math.max(coincidentes.length, 1);
-      var totalPaginas = Math.max(1, Math.ceil(coincidentes.length / tamano));
-      paginaActual = Math.min(Math.max(paginaActual, 1), totalPaginas);
-
-      var inicio = (paginaActual - 1) * tamano;
-      var visibles = coincidentes.slice(inicio, inicio + tamano);
-
-      filas.forEach(function (fila) {
-        fila.classList.toggle("d-none", visibles.indexOf(fila) === -1);
-      });
-
-      // El aviso es de "sin resultados". Si la tabla no tiene filas, se deja como
-      // lo puso el servidor (por ejemplo "No hay planes registrados").
-      if (estadoVacio && filas.length > 0) {
-        estadoVacio.classList.toggle("d-none", coincidentes.length !== 0);
-      }
-
-      if (paginador) {
-        DibujarPaginador(paginador, coincidentes.length, inicio, tamano, paginaActual, totalPaginas);
-      }
-    }
-
-    // Cualquier cambio de filtro vuelve a la primera pagina
-    function Reiniciar() {
-      paginaActual = 1;
-      Filtrar();
-    }
-
-    if (campoTexto) {
-      campoTexto.addEventListener("input", Reiniciar);
-    }
-    if (campoEstado) {
-      campoEstado.addEventListener("change", Reiniciar);
-    }
-    if (paginador) {
-      paginador.tamano.addEventListener("change", Reiniciar);
-      paginador.lista.addEventListener("click", function (evento) {
-        var boton = evento.target.closest("button[data-pagina]");
-        if (!boton || boton.disabled) {
-          return;
+    contenedores.forEach(function (contenedor) {
+        var tablaId = contenedor.getAttribute("data-tabla-buscador");
+        var tabla = document.getElementById(tablaId);
+        if (!tabla) {
+            return;
         }
-        paginaActual = parseInt(boton.getAttribute("data-pagina"), 10);
+
+        var campoTexto = contenedor.querySelector("[data-buscar-texto]");
+        var campoEstado = contenedor.querySelector("[data-buscar-estado]");
+        var campoExtra = contenedor.querySelector("[data-buscar-extra]");
+        var estadoVacio = document.querySelector('[data-tabla-vacio="' + tablaId + '"]');
+
+        var tamanoInicial = parseInt(contenedor.getAttribute("data-tabla-paginar"), 10) || 0;
+        var paginador = tamanoInicial > 0 ? CrearPaginador(tabla, tablaId, tamanoInicial) : null;
+        var paginaActual = 1;
+
+        function Filtrar() {
+            var texto = campoTexto ? campoTexto.value.trim().toLowerCase() : "";
+            var estado = campoEstado ? campoEstado.value : "";
+            var extra = campoExtra ? campoExtra.value : "";
+
+            var filas = Array.prototype.slice.call(tabla.querySelectorAll("tbody tr"));
+
+            var coincidentes = filas.filter(function (fila) {
+                var coincideTexto = !texto || fila.textContent.toLowerCase().indexOf(texto) !== -1;
+                var coincideEstado = !estado || fila.getAttribute("data-estado") === estado;
+                var coincideExtra = !extra || fila.getAttribute("data-extra") === extra;
+
+                return coincideTexto && coincideEstado && coincideExtra;
+            });
+
+            // Sin paginador se muestran todas las que coinciden
+            var tamano = paginador ? parseInt(paginador.tamano.value, 10) : Math.max(coincidentes.length, 1);
+            var totalPaginas = Math.max(1, Math.ceil(coincidentes.length / tamano));
+            paginaActual = Math.min(Math.max(paginaActual, 1), totalPaginas);
+
+            var inicio = (paginaActual - 1) * tamano;
+            var visibles = coincidentes.slice(inicio, inicio + tamano);
+
+            filas.forEach(function (fila) {
+                fila.classList.toggle("d-none", visibles.indexOf(fila) === -1);
+            });
+
+            // El aviso es de "sin resultados". Si la tabla no tiene filas, se deja como
+            // lo puso el servidor (por ejemplo "No hay planes registrados").
+            if (estadoVacio && filas.length > 0) {
+                estadoVacio.classList.toggle("d-none", coincidentes.length !== 0);
+            }
+
+            if (paginador) {
+                DibujarPaginador(paginador, coincidentes.length, inicio, tamano, paginaActual, totalPaginas);
+            }
+        }
+
+        // Cualquier cambio de filtro vuelve a la primera página
+        function Reiniciar() {
+            paginaActual = 1;
+            Filtrar();
+        }
+
+        if (campoTexto) {
+            campoTexto.addEventListener("input", Reiniciar);
+        }
+
+        if (campoEstado) {
+            campoEstado.addEventListener("change", Reiniciar);
+        }
+
+        if (campoExtra) {
+            campoExtra.addEventListener("change", Reiniciar);
+        }
+
+        if (paginador) {
+            paginador.tamano.addEventListener("change", Reiniciar);
+            paginador.lista.addEventListener("click", function (evento) {
+                var boton = evento.target.closest("button[data-pagina]");
+                if (!boton || boton.disabled) {
+                    return;
+                }
+                paginaActual = parseInt(boton.getAttribute("data-pagina"), 10);
+                Filtrar();
+            });
+        }
+
+        // Si otro JS agrega o quita filas, avisa con este evento y se recalcula
+        tabla.addEventListener("tabla:actualizada", Filtrar);
+
         Filtrar();
-      });
-    }
-
-    // Si otro JS agrega o quita filas, avisa con este evento y se recalcula
-    // filtro y paginacion sin cambiar de pagina
-    tabla.addEventListener("tabla:actualizada", Filtrar);
-
-    Filtrar();
-  });
+    });
 }
+
 
 // Inserta debajo de la tabla: selector de filas por pagina, resumen y botones
 function CrearPaginador(tabla, tablaId, tamanoInicial) {

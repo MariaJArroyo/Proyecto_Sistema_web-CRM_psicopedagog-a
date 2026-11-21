@@ -9,6 +9,10 @@ namespace MenteActiva.Api.Services;
 // sirve para esto.
 public class CorreoGmail : IServicioCorreo
 {
+    // El logo se copia junto al ejecutable (ver el .csproj)
+    private static readonly string _rutaLogo =
+        Path.Combine(AppContext.BaseDirectory, "Recursos", "LogoMenteActiva.jpeg");
+
     private readonly string _servidor;
     private readonly int _puerto;
     private readonly string _remitente;
@@ -34,7 +38,18 @@ public class CorreoGmail : IServicioCorreo
         mensaje.From.Add(new MailboxAddress(_nombreRemitente, _remitente));
         mensaje.To.Add(MailboxAddress.Parse(destinatario));
         mensaje.Subject = asunto;
-        mensaje.Body = new BodyBuilder { HtmlBody = cuerpoHtml }.ToMessageBody();
+
+        var constructor = new BodyBuilder { HtmlBody = cuerpoHtml };
+
+        // El logo viaja dentro del mensaje (cid), asi no depende de ninguna URL publica
+        if (cuerpoHtml.Contains($"cid:{CascaronCorreo.IdLogo}", StringComparison.Ordinal)
+            && File.Exists(_rutaLogo))
+        {
+            var logo = constructor.LinkedResources.Add(_rutaLogo);
+            logo.ContentId = CascaronCorreo.IdLogo;
+        }
+
+        mensaje.Body = constructor.ToMessageBody();
 
         using var cliente = new SmtpClient();
 

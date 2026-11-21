@@ -151,4 +151,14 @@ public class RepositorioEstudiante : RepositorioBase
     }
 
     #endregion
+
+
+    public Task DesactivarAsync(int idUsuarioAccion, int idEstudiante, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_IdEstudiante", idEstudiante);
+
+        return EjecutarAsync("SP_Estudiante_Eliminar", parametros, cancelacion);
+    }
 }

@@ -20,4 +20,9 @@
   <ItemGroup>
     <Folder Include="Archivos\" />
   </ItemGroup>
+  <ItemGroup>
+	<None Update="Recursos\LogoMenteActiva.jpeg">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
+  </ItemGroup>
 </Project>

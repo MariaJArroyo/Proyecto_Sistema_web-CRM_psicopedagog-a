@@ -27,13 +27,18 @@ public class EstudiantesController : ControllerBase
 
     #region VerEstudiante
     [HttpGet]
-    public IActionResult ConsultarEstudiantes()
+    [HttpGet]
+    public IActionResult ConsultarEstudiantes([FromQuery] bool incluirInactivos = false)
     {
         using var conexion = new MySqlConnection(
             _config.GetConnectionString("DefaultConnection"));
 
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IncluirInactivos", incluirInactivos);
+
         var estudiantes = conexion.Query<EstudianteResponse>(
             "SP_ConsultarEstudiantes_CRM",
+            parametros,
             commandType: CommandType.StoredProcedure
         ).ToList();
 
@@ -209,6 +214,19 @@ public class EstudiantesController : ControllerBase
             cancelacion);
 
         return Ok(new { mensaje = "Ficha del estudiante actualizada correctamente." });
+    }
+
+    [HttpPut("{id:int}/desactivar")]
+    public async Task<IActionResult> DesactivarEstudiante(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+        }
+
+        await _repositorioEstudiante.DesactivarAsync(ObtenerIdUsuarioActual(), id, cancelacion);
+
+        return Ok(new { mensaje = "Estudiante desactivado correctamente." });
     }
 
     private int ObtenerIdUsuarioActual()

@@ -8,4 +8,6 @@ public class EstudianteResponse
     public string? NivelEducativo { get; set; }
     public string? Institucion { get; set; }
     public string? Encargado { get; set; }
+    public int? IdEncargado { get; set; }
+    public bool Activo { get; set; }
 }
