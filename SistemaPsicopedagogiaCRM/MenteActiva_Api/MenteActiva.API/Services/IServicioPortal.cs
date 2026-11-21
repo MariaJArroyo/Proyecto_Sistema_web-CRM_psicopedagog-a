@@ -14,5 +14,7 @@ public interface IServicioPortal
     Task<PortalArchivoTareaResponse> ObtenerArchivoTareaAsync(int idUsuario,int idEstudiante,int idTareaAsignacion,CancellationToken cancelacion);
     Task<PortalReporteDetalleResponse> ObtenerReporteAsync(int idUsuario, int idEstudiante, int idReporte, CancellationToken cancelacion);
 
+    Task<PortalPerfilResponse> ObtenerPerfilAsync(int idUsuario, CancellationToken cancelacion);
+    Task ActualizarPerfilAsync(int idUsuario, EditarMiPerfilRequest peticion, CancellationToken cancelacion);
 
 }

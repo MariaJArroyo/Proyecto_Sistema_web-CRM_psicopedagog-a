@@ -146,4 +146,30 @@ public class RepositorioPortal : RepositorioBase, IRepositorioPortal
         return resultados.SingleOrDefault();
     }
 
+    public async Task<PortalPerfilResponse?> ObtenerPerfilAsync(int idUsuario, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters(); parametros.Add("p_IdUsuario", idUsuario);
+
+        var perfil = (await ConsultarAsync<PortalPerfilResponse>( "SP_Usuario_ObtenerPerfil", parametros, cancelacion)).FirstOrDefault();
+
+        if (perfil is null) return null;
+
+        var estudiantes = await ConsultarAsync<PortalPerfilEstudianteResponse>(
+            "SP_Portal_ListarEstudiantesPerfil", parametros, cancelacion);
+
+        perfil.EstudiantesACargo = estudiantes.ToList();
+        return perfil;
+    }
+
+    public Task ActualizarPerfilAsync(int idUsuario, string nombreCompleto, string correo, string? telefono, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_NombreCompleto", nombreCompleto);
+        parametros.Add("p_Correo", correo);
+        parametros.Add("p_Telefono", telefono);
+
+        return EjecutarAsync("SP_Usuario_ActualizarPerfil", parametros, cancelacion);
+    }
+
 }

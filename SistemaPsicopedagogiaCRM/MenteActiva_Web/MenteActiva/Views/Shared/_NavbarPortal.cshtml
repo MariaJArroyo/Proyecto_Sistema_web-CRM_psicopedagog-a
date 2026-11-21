@@ -15,6 +15,7 @@
         // Los mensajes no son por estudiante, pero la pantalla carga igual los
         // estudiantes para no perder el selector ni el enlace de las demas
         PortalMensajesViewModel mensajes => (Estudiantes: mensajes.Estudiantes, IdEstudiante: mensajes.IdEstudiante),
+        PortalPerfilViewModel perfil => (Estudiantes: perfil.Estudiantes, IdEstudiante: perfil.IdEstudiante),
         _ => (Estudiantes: new List<PortalEstudianteViewModel>(), IdEstudiante: 0)
     };
 
