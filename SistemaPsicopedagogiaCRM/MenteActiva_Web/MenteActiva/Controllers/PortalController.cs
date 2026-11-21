@@ -396,6 +396,107 @@ public class PortalController : Controller
     #endregion
 
 
+    #region Documentos
+
+    // Documentos del estudiante que la profesional dejo visibles en el portal
+    public async Task<IActionResult> Documentos(int? idEstudiante, CancellationToken cancelacion)
+    {
+        var modelo = new PortalDocumentosViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var rutaInicio = "portal/inicio";
+
+            if (idEstudiante.HasValue)
+            {
+                rutaInicio += $"?idEstudiante={idEstudiante.Value}";
+            }
+
+            var inicio = await client.GetFromJsonAsync<PortalInicioViewModel>(UrlApi(rutaInicio), cancelacion);
+
+            if (inicio is null || inicio.Resumen.IdEstudiante <= 0)
+            {
+                ViewBag.ErrorCarga = "No se pudo obtener el estudiante del portal.";
+                return View(modelo);
+            }
+
+            modelo.Estudiantes = inicio.Estudiantes;
+            modelo.IdEstudiante = inicio.Resumen.IdEstudiante;
+
+            modelo.Documentos = await client.GetFromJsonAsync<List<PortalDocumentoViewModel>>(
+                UrlApi($"portal/documentos?idEstudiante={modelo.IdEstudiante}"), cancelacion) ?? [];
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            ViewBag.ErrorCarga =
+                "No se pudo validar su sesión con el servicio. " + "Cierre sesión y vuelva a ingresar.";
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return Forbid();
+        }
+        catch (HttpRequestException)
+        {
+            ViewBag.ErrorCarga = "No se pudieron cargar los documentos. Verifique la conexión e intente de nuevo.";
+        }
+        catch (TaskCanceledException)
+            when (!cancelacion.IsCancellationRequested)
+        {
+            ViewBag.ErrorCarga = "El servicio tardó demasiado en responder. Intente nuevamente.";
+        }
+        catch (JsonException)
+        {
+            ViewBag.ErrorCarga = "No se pudo interpretar la información de los documentos.";
+        }
+
+        return View(modelo);
+    }
+
+    // ver = true lo abre en el navegador (PDF e imagenes); si no, lo descarga
+    [HttpGet]
+    public async Task<IActionResult> DescargarDocumento(
+        int idEstudiante, int idDocumento, bool ver, CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0 || idDocumento <= 0)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            using var client = _http.CreateClient();
+            using var respuesta = await client.GetAsync(
+                UrlApi($"portal/documentos/{idDocumento}/archivo?idEstudiante={idEstudiante}"),
+                HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                return StatusCode((int)respuesta.StatusCode);
+            }
+
+            var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            var disposicion = respuesta.Content.Headers.ContentDisposition;
+            var nombre = disposicion?.FileNameStar ?? disposicion?.FileName?.Trim('"') ?? "documento";
+            var bytes = await respuesta.Content.ReadAsByteArrayAsync(cancelacion);
+
+            Response.Headers.CacheControl = "no-store";
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+            return ver ? File(bytes, tipo) : File(bytes, tipo, nombre);
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503);
+        }
+    }
+
+    #endregion
+
+
     #region Recursos (HU-M11-2, 4 y 5)
 
     // Los recursos no son por estudiante: todo encargado con un estudiante activo
@@ -556,6 +657,18 @@ public class PortalController : Controller
 
             modelo.Pagos = await client .GetFromJsonAsync<List<PortalPagoViewModel>>(UrlApi(rutaPagos),cancelacion)
                 ?? [];
+
+            // Lo reportado por la familia. Si falla, la pantalla igual muestra los
+            // cargos: solo se pierde la lista de reportes
+            try
+            {
+                modelo.Reportes = await client.GetFromJsonAsync<List<PortalReportePagoViewModel>>(
+                    UrlApi($"portal/reportes-pago?idEstudiante={modelo.IdEstudiante}"), cancelacion) ?? [];
+            }
+            catch (Exception ex) when (ex is HttpRequestException or JsonException)
+            {
+                ViewBag.ErrorReportes = "No se pudo cargar la lista de pagos reportados.";
+            }
         }
         catch (HttpRequestException ex)
             when (ex.StatusCode == HttpStatusCode.Unauthorized)
@@ -585,6 +698,92 @@ public class PortalController : Controller
         }
 
         return View(modelo);
+    }
+
+    // Reporte de un SINPE o transferencia, con la captura, la referencia o ambas.
+    // Llega por fetch con el token antifalsificacion en el FormData (filtro global)
+    // y se reenvia al API como multipart, con el archivo tal cual.
+    [HttpPost]
+    public async Task<IActionResult> ReportarPago(
+        int idEstudiante, int idPago, int idMetodoPago, string? monto, string? fechaPago,
+        string? referencia, string? comentario, IFormFile? comprobante, CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0 || idPago <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un cargo válido." });
+        }
+
+        if (string.IsNullOrWhiteSpace(referencia) && (comprobante is null || comprobante.Length == 0))
+        {
+            return BadRequest(new { mensaje = "Adjunte el comprobante o escriba el número de referencia." });
+        }
+
+        using var cuerpo = new MultipartFormDataContent();
+
+        cuerpo.Add(new StringContent(idEstudiante.ToString(System.Globalization.CultureInfo.InvariantCulture)), "idEstudiante");
+        cuerpo.Add(new StringContent(idMetodoPago.ToString(System.Globalization.CultureInfo.InvariantCulture)), "idMetodoPago");
+        cuerpo.Add(new StringContent(monto?.Trim() ?? string.Empty), "monto");
+        cuerpo.Add(new StringContent(fechaPago?.Trim() ?? string.Empty), "fechaPago");
+
+        if (!string.IsNullOrWhiteSpace(referencia))
+        {
+            cuerpo.Add(new StringContent(referencia.Trim()), "referencia");
+        }
+
+        if (!string.IsNullOrWhiteSpace(comentario))
+        {
+            cuerpo.Add(new StringContent(comentario.Trim()), "comentario");
+        }
+
+        Stream? flujo = null;
+
+        try
+        {
+            if (comprobante is { Length: > 0 })
+            {
+                flujo = comprobante.OpenReadStream();
+                var parte = new StreamContent(flujo);
+
+                if (System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(comprobante.ContentType, out var tipo))
+                {
+                    parte.Headers.ContentType = tipo;
+                }
+
+                cuerpo.Add(parte, "comprobante", comprobante.FileName);
+            }
+
+            using var client = _http.CreateClient();
+            using var respuesta = await client.PostAsync(
+                UrlApi($"portal/pagos/{idPago}/reportes"), cuerpo, cancelacion);
+
+            var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+            if (string.IsNullOrWhiteSpace(contenido))
+            {
+                contenido = respuesta.IsSuccessStatusCode
+                    ? "{}"
+                    : "{\"mensaje\":\"No se pudo enviar el reporte del pago.\"}";
+            }
+
+            return new ContentResult
+            {
+                Content = contenido,
+                ContentType = "application/json",
+                StatusCode = (int)respuesta.StatusCode
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503, new { mensaje = "No se pudo conectar con el servicio de pagos." });
+        }
+        catch (TaskCanceledException) when (!cancelacion.IsCancellationRequested)
+        {
+            return StatusCode(504, new { mensaje = "El servicio tardó demasiado en responder." });
+        }
+        finally
+        {
+            flujo?.Dispose();
+        }
     }
 
     [HttpGet]
@@ -848,14 +1047,32 @@ public class PortalController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ActualizarPerfil(EditarMiPerfilViewModel modelo, CancellationToken cancelacion)
     {
-        using var client = _http.CreateClient();
+        // Lo minimo antes de ir al API, que valida lo mismo y ademas el correo repetido
+        if (string.IsNullOrWhiteSpace(modelo.NombreCompleto))
+        {
+            TempData["Error"] = "Ingrese su nombre completo.";
+            return RedirectToAction(nameof(Perfil));
+        }
 
-        using var respuesta = await client.PutAsJsonAsync(
-            UrlApi("portal/perfil"),
-            new { modelo.NombreCompleto, modelo.Correo, modelo.Telefono },
-            cancelacion);
+        if (string.IsNullOrWhiteSpace(modelo.Correo) || !modelo.Correo.Contains('@'))
+        {
+            TempData["Error"] = "Ingrese un correo electrónico válido.";
+            return RedirectToAction(nameof(Perfil));
+        }
 
-        await GuardarAvisoAsync(respuesta, "No se pudo actualizar el perfil.", cancelacion);
+        await EnviarAsync(
+            client => client.PutAsJsonAsync(
+                UrlApi("portal/perfil"),
+                new
+                {
+                    NombreCompleto = modelo.NombreCompleto.Trim(),
+                    Correo = modelo.Correo.Trim(),
+                    // Vacio viaja vacio: asi se puede borrar el telefono
+                    Telefono = modelo.Telefono?.Trim() ?? string.Empty
+                },
+                cancelacion),
+            "No se pudo actualizar el perfil.", cancelacion);
+
         return RedirectToAction(nameof(Perfil));
     }
 
@@ -863,27 +1080,67 @@ public class PortalController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CambiarContrasena(CambiarContrasenaViewModel modelo, CancellationToken cancelacion)
     {
+        if (string.IsNullOrEmpty(modelo.ContrasenaActual))
+        {
+            TempData["Error"] = "Ingrese su contraseña actual.";
+            return RedirectToAction(nameof(Perfil));
+        }
+
+        if (string.IsNullOrEmpty(modelo.ContrasenaNueva) || modelo.ContrasenaNueva.Length < 8)
+        {
+            TempData["Error"] = "La nueva contraseña debe tener al menos 8 caracteres.";
+            return RedirectToAction(nameof(Perfil));
+        }
+
         if (modelo.ContrasenaNueva != modelo.ConfirmarContrasena)
         {
             TempData["Error"] = "La nueva contraseña y su confirmación no coinciden.";
             return RedirectToAction(nameof(Perfil));
         }
 
-        if (modelo.ContrasenaNueva.Length < 8)
+        if (modelo.ContrasenaNueva == modelo.ContrasenaActual)
         {
-            TempData["Error"] = "La nueva contraseña debe tener al menos 8 caracteres.";
+            TempData["Error"] = "La nueva contraseña debe ser distinta de la actual.";
             return RedirectToAction(nameof(Perfil));
         }
 
-        using var client = _http.CreateClient();
+        await EnviarAsync(
+            client => client.PostAsJsonAsync(
+                UrlApi("autenticacion/cambiar-contrasena"),
+                new { modelo.ContrasenaActual, modelo.ContrasenaNueva },
+                cancelacion),
+            "No se pudo cambiar la contraseña.", cancelacion);
 
-        using var respuesta = await client.PostAsJsonAsync(
-            UrlApi("autenticacion/cambiar-contrasena"),
-            new { modelo.ContrasenaActual, modelo.ContrasenaNueva },
-            cancelacion);
-
-        await GuardarAvisoAsync(respuesta, "No se pudo cambiar la contraseña.", cancelacion);
         return RedirectToAction(nameof(Perfil));
+    }
+
+    // Llama al API y deja el resultado en TempData. Si el API no responde o
+    // contesta sin JSON (por ejemplo un 401 vacio), avisa en vez de romper la
+    // pantalla con un error 500.
+    private async Task EnviarAsync(
+        Func<HttpClient, Task<HttpResponseMessage>> llamada, string textoPorDefecto, CancellationToken cancelacion)
+    {
+        try
+        {
+            using var client = _http.CreateClient();
+            using var respuesta = await llamada(client);
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                TempData["Error"] = "Su sesión venció. Cierre sesión y vuelva a ingresar.";
+                return;
+            }
+
+            await GuardarAvisoAsync(respuesta, textoPorDefecto, cancelacion);
+        }
+        catch (HttpRequestException)
+        {
+            TempData["Error"] = "No se pudo conectar con el servicio. Intente nuevamente.";
+        }
+        catch (TaskCanceledException) when (!cancelacion.IsCancellationRequested)
+        {
+            TempData["Error"] = "El servicio tardó demasiado en responder. Intente nuevamente.";
+        }
     }
 
     private async Task GuardarAvisoAsync(HttpResponseMessage respuesta, string textoPorDefecto, CancellationToken cancelacion)
@@ -896,12 +1153,15 @@ public class PortalController : Controller
                 .ReadFromJsonAsync<Dictionary<string, JsonElement>>(cancellationToken: cancelacion);
 
             if (cuerpo is not null
-                && cuerpo.TryGetValue("mensaje", out var texto)&& texto.ValueKind == JsonValueKind.String)
+                && cuerpo.TryGetValue("mensaje", out var texto) && texto.ValueKind == JsonValueKind.String)
             {
                 mensaje = texto.GetString();
             }
         }
-        catch (JsonException) { }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            // Sin cuerpo o sin JSON: se usa el texto por defecto
+        }
 
         if (respuesta.IsSuccessStatusCode)
             TempData["Mensaje"] = mensaje ?? "Listo.";

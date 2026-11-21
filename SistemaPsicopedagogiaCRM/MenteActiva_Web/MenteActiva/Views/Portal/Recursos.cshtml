@@ -6,9 +6,9 @@
     // Ids fijos de TB_TIPO_MATERIAL
     var secciones = new (int Tipo, string Titulo, string Icono, string Vacio)[]
     {
-        (1, "Guías educativas", "bi-journal-text", "No hay guías publicadas."),
+        (1, "Guías", "bi-journal-text", "No hay guías publicadas."),
         (2, "Documentos PDF", "bi-file-earmark-pdf", "No hay documentos publicados."),
-        (4, "Actividades educativas", "bi-puzzle", "No hay actividades publicadas."),
+        (4, "Actividades", "bi-puzzle", "No hay actividades publicadas."),
         (3, "Enlaces útiles", "bi-link-45deg", "No hay enlaces publicados.")
     };
 
@@ -19,10 +19,16 @@
         ["Cognitiva"] = "Cognitiva",
         ["Motriz"] = "Motriz"
     };
+
+    // Se abre la primera seccion que tenga algo; si todas estan vacias, la primera
+    var tipoInicial = secciones
+        .Select(s => s.Tipo)
+        .FirstOrDefault(t => Model.Recursos.Any(r => r.IdTipoMaterial == t), secciones[0].Tipo);
 }
 <main class="PrincipalPortal" id="PortalRecursos" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
         @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-book", "Recursos", "Guías, documentos, actividades y enlaces publicados por el consultorio."))
+
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
@@ -30,72 +36,107 @@
         else
         {
             <div id="MensajeRecurso" class="alert alert-danger" role="alert" hidden></div>
-            @foreach (var seccion in secciones)
-            {
-                var recursos = Model.Recursos.Where(r => r.IdTipoMaterial == seccion.Tipo).ToList();
-                <section class="mb-5" aria-labelledby="Seccion@(seccion.Tipo)">
-                    <h2 class="h4 mb-3" id="Seccion@(seccion.Tipo)"><i class="bi @seccion.Icono me-2" aria-hidden="true"></i>@seccion.Titulo</h2>
-                    @if (recursos.Count == 0)
-                    {
-                        <div class="EstadoVacio"><p class="mb-0">@seccion.Vacio</p></div>
-                    }
-                    else
-                    {
-                        <div class="row g-3">
-                            @foreach (var recurso in recursos)
-                            {
-                                <div class="col-md-6">
-                                    <article class="Tarjeta p-3 h-100 d-flex flex-column">
-                                        <div class="d-flex justify-content-between gap-2 mb-2">
-                                            <h3 class="h5">@recurso.Titulo</h3>
-                                            @if (!string.IsNullOrWhiteSpace(recurso.NivelEducativo))
+
+            <ul class="nav SubpestanasPortal" role="tablist">
+                @foreach (var seccion in secciones)
+                {
+                    var activa = seccion.Tipo == tipoInicial;
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link@(activa ? " active" : "")" id="PestanaRecurso@(seccion.Tipo)" type="button" role="tab"
+                                data-bs-toggle="tab" data-bs-target="#Recursos@(seccion.Tipo)"
+                                aria-controls="Recursos@(seccion.Tipo)" aria-selected="@(activa ? "true" : "false")">
+                            <i class="bi @seccion.Icono" aria-hidden="true"></i>@seccion.Titulo
+                            <span class="ContadorPortal">@Model.Recursos.Count(r => r.IdTipoMaterial == seccion.Tipo)</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+
+            <div class="tab-content">
+                @foreach (var seccion in secciones)
+                {
+                    var recursos = Model.Recursos.Where(r => r.IdTipoMaterial == seccion.Tipo).ToList();
+                    var activa = seccion.Tipo == tipoInicial;
+
+                    <section class="tab-pane fade@(activa ? " show active" : "")" id="Recursos@(seccion.Tipo)"
+                             role="tabpanel" aria-labelledby="PestanaRecurso@(seccion.Tipo)" tabindex="0">
+                        @if (recursos.Count == 0)
+                        {
+                            <div class="EstadoVacio">
+                                <i class="bi @seccion.Icono" aria-hidden="true"></i>
+                                <p class="mb-0">@seccion.Vacio</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                @foreach (var recurso in recursos)
+                                {
+                                    var tieneEnlace = seccion.Tipo == 3
+                                        && Uri.TryCreate(recurso.Url, UriKind.Absolute, out var enlace)
+                                        && (enlace.Scheme == Uri.UriSchemeHttps || enlace.Scheme == Uri.UriSchemeHttp);
+                                    var urlEnlace = tieneEnlace ? new Uri(recurso.Url!).AbsoluteUri : null;
+                                    var tieneAcciones = (seccion.Tipo == 2 && recurso.TieneArchivo) || tieneEnlace;
+
+                                    <div class="col-md-6 col-xl-4">
+                                        <article class="Tarjeta ItemPortal">
+                                            <div class="ItemPortal-Cabecera">
+                                                <h2 class="ItemPortal-Titulo">@recurso.Titulo</h2>
+                                                @if (!string.IsNullOrWhiteSpace(recurso.NivelEducativo))
+                                                {
+                                                    <span class="badge badge-estado-nuevo">@recurso.NivelEducativo</span>
+                                                }
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(recurso.Descripcion))
                                             {
-                                                <span class="badge badge-estado-nuevo align-self-start">@recurso.NivelEducativo</span>
+                                                <p class="ItemPortal-Texto">@recurso.Descripcion</p>
                                             }
-                                        </div>
-                                        @if (!string.IsNullOrWhiteSpace(recurso.Descripcion))
-                                        {
-                                            <p style="white-space: pre-wrap">@recurso.Descripcion</p>
-                                        }
-                                        @if (seccion.Tipo == 4)
-                                        {
-                                            @if (!string.IsNullOrWhiteSpace(recurso.TipoActividad))
+
+                                            @if (seccion.Tipo == 4 && (!string.IsNullOrWhiteSpace(recurso.TipoActividad) || recurso.FechaActividad.HasValue))
                                             {
-                                                <p class="mb-1"><strong>Tipo:</strong> @(etiquetasActividad.GetValueOrDefault(recurso.TipoActividad, recurso.TipoActividad))</p>
+                                                <ul class="DatosPortal mb-2">
+                                                    @if (!string.IsNullOrWhiteSpace(recurso.TipoActividad))
+                                                    {
+                                                        <li><i class="bi bi-tag" aria-hidden="true"></i>@(etiquetasActividad.GetValueOrDefault(recurso.TipoActividad, recurso.TipoActividad))</li>
+                                                    }
+                                                    @if (recurso.FechaActividad.HasValue)
+                                                    {
+                                                        <li><i class="bi bi-calendar3" aria-hidden="true"></i>@recurso.FechaActividad.Value.ToString("dd/MM/yyyy")</li>
+                                                    }
+                                                </ul>
                                             }
-                                            @if (recurso.FechaActividad.HasValue)
+
+                                            @if (tieneAcciones)
                                             {
-                                                <p class="mb-1"><strong>Fecha:</strong> @recurso.FechaActividad.Value.ToString("dd/MM/yyyy")</p>
+                                                <div class="ItemPortal-Pie justify-content-end">
+                                                    @if (seccion.Tipo == 2 && recurso.TieneArchivo)
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                data-descargar-recurso
+                                                                data-url="@Url.Action("DescargarRecurso", "Portal", new { idMaterial = recurso.IdMaterial })">
+                                                            <i class="bi bi-download me-1" aria-hidden="true"></i>Descargar PDF
+                                                        </button>
+                                                    }
+                                                    @if (tieneEnlace)
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                data-abrir-enlace
+                                                                data-destino="@urlEnlace"
+                                                                data-url="@Url.Action("VerificarEnlaceRecurso", "Portal", new { idMaterial = recurso.IdMaterial })">
+                                                            <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Abrir enlace
+                                                        </button>
+                                                    }
+                                                </div>
                                             }
-                                        }
-                                        <div class="d-flex flex-wrap justify-content-end gap-2 mt-auto pt-3">
-                                            @if (seccion.Tipo == 2 && recurso.TieneArchivo)
-                                            {
-                                                <button type="button" class="btn btn-outline-primary"
-                                                        data-descargar-recurso
-                                                        data-url="@Url.Action("DescargarRecurso", "Portal", new { idMaterial = recurso.IdMaterial })">
-                                                    <i class="bi bi-download me-1" aria-hidden="true"></i>Descargar PDF
-                                                </button>
-                                            }
-                                            @if (seccion.Tipo == 3
-                                                && Uri.TryCreate(recurso.Url, UriKind.Absolute, out var enlace)
-                                                && (enlace.Scheme == Uri.UriSchemeHttps || enlace.Scheme == Uri.UriSchemeHttp))
-                                            {
-                                                <button type="button" class="btn btn-outline-primary"
-                                                        data-abrir-enlace
-                                                        data-destino="@enlace.AbsoluteUri"
-                                                        data-url="@Url.Action("VerificarEnlaceRecurso", "Portal", new { idMaterial = recurso.IdMaterial })">
-                                                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Abrir enlace
-                                                </button>
-                                            }
-                                        </div>
-                                    </article>
-                                </div>
-                            }
-                        </div>
-                    }
-                </section>
-            }
+                                        </article>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+            </div>
         }
     </div>
 </main>

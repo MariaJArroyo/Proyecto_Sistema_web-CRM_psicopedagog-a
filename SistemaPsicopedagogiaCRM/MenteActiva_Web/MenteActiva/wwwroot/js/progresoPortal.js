@@ -72,7 +72,7 @@
         const boton = evento.target.closest("[data-reporte-accion]");
         if (!boton || consultando) return;
         consultando = true;
-        const texto = boton.textContent;
+        const texto = boton.innerHTML;
         boton.disabled = true;
         boton.setAttribute("aria-busy", "true");
         boton.textContent = "Preparando…";
@@ -95,7 +95,7 @@
             consultando = false;
             boton.disabled = false;
             boton.removeAttribute("aria-busy");
-            boton.textContent = texto;
+            boton.innerHTML = texto;
         }
     });
 })();

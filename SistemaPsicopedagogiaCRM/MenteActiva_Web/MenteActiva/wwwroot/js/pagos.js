@@ -678,7 +678,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Abonar, anular un abono y anular el cobro cambian cuantos quedan
         // vencidos: la burbuja del menu tiene que reflejarlo sin esperar el
         // refresco del minuto
-        if (window.actualizarContadores) window.actualizarContadores("pagosVencidos");
+        if (window.actualizarContadores) window.actualizarContadores("pagosPendientes");
     }
 
     async function abrirDetalleSinAnimar() {
@@ -813,6 +813,17 @@ document.addEventListener("DOMContentLoaded", function () {
     // =====================================================
     // INICIO
     // =====================================================
+
+    // Aprobar un pago reportado (reportesPagoAdmin.js) crea un abono: la tabla
+    // y los totales se recargan sin cambiar de pagina
+    document.addEventListener("pagos:recargar", () => cargar(true));
+
+    // Despues de aprobar, o con "Ver cobro" en un reporte ya aprobado: abre el
+    // detalle del cobro, donde aparece el abono nuevo
+    document.addEventListener("pagos:abrirDetalle", evento => {
+        const idPago = Number(evento.detail?.idPago);
+        if (idPago > 0) abrirDetalle(idPago, false);
+    });
 
     pintarFiltroEstudiante();
     cargarCatalogos();

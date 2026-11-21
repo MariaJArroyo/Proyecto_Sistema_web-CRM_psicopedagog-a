@@ -27,7 +27,6 @@ public class EstudiantesController : ControllerBase
 
     #region VerEstudiante
     [HttpGet]
-    [HttpGet]
     public IActionResult ConsultarEstudiantes([FromQuery] bool incluirInactivos = false)
     {
         using var conexion = new MySqlConnection(

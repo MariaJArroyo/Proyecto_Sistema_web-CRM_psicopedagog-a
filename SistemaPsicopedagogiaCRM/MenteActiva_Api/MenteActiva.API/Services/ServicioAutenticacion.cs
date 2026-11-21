@@ -141,6 +141,15 @@ public class ServicioAutenticacion : IServicioAutenticacion
         return true;
     }
 
+    public async Task<bool> CambiarContrasenaAsync(int idUsuario, CambiarContrasenaRequest peticion)
+    {
+        // Se busca el correo vigente en la base y se sigue el camino de siempre
+        var detalle = await _repositorio.ObtenerPorIdAsync(idUsuario);
+
+        return !string.IsNullOrWhiteSpace(detalle?.Correo)
+            && await CambiarContrasenaAsync(detalle.Correo, peticion);
+    }
+
     private bool ContrasenaCoincide(UsuarioAutenticado usuario, string contrasena)
     {
         try

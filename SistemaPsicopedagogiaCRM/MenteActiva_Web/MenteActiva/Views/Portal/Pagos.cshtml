@@ -1,86 +1,367 @@
 @model PortalPagosViewModel
+@using System.Globalization
 @using MenteActiva.Services
 @inject IProveedorMoneda ProveedorMoneda
 @{
     ViewData["Title"] = "Pagos";
     var error = ViewBag.ErrorCarga as string;
+    var errorReportes = ViewBag.ErrorReportes as string;
     var moneda = await ProveedorMoneda.ObtenerAsync();
+
+    // Lo que ya esta en revision por cargo: no se ofrece reportar mas de lo que falta
+    var enRevisionPorPago = Model.Reportes
+        .Where(r => r.Estado == "Pendiente")
+        .GroupBy(r => r.IdPago)
+        .ToDictionary(g => g.Key, g => g.Sum(r => r.Monto));
+
+    var reportesPendientes = Model.Reportes.Count(r => r.Estado == "Pendiente");
+    var hoyIso = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var cultura = new CultureInfo("es-CR");
 }
 <main class="PrincipalPortal" id="PortalPagos" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-wallet2", "Estado de pagos", "Consulte los cargos, saldos y abonos del estudiante."))
+        <div class="BarraTituloPortal">
+            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-wallet2", "Pagos", "Los cargos, saldos y abonos del estudiante. Si ya pagó por SINPE o transferencia, repórtelo aquí."))
+
+            @if (string.IsNullOrWhiteSpace(error) && Model.Estudiantes.Count > 0)
+            {
+                <form asp-controller="Portal" asp-action="Pagos" method="get" data-portal-filtros class="FiltroEnLinea">
+                    <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                    <label asp-for="Filtro" class="visually-hidden">Mostrar</label>
+                    <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="pendientes">Pendientes, vencidos y parciales</option>
+                        <option value="pagados">Pagados</option>
+                        <option value="todos">Todos, incluidos anulados</option>
+                    </select>
+                </form>
+            }
+        </div>
+
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
         }
         else if (Model.Estudiantes.Count == 0)
         {
-            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+            <div class="EstadoVacio">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <p class="mb-0">No hay estudiantes disponibles para consultar.</p>
+            </div>
         }
         else
         {
-            <form asp-controller="Portal" asp-action="Pagos" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
-                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
-                <div class="col-md-6 col-lg-4">
-                    <label asp-for="Filtro" class="form-label FiltroPortal">Mostrar</label>
-                    <select asp-for="Filtro" class="form-select">
-                        <option value="pendientes">Pagos Pendientes, Vencidos y Parciales</option>
-                        <option value="pagados">Pagos ya Pagados</option>
-                        <option value="todos">Todos los Pagos, incluidos anulados</option>
-                    </select>
-                </div>
-            </form>
+            @Html.AntiForgeryToken()
+
             <div id="AlertaPagosPortal" class="alert" role="status" aria-live="polite" hidden></div>
+
+            @if (reportesPendientes > 0)
+            {
+                <div class="AvisoRevisionPortal">
+                    <span class="AvisoRevisionPortal-Icono" aria-hidden="true"><i class="bi bi-hourglass-split"></i></span>
+                    <p class="mb-0">
+                        <strong>@(reportesPendientes == 1 ? "Tiene 1 pago en revisión." : $"Tiene {reportesPendientes} pagos en revisión.")</strong>
+                        La profesional lo validará pronto; el saldo se actualiza cuando lo apruebe.
+                    </p>
+                    <a href="#PagosReportados" class="btn btn-sm btn-light">Ver estado</a>
+                </div>
+            }
+
             @if (Model.Pagos.Count == 0)
             {
-                <div class="EstadoVacio"><p class="mb-0">No hay cargos para el filtro seleccionado.</p></div>
+                <div class="EstadoVacio">
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    <p class="mb-0">No hay cargos para el filtro seleccionado.</p>
+                </div>
             }
             else
             {
-                <p class="mb-3"><strong>Saldo de los cargos mostrados:</strong> @FormatoDinero.Escribir(Model.Pagos.Sum(p => p.Saldo), moneda)</p>
-                <div class="Tarjeta p-3">
+                <div class="SaldoPortal">
+                    <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                    Saldo de los cargos mostrados: <strong>@FormatoDinero.Escribir(Model.Pagos.Sum(p => p.Saldo), moneda)</strong>
+                </div>
+
+                <article class="Tarjeta">
                     <div class="table-responsive">
                         <table class="table align-middle">
                             <caption>Los abonos mostrados corresponden a registros activos.</caption>
-                            <thead><tr><th scope="col">Concepto</th><th scope="col">Emisión</th><th scope="col">Vencimiento</th><th scope="col">Monto</th><th scope="col">Abonado</th><th scope="col">Saldo</th><th scope="col">Estado</th><th scope="col">Detalle</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Concepto</th>
+                                    <th scope="col">Emisión</th>
+                                    <th scope="col">Vencimiento</th>
+                                    <th scope="col" class="text-end">Monto</th>
+                                    <th scope="col" class="text-end">Abonado</th>
+                                    <th scope="col" class="text-end">Saldo</th>
+                                    <th scope="col">Estado</th>
+                                    <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach (var pago in Model.Pagos)
                                 {
+                                    var claseEstado = pago.Estado.ToLowerInvariant() switch
+                                    {
+                                        "pagado" => "EstadoBadge EstadoBadge-Completada",
+                                        "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
+                                        "vencido" => "EstadoBadge EstadoBadge-Cancelada",
+                                        "parcial" => "EstadoBadge EstadoBadge-Programada",
+                                        "anulado" => "EstadoBadge EstadoBadge-Neutro",
+                                        _ => "EstadoBadge EstadoBadge-Neutro"
+                                    };
+
+                                    // Ids de TB_ESTADO_PAGO: 2 Pendiente, 3 Vencido, 4 Parcial
+                                    var conSaldo = pago.IdEstadoPago is 2 or 3 or 4 && pago.Saldo > 0;
+                                    var enRevision = enRevisionPorPago.GetValueOrDefault(pago.IdPago);
+                                    var porReportar = Math.Max(pago.Saldo - enRevision, 0);
+
                                     <tr>
                                         <th scope="row">@pago.Concepto</th>
                                         <td>@pago.FechaEmision.ToString("dd/MM/yyyy")</td>
                                         <td>@(pago.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimiento")</td>
-                                        <td>@FormatoDinero.Escribir(pago.Monto, moneda)</td>
-                                        <td>@FormatoDinero.Escribir(pago.Abonado, moneda)</td>
-                                        <td>@FormatoDinero.Escribir(pago.Saldo, moneda)</td>
+                                        <td class="text-end">@FormatoDinero.Escribir(pago.Monto, moneda)</td>
+                                        <td class="text-end">@FormatoDinero.Escribir(pago.Abonado, moneda)</td>
+                                        <td class="text-end fw-semibold">@FormatoDinero.Escribir(pago.Saldo, moneda)</td>
                                         <td>
-                                            @{
-                                                var claseEstado = pago.Estado.ToLowerInvariant() switch
-                                                {
-                                                    "pagado" => "EstadoBadge EstadoBadge-Completada",
-                                                    "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
-                                                    "vencido" => "EstadoBadge EstadoBadge-Cancelada",
-                                                    "parcial" => "EstadoBadge EstadoBadge-Programada",
-                                                    "anulado" => "EstadoBadge EstadoBadge-Neutro",
-                                                    _ => "EstadoBadge EstadoBadge-Neutro"
-                                                };
-                                            }<span class="@claseEstado">@pago.Estado</span>
+                                            <span class="@claseEstado">@pago.Estado</span>
+                                            @if (enRevision > 0)
+                                            {
+                                                <span class="EstadoBadge EstadoBadge-Revision ms-1" title="Pago reportado en revisión">
+                                                    <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>En revisión
+                                                </span>
+                                            }
                                         </td>
-
-
-                                        <td><button type="button" class="btn btn-sm btn-outline-primary" data-detalle-pago data-url="@Url.Action("DetallePago", "Portal", new { idEstudiante = Model.IdEstudiante, idPago = pago.IdPago })" aria-label="Ver detalle de @pago.Concepto">Ver detalle</button></td>
+                                        <td class="text-end text-nowrap">
+                                            @if (conSaldo && porReportar > 0)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-primary me-1" data-reportar-pago
+                                                        data-id-pago="@pago.IdPago"
+                                                        data-concepto="@pago.Concepto"
+                                                        data-saldo="@porReportar.ToString("0.00", CultureInfo.InvariantCulture)"
+                                                        data-saldo-texto="@FormatoDinero.Escribir(porReportar, moneda)">
+                                                    <i class="bi bi-send-check me-1" aria-hidden="true"></i>Reportar pago
+                                                </button>
+                                            }
+                                            <button type="button" class="btn btn-sm btn-outline-primary" data-detalle-pago
+                                                    data-url="@Url.Action("DetallePago", "Portal", new { idEstudiante = Model.IdEstudiante, idPago = pago.IdPago })"
+                                                    aria-label="Ver detalle de @pago.Concepto">
+                                                Detalle
+                                            </button>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </article>
             }
+
+            <section id="PagosReportados" class="mt-4" aria-labelledby="TituloPagosReportados">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <h2 class="h5 mb-0" id="TituloPagosReportados">Pagos reportados</h2>
+                        <span class="ContadorPortal">@Model.Reportes.Count</span>
+                    </div>
+
+                    @if (Model.Reportes.Count > 0)
+                    {
+                        @* Main.js filtra y pagina la tabla con estos data-* *@
+                        <div class="d-flex flex-wrap gap-2 FiltrosReportes" data-tabla-buscador="TablaReportesPago" data-tabla-paginar="5">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search" aria-hidden="true"></i></span>
+                                <input type="search" class="form-control" data-buscar-texto
+                                       placeholder="Concepto o referencia" aria-label="Buscar en pagos reportados">
+                            </div>
+                            <select class="form-select form-select-sm w-auto" data-buscar-extra aria-label="Filtrar por estado">
+                                <option value="">Todos</option>
+                                <option value="pendiente">En revisión</option>
+                                <option value="aprobado">Aprobados</option>
+                                <option value="rechazado">Rechazados</option>
+                            </select>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorReportes))
+                {
+                    <div class="alert alert-warning" role="alert">@errorReportes</div>
+                }
+                else if (Model.Reportes.Count == 0)
+                {
+                    <div class="EstadoVacio">
+                        <i class="bi bi-send" aria-hidden="true"></i>
+                        <p class="mb-0">Todavía no ha reportado pagos. Use <strong>Reportar pago</strong> en el cargo que pagó.</p>
+                    </div>
+                }
+                else
+                {
+                    <article class="Tarjeta TablaReportesPortal">
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0" id="TablaReportesPago">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Concepto</th>
+                                        <th scope="col" class="d-none d-md-table-cell">Método</th>
+                                        <th scope="col" class="d-none d-sm-table-cell">Pagado el</th>
+                                        <th scope="col" class="text-end">Monto</th>
+                                        <th scope="col">Estado</th>
+                                        <th scope="col"><span class="visually-hidden">Detalle</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var reporte in Model.Reportes)
+                                    {
+                                        var (claseChip, textoChip, iconoChip) = reporte.Estado switch
+                                        {
+                                            "Aprobado" => ("EstadoBadge EstadoBadge-Completada", "Aprobado", "bi-check-circle"),
+                                            "Rechazado" => ("EstadoBadge EstadoBadge-Cancelada", "Rechazado", "bi-x-circle"),
+                                            _ => ("EstadoBadge EstadoBadge-Revision", "En revisión", "bi-hourglass-split")
+                                        };
+
+                                        <tr data-fila data-extra="@reporte.Estado.ToLowerInvariant()">
+                                            <th scope="row" class="fw-semibold">
+                                                @reporte.Concepto
+                                                @if (!string.IsNullOrWhiteSpace(reporte.Referencia))
+                                                {
+                                                    <span class="d-block TextoSuave small fw-normal">Ref. @reporte.Referencia</span>
+                                                }
+                                            </th>
+                                            <td class="d-none d-md-table-cell">
+                                                <i class="bi @(reporte.MetodoPago.Contains("SINPE", StringComparison.OrdinalIgnoreCase) ? "bi-phone" : "bi-bank") me-1 TextoSuave" aria-hidden="true"></i>@reporte.MetodoPago
+                                            </td>
+                                            <td class="d-none d-sm-table-cell text-nowrap">@reporte.FechaPago.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-end fw-semibold text-nowrap">@FormatoDinero.Escribir(reporte.Monto, moneda)</td>
+                                            <td><span class="@claseChip"><i class="bi @iconoChip me-1" aria-hidden="true"></i>@textoChip</span></td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" data-ver-reporte="@reporte.IdReportePago"
+                                                        aria-label="Ver detalle del pago reportado de @reporte.Concepto">
+                                                    Ver
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="EstadoVacio d-none m-3" data-tabla-vacio="TablaReportesPago">
+                            <i class="bi bi-funnel" aria-hidden="true"></i>
+                            <p class="mb-0">No hay pagos reportados con ese filtro.</p>
+                        </div>
+                    </article>
+
+                    @* El detalle de cada reporte (la tarjeta) se arma aqui y el modal lo copia al abrirlo *@
+                    @foreach (var reporte in Model.Reportes)
+                    {
+                            var (claseReporte, textoEstado, iconoEstado) = reporte.Estado switch
+                            {
+                                "Aprobado" => ("TarjetaReporte-Aprobado", "Aprobado", "bi-check-circle-fill"),
+                                "Rechazado" => ("TarjetaReporte-Rechazado", "Rechazado", "bi-x-circle-fill"),
+                                _ => ("TarjetaReporte-Pendiente", "En revisión", "bi-hourglass-split")
+                            };
+                            var esSinpe = reporte.MetodoPago.Contains("SINPE", StringComparison.OrdinalIgnoreCase);
+                            var revisado = reporte.Estado != "Pendiente";
+
+
+                        <template id="DetalleReporte@(reporte.IdReportePago)">
+                                <div class="TarjetaReporte TarjetaReporte-EnModal @claseReporte">
+                                    <header class="TarjetaReporte-Cabecera">
+                                        <span class="TarjetaReporte-Metodo" title="@reporte.MetodoPago">
+                                            <i class="bi @(esSinpe ? "bi-phone" : "bi-bank")" aria-hidden="true"></i>
+                                        </span>
+                                        <div class="min-w-0 flex-grow-1">
+                                            <h3 class="TarjetaReporte-Concepto" title="@reporte.Concepto">@reporte.Concepto</h3>
+                                            <span class="TarjetaReporte-Sub">
+                                                @reporte.MetodoPago · pagado el @reporte.FechaPago.ToString("d MMM yyyy", cultura).Replace(".", "")
+                                            </span>
+                                        </div>
+                                    </header>
+
+                                    <div class="TarjetaReporte-Fila">
+                                        <p class="TarjetaReporte-Monto">@FormatoDinero.Escribir(reporte.Monto, moneda)</p>
+                                        <span class="TarjetaReporte-Estado"><i class="bi @iconoEstado" aria-hidden="true"></i>@textoEstado</span>
+                                    </div>
+
+                                    <dl class="TarjetaReporte-Datos">
+                                        <div>
+                                            <dt>Referencia</dt>
+                                            <dd class="@(string.IsNullOrWhiteSpace(reporte.Referencia) ? "" : "TarjetaReporte-Referencia")" title="@reporte.Referencia">
+                                                @(string.IsNullOrWhiteSpace(reporte.Referencia) ? "—" : reporte.Referencia)
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt>Comprobante</dt>
+                                            <dd>
+                                                @if (reporte.TieneComprobante)
+                                                {
+                                                    <i class="bi bi-paperclip me-1" aria-hidden="true"></i><span>Adjunto</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Sin adjunto</span>
+                                                }
+                                            </dd>
+                                        </div>
+                                    </dl>
+
+                                    @if (reporte.Estado == "Rechazado" && !string.IsNullOrWhiteSpace(reporte.MotivoRechazo))
+                                    {
+                                        <div class="TarjetaReporte-Motivo">
+                                            <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                                            <div><strong>Motivo:</strong> @reporte.MotivoRechazo</div>
+                                        </div>
+                                    }
+
+                                    @* Seguimiento: enviado -> en revision -> aprobado o rechazado *@
+                                    <ol class="PasosReporte" aria-label="Estado del reporte: @textoEstado">
+                                        <li class="Hecho">
+                                            <span class="PasosReporte-Punto"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                                            Enviado
+                                        </li>
+                                        <li class="@(revisado ? "Hecho" : "Actual")">
+                                            <span class="PasosReporte-Punto">
+                                                @if (revisado)
+                                                {
+                                                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                                                }
+                                            </span>
+                                            @(revisado ? "Revisado" : "En revisión")
+                                        </li>
+                                        <li class="@(revisado ? "Hecho" : "")">
+                                            <span class="PasosReporte-Punto">
+                                                @if (reporte.Estado == "Aprobado")
+                                                {
+                                                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                                                }
+                                                else if (reporte.Estado == "Rechazado")
+                                                {
+                                                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                                }
+                                            </span>
+                                            @(reporte.Estado == "Rechazado" ? "Rechazado" : "Aprobado")
+                                        </li>
+                                    </ol>
+                                </div>
+                        </template>
+                    }
+                }
+            </section>
         }
     </div>
 </main>
+
+<div class="modal fade" id="ModalDetalleReporte" tabindex="-1" aria-labelledby="TituloDetalleReporte" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="TituloDetalleReporte">Pago reportado</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="ContenidoDetalleReporte"></div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="ModalPagoPortal" tabindex="-1" aria-labelledby="TituloDetallePagoPortal" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title fs-5" id="TituloDetallePagoPortal">Detalle del cargo</h2>
@@ -91,6 +372,108 @@
         </div>
     </div>
 </div>
+
+@* ---------- Reportar un pago ---------- *@
+<div class="modal fade ModalReportarPago" id="ModalReportarPago" tabindex="-1" aria-labelledby="TituloReportarPago" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="FormularioReportarPago" novalidate
+                  data-url="@Url.Action("ReportarPago", "Portal")"
+                  data-id-estudiante="@Model.IdEstudiante">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title fs-5" id="TituloReportarPago">Reportar un pago</h2>
+                        <p class="TextoSuave small mb-0" id="ConceptoReportarPago"></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="AlertaReportarPago" class="alert alert-danger" role="alert" hidden></div>
+
+                    <input type="hidden" name="idPago" id="IdPagoReporte">
+
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6">¿Cómo pagó?</legend>
+                        <div class="SelectorMetodoPago">
+                            <input type="radio" class="btn-check" name="idMetodoPago" id="MetodoSinpe" value="2" checked>
+                            <label class="OpcionMetodoPago" for="MetodoSinpe">
+                                <i class="bi bi-phone" aria-hidden="true"></i>
+                                <span>SINPE Móvil</span>
+                            </label>
+
+                            <input type="radio" class="btn-check" name="idMetodoPago" id="MetodoTransferencia" value="3">
+                            <label class="OpcionMetodoPago" for="MetodoTransferencia">
+                                <i class="bi bi-bank" aria-hidden="true"></i>
+                                <span>Transferencia</span>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label for="MontoReporte" class="form-label CampoObligatorio">Monto pagado</label>
+                            <input type="text" inputmode="decimal" class="form-control" id="MontoReporte" name="monto" autocomplete="off">
+                            <div class="form-text" id="AyudaMontoReporte"></div>
+                            <div class="invalid-feedback">Indique un monto mayor que cero y que no pase del saldo.</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="FechaReporte" class="form-label CampoObligatorio">Fecha del pago</label>
+                            <input type="date" class="form-control" id="FechaReporte" name="fechaPago" max="@hoyIso" value="@hoyIso">
+                            <div class="invalid-feedback">Indique la fecha; no puede ser futura.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ReferenciaReporte" class="form-label">Número de referencia o comprobante</label>
+                        <input type="text" class="form-control" id="ReferenciaReporte" name="referencia" maxlength="100"
+                               placeholder="Ej. 2026112100012345" autocomplete="off">
+                    </div>
+
+                    <div class="mb-1">
+                        <span class="form-label d-block">Captura del comprobante</span>
+                        <label class="ZonaComprobante" id="ZonaComprobante" for="ArchivoComprobante">
+                            <input type="file" id="ArchivoComprobante" name="comprobante" class="visually-hidden"
+                                   accept="image/jpeg,image/png,image/webp,application/pdf">
+                            <span class="ZonaComprobante-Vacia">
+                                <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+                                <span><strong>Toque para elegir</strong> o arrastre la imagen aquí</span>
+                                <small>JPG, PNG, WEBP o PDF · máximo 5 MB</small>
+                            </span>
+                            <span class="ZonaComprobante-Vista" hidden>
+                                <img alt="Vista previa del comprobante" hidden>
+                                <span class="ZonaComprobante-Pdf" hidden><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></span>
+                                <span class="ZonaComprobante-Nombre"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="QuitarComprobante">
+                                    <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Quitar
+                                </button>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="form-text mb-3" id="AyudaRespaldo">
+                        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Adjunte la captura, escriba la referencia o ambas.
+                    </p>
+
+                    <div>
+                        <label for="ComentarioReporte" class="form-label">Comentario <span class="TextoSuave">(opcional)</span></label>
+                        <textarea class="form-control" id="ComentarioReporte" name="comentario" rows="2" maxlength="500"
+                                  placeholder="Ej. Pagué desde la cuenta de mi esposo"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="BotonEnviarReporte">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                        <i class="bi bi-send-check me-1" aria-hidden="true"></i>Enviar reporte
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="~/js/pagosPortal.js" asp-append-version="true"></script>
+    <script src="~/js/reportarPagoPortal.js" asp-append-version="true"></script>
 }

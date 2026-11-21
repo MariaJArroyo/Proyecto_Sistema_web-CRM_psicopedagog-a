@@ -101,6 +101,18 @@ builder.Services.AddOptions<OpcionesMateriales>()
 builder.Services.AddSingleton<AlmacenMateriales>();
 builder.Services.AddSingleton<IAlmacenMateriales>(sp => sp.GetRequiredService<AlmacenMateriales>());
 
+// Pagos que reportan las familias desde el portal (comprobantes en Archivos/Comprobantes)
+builder.Services.AddSingleton<AlmacenComprobantes>();
+builder.Services.AddSingleton<IAlmacenComprobantes>(sp => sp.GetRequiredService<AlmacenComprobantes>());
+builder.Services.AddScoped<IRepositorioReportePago, RepositorioReportePago>();
+builder.Services.AddScoped<IServicioReportesPago, ServicioReportesPago>();
+
+// Documentos del estudiante (Archivos/Documentos): la ficha los sube, el portal ve los visibles
+builder.Services.AddSingleton<AlmacenDocumentos>();
+builder.Services.AddSingleton<IAlmacenDocumentos>(sp => sp.GetRequiredService<AlmacenDocumentos>());
+builder.Services.AddScoped<IRepositorioDocumento, RepositorioDocumento>();
+builder.Services.AddScoped<IServicioDocumentos, ServicioDocumentos>();
+
 // Cliente propio para comprobar enlaces: sin redirecciones automaticas, sin
 // proxy y conectando solo a direcciones publicas (ver VerificadorEnlaces)
 builder.Services.AddHttpClient(VerificadorEnlaces.NombreCliente, cliente =>
@@ -184,6 +196,8 @@ var app = builder.Build();
 
 // La carpeta de los PDF no va en git; se crea aqui si falta
 app.Services.GetRequiredService<AlmacenMateriales>().CrearCarpeta();
+app.Services.GetRequiredService<AlmacenComprobantes>().CrearCarpeta();
+app.Services.GetRequiredService<AlmacenDocumentos>().CrearCarpeta();
 
 app.UseExceptionHandler();
 
