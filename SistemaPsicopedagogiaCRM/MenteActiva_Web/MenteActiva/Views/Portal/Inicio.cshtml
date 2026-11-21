@@ -1,89 +1,456 @@
-@model PortalInicioViewModel
-@using MenteActiva.Services
-@inject IProveedorMoneda ProveedorMoneda
+@model MenteActiva.Models.FichaEstudianteViewModel
+
 @{
-    ViewData["Title"] = "Inicio del portal";
-    var error = ViewBag.ErrorCarga as string;
-    var moneda = await ProveedorMoneda.ObtenerAsync();
-    var nombreEstudiante = Model.Estudiantes
-        .FirstOrDefault(e => e.IdEstudiante == Model.Resumen.IdEstudiante)?.Estudiante;
+    ViewData["Title"] = "Ficha de estudiante";
+
+    var niveles = ViewBag.NivelesEducativos
+        as List<MenteActiva.Models.NivelEducativoViewModel>
+        ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
+
+    var nombreCompleto =
+        $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
+
+    int? edad = null;
+
+    if (Model.FechaNacimiento.HasValue)
+    {
+        var nacimiento = Model.FechaNacimiento.Value.Date;
+        var hoy = DateTime.Today;
+        var anios = hoy.Year - nacimiento.Year;
+
+        if (nacimiento > hoy.AddYears(-anios))
+        {
+            anios--;
+        }
+
+        edad = anios;
+    }
 }
-<main class="PrincipalPortal" id="PortalInicio" data-portal-estudiante="@Model.Resumen.IdEstudiante">
-    <div class="container">
-        @if (!string.IsNullOrWhiteSpace(error))
-        {
-            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-house-heart", "Portal de familias", "Consulte la información del estudiante seleccionado en el menú superior."))
-            <div class="alert alert-danger" role="alert">@error</div>
-        }
-        else if (Model.Estudiantes.Count == 0)
-        {
-            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-house-heart", "Portal de familias", "Consulte la información del estudiante seleccionado en el menú superior."))
-            <div class="alert alert-info">No hay estudiantes disponibles. Consulte con el centro.</div>
-        }
-        else
-        {
-            <section class="HeroPortal mb-4" aria-labelledby="TituloHeroPortal">
-                <div class="HeroPortal-Texto">
-                    <span class="HeroPortal-Etiqueta"><i class="bi bi-house-heart" aria-hidden="true"></i>Portal de familias</span>
-                    <h2 class="HeroPortal-Titulo" id="TituloHeroPortal">Resumen de @nombreEstudiante</h2>
-                    <p>Aquí encuentra las próximas citas, las tareas y el avance del estudiante, todo en un solo lugar.</p>
+
+<main class="PrincipalAdmin">
+
+    <partial name="_AvisoCarga" />
+
+    <div id="ContenedorMensaje"></div>
+
+    <a href="@Url.Action("Estudiantes", "Admin")" class="d-inline-flex align-items-center gap-1 small mb-3 text-decoration-none">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        Volver a estudiantes
+    </a>
+
+    <!-- Encabezado -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div>
+            <span class="badge badge-estado-activo mb-2">
+                <i class="bi bi-person-lines-fill me-1" aria-hidden="true"></i>
+                Ficha del estudiante
+            </span>
+            <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
+            <p class="TextoSuave mb-0">Información individual del estudiante</p>
+        </div>
+
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalEditarFicha">
+            <i class="bi bi-pencil me-1" aria-hidden="true"></i>
+            Editar ficha
+        </button>
+    </div>
+
+    <!-- Layout de 2 columnas estilo Index / panel -->
+    <div class="row g-4 align-items-start">
+
+        <!-- Columna izquierda -->
+        <div class="col-lg-7 d-flex flex-column gap-4">
+
+            <!-- Datos generales + Necesidades de apoyo -->
+            <div class="Tarjeta p-3 p-md-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem;">
+                        <i class="bi bi-card-list" aria-hidden="true"></i>
+                    </div>
+                    <h3 class="mb-0">Datos generales</h3>
                 </div>
-                <div class="HeroPortal-Acciones">
-                    <a class="btn BotonHero" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">
-                        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Ver citas
-                    </a>
-                    <a class="btn BotonHero BotonHero-Borde" asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@Model.Resumen.IdEstudiante">
-                        <i class="bi bi-chat-dots me-1" aria-hidden="true"></i>Escribir al consultorio
-                    </a>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Nombre completo</dt>
+                    <dd id="FichaDatoNombre" class="col-sm-8">@nombreCompleto</dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Fecha de nacimiento</dt>
+                    <dd id="FichaDatoFechaNacimiento" class="col-sm-8">
+                        @(Model.FechaNacimiento.HasValue
+                            ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy")
+                            : "-")
+                    </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Edad</dt>
+                    <dd id="FichaDatoEdad" class="col-sm-8">
+                        @(edad.HasValue ? $"{edad.Value} años" : "-")
+                    </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Nivel educativo</dt>
+                    <dd id="FichaDatoNivel" class="col-sm-8">
+                        @(Model.NivelEducativo ?? "-")
+                    </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Institución</dt>
+                    <dd id="FichaDatoInstitucion" class="col-sm-8">
+                        @(Model.Institucion ?? "-")
+                    </dd>
+                </dl>
+
+                <hr class="my-3" style="border-color: var(--color-borde);">
+
+                <div class="d-flex align-items-start gap-3">
+                    <div class="TarjetaServicio-Icono mb-0 flex-shrink-0" style="width: 38px; height: 38px; font-size: 1.1rem; background-color: #fff4e4; color: #d69a43;">
+                        <i class="bi bi-lightbulb" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h4 class="h6 fw-semibold mb-1">Necesidades de apoyo</h4>
+                        @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
+                        {
+                            <p id="FichaDatoNecesidades" class="mb-0">@Model.NecesidadesApoyo</p>
+                        }
+                        else
+                        {
+                            <p id="FichaDatoNecesidades" class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
+                        }
+                    </div>
                 </div>
+            </div>
+
+            <!-- Información académica -->
+            <div class="Tarjeta p-3 p-md-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #e6f7f1; color: #36a58b;">
+                        <i class="bi bi-mortarboard" aria-hidden="true"></i>
+                    </div>
+                    <h3 class="mb-0">Información académica</h3>
+                </div>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
+                    <dd id="FichaDatoMateria" class="col-sm-8">
+                        @(Model.AreasDificultad ?? "No registradas")
+                    </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
+                    <dd id="FichaDatoResumen" class="col-sm-8 mb-0">
+                        @(Model.Observaciones ?? "No hay observaciones registradas.")
+                    </dd>
+                </dl>
+            </div>
+
+        </div>
+
+        <!-- Columna derecha -->
+        <div class="col-lg-5 d-flex flex-column gap-4">
+
+            <!-- Persona encargada -->
+            <div class="Tarjeta p-3 p-md-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #f1ebfb; color: #7c3aed;">
+                        <i class="bi bi-person-heart" aria-hidden="true"></i>
+                    </div>
+                    <h3 class="mb-0">Persona encargada</h3>
+                </div>
+
+                @if (Model.Encargados != null && Model.Encargados.Any())
+                {
+                    <div class="d-flex flex-column gap-3">
+                        @foreach (var encargado in Model.Encargados)
+                        {
+                            <div>
+                                <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                    <span class="fw-semibold">@encargado.NombreCompleto</span>
+
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Parentesco))
+                                    {
+                                        <span class="badge badge-etiqueta-morado">@encargado.Parentesco</span>
+                                    }
+                                </div>
+
+                                <ul class="list-unstyled TextoSuave small mb-0 mt-2">
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Correo))
+                                    {
+                                        <li class="d-flex align-items-start gap-2 text-break mb-1">
+                                            <i class="bi bi-envelope" aria-hidden="true"></i>
+                                            <span>@encargado.Correo</span>
+                                        </li>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(encargado.Identificacion))
+                                    {
+                                        <li class="d-flex align-items-start gap-2 text-break">
+                                            <i class="bi bi-person-vcard" aria-hidden="true"></i>
+                                            <span>@encargado.Identificacion</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="TextoSuave mb-0">No hay persona encargada asociada.</p>
+                }
+            </div>
+
+            <!-- Áreas de dificultad -->
+            <section id="AreasEstado" class="Tarjeta p-3 p-md-4" data-id-estudiante="@Model.IdEstudiante" data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")" data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #eaf2ff; color: #5483ca;">
+                            <i class="bi bi-journal-bookmark" aria-hidden="true"></i>
+                        </div>
+                        <h3 class="mb-0">Áreas de dificultad</h3>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ModalAreasInactivas">
+                            Áreas inactivas
+                            <span id="CantidadAreasInactivas" class="badge bg-secondary">0</span>
+                        </button>
+
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarArea">
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                            Agregar área
+                        </button>
+                    </div>
+                </div>
+
+                <div id="AvisoAreasEstado" class="alert d-none" role="status" aria-live="polite"></div>
+
+                <div id="ListaAreasDificultad" class="list-group list-group-flush" aria-busy="true">
+                    Cargando áreas…
+                </div>
+
+                <button id="RecargarAreasEstado" type="button" class="btn btn-sm btn-link mt-2 px-0">
+                    Actualizar áreas
+                </button>
             </section>
 
-            <div class="row g-3">
-                <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta ResumenPortal ResumenPortal-Citas">
-                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-calendar-check"></i></span>
-                        <h3 class="ResumenPortal-Etiqueta">Próximas citas</h3>
-                        <p class="ResumenPortal-Valor">@Model.Resumen.CitasProximas</p>
-                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="proximas">Consultar citas <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                    </article>
+        </div>
+
+    </div>
+
+</main>
+
+<!-- Modal agregar área -->
+<div id="ModalAgregarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloAgregarArea" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioAgregarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 id="TituloAgregarArea" class="modal-title">Agregar área de dificultad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta ResumenPortal ResumenPortal-Tareas">
-                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-journal-check"></i></span>
-                        <h3 class="ResumenPortal-Etiqueta">Tareas pendientes</h3>
-                        <p class="ResumenPortal-Valor">@Model.Resumen.TareasPendientes</p>
-                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar tareas <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                    </article>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="NombreArea" class="form-label">Área</label>
+                        <input id="NombreArea" name="NombreArea" type="text" class="form-control" maxlength="100" required placeholder="Ej. Razonamiento lógico-matemático">
+                    </div>
+
+                    <div class="mb-1">
+                        <label for="ObservacionArea" class="form-label">Observación</label>
+                        <textarea id="ObservacionArea" name="ObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
+                    </div>
                 </div>
-                <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta ResumenPortal ResumenPortal-Reportes">
-                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
-                        <h3 class="ResumenPortal-Etiqueta">Reportes disponibles</h3>
-                        <p class="ResumenPortal-Valor">@Model.Resumen.ReportesDisponibles</p>
-                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtroReportes="todos">Consultar progreso <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                    </article>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
                 </div>
-                <div class="col-md-6 col-lg-3">
-                    <article class="Tarjeta ResumenPortal ResumenPortal-Pagos">
-                        <span class="ResumenPortal-Icono" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
-                        <h3 class="ResumenPortal-Etiqueta">Saldo pendiente</h3>
-                        <p class="ResumenPortal-Valor ResumenPortal-Valor-Monto">@FormatoDinero.Escribir(Model.Resumen.SaldoPendiente, moneda)</p>
-                        <a class="ResumenPortal-Enlace" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-route-filtro="pendientes">Consultar pagos <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                    </article>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal editar área -->
+<div id="ModalEditarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarArea" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioEditarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <input id="EditarIdArea" type="hidden">
+
+                <div class="modal-header">
+                    <h5 id="TituloEditarArea" class="modal-title">Editar área de dificultad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="EditarNombreArea" class="form-label">Área</label>
+                        <input id="EditarNombreArea" type="text" class="form-control" maxlength="100" required>
+                    </div>
+
+                    <div class="mb-1">
+                        <label for="EditarObservacionArea" class="form-label">Observación</label>
+                        <textarea id="EditarObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal áreas inactivas -->
+<div id="ModalAreasInactivas" class="modal fade" tabindex="-1" aria-labelledby="TituloAreasInactivas" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="TituloAreasInactivas" class="modal-title">Áreas trabajadas e inactivas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="TextoSuave">
+                    Se conserva la observación de cada área.
+                    Podés reactivarla si necesita volver a trabajarse.
+                </p>
+
+                <div id="AvisoAreasInactivas" class="alert d-none" role="status" aria-live="polite"></div>
+
+                <div id="ListaAreasInactivas" class="list-group list-group-flush">
+                    Cargando áreas…
                 </div>
             </div>
 
-            <div class="Tarjeta RecomendacionPortal mt-4">
-                <span class="RecomendacionPortal-Icono" aria-hidden="true"><i class="bi bi-lightbulb"></i></span>
-                <div class="flex-grow-1">
-                    <h3 class="h5 mb-1">Recomendaciones para casa</h3>
-                    <p class="TextoSuave mb-0">Consulte las recomendaciones que la profesora registra para apoyar al estudiante.</p>
-                </div>
-                <a class="btn btn-outline-primary" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@Model.Resumen.IdEstudiante" asp-fragment="Recomendaciones">Ver recomendaciones</a>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
-        }
+
+        </div>
     </div>
-</main>
+</div>
+
+<!-- Modal confirmar desactivación -->
+<div id="ModalDesactivarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloDesactivarArea" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="TituloDesactivarArea" class="modal-title">Marcar área como trabajada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <p id="NombreDesactivarArea" class="fw-semibold"></p>
+
+                <p>
+                    Dejará de aparecer entre las áreas actuales de este estudiante.
+                    Se conservará como área trabajada y podrás reactivarla.
+                </p>
+
+                <div id="AvisoDesactivarArea" class="alert d-none" role="alert"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button id="ConfirmarDesactivarArea" type="button" class="btn btn-danger">Desactivar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal editar ficha -->
+<div id="ModalEditarFicha" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarFicha" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+
+            <form id="FormularioEditarFicha" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 id="TituloEditarFicha" class="modal-title">Editar ficha del estudiante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label for="EditarNombreFicha" class="form-label">Nombre</label>
+                            <input id="EditarNombreFicha" type="text" class="form-control" maxlength="100" required value="@Model.Nombre">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarPrimerApellidoFicha" class="form-label">Primer apellido</label>
+                            <input id="EditarPrimerApellidoFicha" type="text" class="form-control" maxlength="100" required value="@Model.PrimerApellido">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarSegundoApellidoFicha" class="form-label">Segundo apellido</label>
+                            <input id="EditarSegundoApellidoFicha" type="text" class="form-control" maxlength="100" value="@Model.SegundoApellido">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarFechaNacimientoFicha" class="form-label">Fecha de nacimiento</label>
+                            <input id="EditarFechaNacimientoFicha" type="text" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa" value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarNivelFicha" class="form-label">Nivel educativo</label>
+
+                            <select id="EditarNivelFicha" class="form-select">
+                                <option value="">Sin especificar</option>
+
+                                @foreach (var nivel in niveles)
+                                {
+                                    <option value="@nivel.IdNivelEducativo" selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
+                                        @nivel.Nombre
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="EditarInstitucionFicha" class="form-label">Institución</label>
+                            <input id="EditarInstitucionFicha" type="text" class="form-control" maxlength="100" value="@Model.Institucion">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="EditarResumenFicha" class="form-label">Observaciones</label>
+                            <textarea id="EditarResumenFicha" class="form-control" maxlength="1000" rows="3">@Model.Observaciones</textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="EditarNecesidadesFicha" class="form-label">Necesidades de apoyo</label>
+                            <textarea id="EditarNecesidadesFicha" class="form-control" maxlength="1000" rows="3">@Model.NecesidadesApoyo</textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
 @section Scripts {
-    <script src="~/js/inicioPortal.js" asp-append-version="true"></script>
+    <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
+    <script src="~/js/areasEstado.js" asp-append-version="true"></script>
 }
