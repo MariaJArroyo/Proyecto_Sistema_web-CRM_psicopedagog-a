@@ -50,7 +50,6 @@ public static class CrmData
 
     public static readonly object[] Planes = Array.Empty<object>();
     public static readonly object[] Sesiones = Array.Empty<object>();
-    public static readonly object[] Materiales = Array.Empty<object>();
     public static readonly object[] Usuarios = Array.Empty<object>();
     public static readonly object[] UsuariosExternos = Array.Empty<object>();
     public static readonly object[] Comunicacion = Array.Empty<object>();

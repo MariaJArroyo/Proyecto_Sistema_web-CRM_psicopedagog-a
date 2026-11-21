@@ -1,0 +1,288 @@
+﻿### Pruebas de PDF y verificacion de enlaces (M11)
+###
+### Como correrlo:
+###   1. Levantar el API. Al arrancar crea la carpeta Archivos/Materiales si
+###      no existe.
+###   2. Ejecutar los logins y pegar cada token donde corresponde.
+###   3. Las altas devuelven el id nuevo; ponerlo en las variables de abajo.
+###   4. Para el caso del archivo grande, generar uno de 11 MB junto a este
+###      archivo (no se sube a git):
+###        python -c "open('grande.pdf','wb').write(b'%PDF-1.4\n'+b'0'*11534336)"
+###
+### ESCRIBEN: las subidas (fila en TB_MATERIAL y archivo en Archivos/Materiales)
+### y las altas de enlaces. Para dejar el entorno como estaba hay que borrar
+### esas filas y sus archivos. Ojo: al arrancar, el API completa las citas
+### vencidas y les genera su cobro; eso tambien hay que revertirlo.
+###
+### Respuestas:
+###   - Subida: 200 { idMaterial, mensaje } o 400 { mensaje }.
+###   - Descarga: el PDF con el titulo como nombre, o 404/400 { mensaje }.
+###   - Verificar enlace: SIEMPRE 200 { disponible, mensaje } cuando el
+###     material existe y es un enlace, aunque el enlace este caido. 404 si no
+###     existe (personal) y 400 si no es enlace o no esta publicado (portal).
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoEncargado = andrea.prueba@example.com
+@claveEncargado = Andrea123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenEncargado = PEGAR_AQUI_EL_TOKEN_DEL_ENCARGADO
+@idPdf = 2
+@idPdfBorrador = 3
+@idEnlaceBueno = 4
+@idEnlaceLocal = 5
+@idEnlacePrivado = 6
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del encargado.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoEncargado}}",
+  "contrasena": "{{claveEncargado}}"
+}
+
+# =====================================================
+# SUBIDA DE PDF  -  POST api/materiales/pdf
+# =====================================================
+
+### 1. Bueno: PDF valido, publicado, sin titulo. Esperado 200; el titulo
+###    queda "guia-fracciones" (el nombre sin la extension). Anotar el id
+###    en @idPdf.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="guia-fracciones.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4
+1 0 obj<<>>endobj
+trailer<<>>
+%%EOF
+--limite
+Content-Disposition: form-data; name="publicar"
+
+true
+--limite
+Content-Disposition: form-data; name="idNivelEducativo"
+
+2
+--limite--
+
+### 2. Bueno: con titulo y como borrador. Esperado 200. Anotar el id en
+###    @idPdfBorrador.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="borrador.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4
+%%EOF
+--limite
+Content-Disposition: form-data; name="titulo"
+
+Guía de comprensión lectora
+--limite--
+
+### 3. Malo: extension .pdf pero el contenido no empieza con %PDF.
+###    Esperado 400 "El archivo no es un PDF válido." y ningun archivo nuevo
+###    en Archivos/Materiales.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="falso.pdf"
+Content-Type: application/pdf
+
+esto es texto con extension pdf
+--limite--
+
+### 4. Malo: contenido PDF con extension .txt. Esperado 400 "Solo se
+###    permiten archivos en formato PDF."
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="documento.txt"
+Content-Type: text/plain
+
+%PDF-1.4
+--limite--
+
+### 5. Malo: archivo de 11 MB (ver paso 4 de arriba). Esperado 400 "El
+###    archivo no puede pasar de 10 MB." sin que el API lea el cuerpo.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="grande.pdf"
+Content-Type: application/pdf
+
+< ./grande.pdf
+--limite--
+
+### 6. Nombre con ".." en el archivo. Esperado 200: el nombre que manda el
+###    navegador nunca se usa como ruta, el archivo se guarda con un GUID y el
+###    titulo queda "appsettings". Revisar que no aparezca nada fuera de
+###    Archivos/Materiales.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="../../appsettings.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4
+--limite--
+
+### 7. Malo: sin archivo. Esperado 400 "Seleccione un archivo PDF."
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="titulo"
+
+Sin archivo
+--limite--
+
+### 8. Malo: nivel educativo que no existe. Esperado 400, sin archivo nuevo.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="nivel.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4
+--limite
+Content-Disposition: form-data; name="idNivelEducativo"
+
+99
+--limite--
+
+### 9. Malo: rol encargado. Esperado 403.
+POST {{host}}/api/materiales/pdf
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: multipart/form-data; boundary=limite
+
+--limite
+Content-Disposition: form-data; name="archivo"; filename="x.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4
+--limite--
+
+# =====================================================
+# DESCARGA  -  GET api/materiales/{id}/archivo (personal)
+#              GET api/portal/recursos/{id}/archivo (portal)
+# =====================================================
+
+### 10. Bueno: el personal baja un borrador. Esperado 200 application/pdf
+###     con nombre "Guía de comprensión lectora.pdf".
+GET {{host}}/api/materiales/{{idPdfBorrador}}/archivo
+Authorization: Bearer {{token}}
+
+### 11. Malo: el material 1 es un enlace. Esperado 400 "El material no es
+###     un PDF."
+GET {{host}}/api/materiales/1/archivo
+Authorization: Bearer {{token}}
+
+### 12. Malo: material que no existe. Esperado 404.
+GET {{host}}/api/materiales/999/archivo
+Authorization: Bearer {{token}}
+
+### 13. Bueno: el encargado baja un PDF publicado. Esperado 200.
+GET {{host}}/api/portal/recursos/{{idPdf}}/archivo
+Authorization: Bearer {{tokenEncargado}}
+
+### 14. Malo: el encargado pide un borrador. Esperado 400 "El recurso no
+###     está disponible."
+GET {{host}}/api/portal/recursos/{{idPdfBorrador}}/archivo
+Authorization: Bearer {{tokenEncargado}}
+
+### 15. Malo: ".." en la ruta. Esperado 404: la ruta solo acepta un numero.
+GET {{host}}/api/portal/recursos/..%2F..%2Fappsettings.json/archivo
+Authorization: Bearer {{tokenEncargado}}
+
+### 16. Malo: el personal por la ruta del portal. Esperado 403.
+GET {{host}}/api/portal/recursos/{{idPdf}}/archivo
+Authorization: Bearer {{token}}
+
+# =====================================================
+# VERIFICACION DE ENLACES
+#   GET api/materiales/{id}/verificar-enlace (personal)
+#   GET api/portal/recursos/{id}/verificar-enlace (portal)
+# =====================================================
+
+### 17. Alta de un enlace que responde. Anotar el id en @idEnlaceBueno.
+POST {{host}}/api/materiales/enlaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "titulo": "Ejemplo", "url": "https://example.com/", "publicar": true }
+
+### 18. Alta de un enlace a bucle local. Anotar el id en @idEnlaceLocal.
+POST {{host}}/api/materiales/enlaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "titulo": "Local", "url": "http://127.0.0.1:3306/", "publicar": true }
+
+### 19. Alta de un enlace a red privada. Anotar el id en @idEnlacePrivado.
+POST {{host}}/api/materiales/enlaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "titulo": "Privado", "url": "http://10.0.0.1/", "publicar": true }
+
+### 20. Bueno: esperado 200 { "disponible": true }.
+GET {{host}}/api/materiales/{{idEnlaceBueno}}/verificar-enlace
+Authorization: Bearer {{token}}
+
+### 21. Malo: 127.0.0.1. Esperado 200 { "disponible": false, "mensaje":
+###     "El enlace apunta a una dirección interna y no se puede abrir." } y
+###     ninguna conexion al puerto 3306.
+GET {{host}}/api/materiales/{{idEnlaceLocal}}/verificar-enlace
+Authorization: Bearer {{token}}
+
+### 22. Malo: 10.0.0.1. Mismo resultado que el 21.
+GET {{host}}/api/materiales/{{idEnlacePrivado}}/verificar-enlace
+Authorization: Bearer {{token}}
+
+### 23. Malo: el material 1 desde el portal; example.com responde 404 a esa
+###     ruta. Esperado 200 { "disponible": false } con el codigo en el mensaje.
+GET {{host}}/api/portal/recursos/1/verificar-enlace
+Authorization: Bearer {{tokenEncargado}}
+
+### 24. Bueno: desde el portal. Esperado 200 { "disponible": true }.
+GET {{host}}/api/portal/recursos/{{idEnlaceBueno}}/verificar-enlace
+Authorization: Bearer {{tokenEncargado}}
+
+### 25. Malo: verificar un PDF. Esperado 400 "El material no es un enlace."
+GET {{host}}/api/materiales/{{idPdf}}/verificar-enlace
+Authorization: Bearer {{token}}
+
+### 26. Malo: material que no existe. Esperado 404.
+GET {{host}}/api/materiales/999/verificar-enlace
+Authorization: Bearer {{token}}

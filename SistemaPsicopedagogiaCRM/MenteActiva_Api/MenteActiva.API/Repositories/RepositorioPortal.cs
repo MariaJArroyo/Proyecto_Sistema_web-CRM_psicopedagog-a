@@ -146,4 +146,23 @@ public class RepositorioPortal : RepositorioBase, IRepositorioPortal
         return resultados.SingleOrDefault();
     }
 
+    public Task<IReadOnlyList<PortalRecursoResponse>> ListarRecursosAsync(int idUsuario, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+
+        return ConsultarAsync<PortalRecursoResponse>("SP_Portal_ListarRecursos", parametros, cancelacion);
+    }
+
+    public async Task<PortalRecursoDetalleResponse?> ObtenerRecursoAsync(int idUsuario, int idMaterial, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+        parametros.Add("p_IdUsuario", idUsuario);
+        parametros.Add("p_IdMaterial", idMaterial);
+
+        var resultados = await ConsultarAsync<PortalRecursoDetalleResponse>("SP_Portal_ObtenerRecurso", parametros, cancelacion);
+
+        return resultados.SingleOrDefault();
+    }
+
 }

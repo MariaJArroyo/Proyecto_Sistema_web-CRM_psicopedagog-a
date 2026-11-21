@@ -1,0 +1,80 @@
+### Pruebas de los recursos del portal (M11, fase 6)
+###
+### Como correrlo:
+###   1. Levantar el API con la base de 01, 02, 03 y 05 recien corridos.
+###   2. Ejecutar los logins y pegar cada token en su variable.
+###   3. Publicar antes algun material desde Materiales.http para ver filas.
+###
+### GET api/portal/recursos devuelve lo publicado y activo (guias, PDF,
+### actividades y enlaces) a todo encargado con al menos un estudiante activo.
+### El nivel educativo viene como etiqueta, no filtra (D-3). No devuelve
+### RutaArchivo: el PDF se pide por idMaterial en
+### GET api/portal/recursos/{id}/archivo (casos en MaterialesArchivos.http).
+
+@host = https://localhost:7201
+@tokenAndrea = PEGAR_EL_TOKEN_DE_ANDREA
+@tokenPsico = PEGAR_EL_TOKEN_DE_LA_PSICOPEDAGOGA
+
+### 0a. Login de Andrea (encargada).
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "andrea.prueba@example.com", "contrasena": "Andrea123*" }
+
+### 0b. Login de la psicopedagoga.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{ "correo": "psicopedagoga.prueba@example.com", "contrasena": "Psico123*" }
+
+### 1. Bueno: la encargada lista los recursos. Esperado 200 con un arreglo de
+###    { idMaterial, idTipoMaterial, tipoMaterial, titulo, descripcion, url,
+###      tieneArchivo, idNivelEducativo, nivelEducativo, tipoActividad,
+###      fechaActividad, fechaPublicacion }. Sin borradores ni eliminados y sin
+###    el campo rutaArchivo.
+GET {{host}}/api/portal/recursos
+Authorization: Bearer {{tokenAndrea}}
+
+### 2. Malo: sin token. Esperado 401.
+GET {{host}}/api/portal/recursos
+
+### 3. Malo: personal del consultorio por la ruta del portal. Esperado 403.
+GET {{host}}/api/portal/recursos
+Authorization: Bearer {{tokenPsico}}
+
+### ------------------------------------------------------------------
+### Archivo del material de una tarea:
+### GET api/portal/tareas/{idTareaAsignacion}/archivo?idEstudiante={id}
+### Pasa por el mismo control de ruta que los recursos (AlmacenMateriales) y
+### baja como application/pdf con el titulo del material como nombre. Hace
+### falta una tarea con material PDF asignada a Lucia (estudiante 1): crear el
+### PDF con MaterialesArchivos.http y la tarea con Tareas.http, y poner aqui el
+### id de la asignacion (TB_TAREA_ASIGNACION).
+@idAsignacion = 3
+
+### 4. Bueno: Andrea baja el PDF de la tarea de Lucia. Esperado 200,
+###    Content-Type application/pdf y filename con el titulo del material.
+GET {{host}}/api/portal/tareas/{{idAsignacion}}/archivo?idEstudiante=1
+Authorization: Bearer {{tokenAndrea}}
+
+### 5. Malo: estudiante que no es de Andrea. Esperado 400 con
+###    "El estudiante no esta disponible o no esta a su cargo."
+GET {{host}}/api/portal/tareas/{{idAsignacion}}/archivo?idEstudiante=2
+Authorization: Bearer {{tokenAndrea}}
+
+### 6. Malo: asignacion que no existe. Esperado 400 con
+###    "La tarea no esta asignada al estudiante indicado."
+GET {{host}}/api/portal/tareas/99999/archivo?idEstudiante=1
+Authorization: Bearer {{tokenAndrea}}
+
+### 7. Malo: personal del consultorio. Esperado 403.
+GET {{host}}/api/portal/tareas/{{idAsignacion}}/archivo?idEstudiante=1
+Authorization: Bearer {{tokenPsico}}
+
+### 8. Malo: RutaArchivo manipulada en la base (por ejemplo
+###    UPDATE TB_MATERIAL SET RutaArchivo = '../../appsettings.json') o archivo
+###    que ya no esta en disco. Esperado 404 con
+###    "El archivo no esta disponible en el servidor." Devolver la ruta despues.
+GET {{host}}/api/portal/tareas/{{idAsignacion}}/archivo?idEstudiante=1
+Authorization: Bearer {{tokenAndrea}}
+

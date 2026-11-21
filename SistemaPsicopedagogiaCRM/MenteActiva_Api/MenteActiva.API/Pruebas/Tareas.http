@@ -1,0 +1,326 @@
+﻿### Pruebas de los endpoints de tareas (M11, HU-M11-3)
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos: trae la tarea 1 (vencida, con dos asignados) y el material 1.
+###   2. Ejecutar los logins y pegar cada token donde corresponde.
+###   3. Ejecutar de arriba hacia abajo. El alta devuelve el id nuevo; con la
+###      base recien creada sale 2 y la variable ya esta puesta asi. Si no,
+###      cambiarla.
+###
+### ESCRIBEN: crear, editar y eliminar, y cada uno deja su fila en TB_BITACORA.
+### Para dejar el entorno como estaba hay que borrar la tarea creada y sus
+### asignaciones, o volver a correr los scripts. Al arrancar, el API completa las
+### citas vencidas y les genera su cobro; eso tambien hay que revertirlo.
+###
+### Errores: las reglas que no se cumplen salen como 400 con { "mensaje" }. Una
+### tarea que no existe o esta dada de baja da 404 al leerla y 400 al escribirla.
+###
+### Selector de estudiantes del formulario: GET /api/estudiantes (solo activos).
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoEncargado = andrea.prueba@example.com
+@claveEncargado = Andrea123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenEncargado = PEGAR_AQUI_EL_TOKEN_DEL_ENCARGADO
+@idTarea = 2
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del encargado, para las pruebas de rol.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoEncargado}}",
+  "contrasena": "{{claveEncargado}}"
+}
+
+# =====================================================
+# CONSULTAS
+# =====================================================
+
+### 1. Listar. Esperado 200 con la tarea 1 (asignados = 2, entregaron = 1).
+GET {{host}}/api/tareas
+Authorization: Bearer {{token}}
+
+### 2. Listar como encargado. Esperado 403: el portal no lee por aqui.
+GET {{host}}/api/tareas
+Authorization: Bearer {{tokenEncargado}}
+
+### 3. Listar sin token. Esperado 401.
+GET {{host}}/api/tareas
+
+### 4. Obtener una. Esperado 200 con la tarea y su arreglo "estudiantes".
+GET {{host}}/api/tareas/1
+Authorization: Bearer {{token}}
+
+### 5. Obtener una que no existe. Esperado 404 con
+###    { "mensaje": "La tarea no existe." }
+GET {{host}}/api/tareas/999
+Authorization: Bearer {{token}}
+
+# =====================================================
+# ALTA
+# =====================================================
+
+### 6. Crear con material y dos estudiantes. El id repetido se ignora.
+###    Esperado 200 con idTarea.
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idMaterial": 1,
+  "titulo": "Prueba de tarea",
+  "descripcion": "Leer y comentar.",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1, 1, 2]
+}
+
+### 7. Sin titulo. Esperado 400 con "Escriba el título de la tarea."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "   ",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1]
+}
+
+### 8. Fecha en el pasado. Esperado 400 con
+###    "La fecha límite no puede ser anterior a hoy."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Tarea vieja",
+  "fechaLimite": "2026-11-01",
+  "idEstudiantes": [1]
+}
+
+### 9. Sin fecha. Esperado 400 con "Indique la fecha límite de la tarea."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Sin fecha",
+  "idEstudiantes": [1]
+}
+
+### 10. Sin estudiantes (ausente o vacio). Esperado 400 con
+###     "Asigne la tarea a por lo menos un estudiante."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Sin estudiantes",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": []
+}
+
+### 11. Id de estudiante negativo. Esperado 400 con
+###     "La lista de estudiantes no tiene un formato válido."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Id malo",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [-1]
+}
+
+### 12. Estudiante que no existe. Lo rechaza el procedimiento. Esperado 400 con
+###     "Ninguno de los estudiantes indicados está activo. Elija al menos un estudiante activo."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Estudiante fantasma",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [9999]
+}
+
+### 13. Material que no existe. Esperado 400 con
+###     "El material indicado no existe o está inactivo."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idMaterial": 999,
+  "titulo": "Material fantasma",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1]
+}
+
+### 14. Titulo de mas de 150 caracteres. Esperado 400 con
+###     "El título no puede pasar de 150 caracteres."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1]
+}
+
+### 15. Lista larga (100 ids, mas de 500 caracteres en JSON). Ya no hay tope de
+###     largo: llega entera al procedimiento. Esos ids no existen, asi que el
+###     esperado es 400 con "Ninguno de los estudiantes indicados está activo. ..."
+POST {{host}}/api/tareas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Demasiados",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1011,1012,1013,1014,1015,1016,1017,1018,1019,1020,1021,1022,1023,1024,1025,1026,1027,1028,1029,1030,1031,1032,1033,1034,1035,1036,1037,1038,1039,1040,1041,1042,1043,1044,1045,1046,1047,1048,1049,1050,1051,1052,1053,1054,1055,1056,1057,1058,1059,1060,1061,1062,1063,1064,1065,1066,1067,1068,1069,1070,1071,1072,1073,1074,1075,1076,1077,1078,1079,1080,1081,1082,1083,1084,1085,1086,1087,1088,1089,1090,1091,1092,1093,1094,1095,1096,1097,1098,1099,1100]
+}
+
+### 16. Crear como encargado. Esperado 403.
+POST {{host}}/api/tareas
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: application/json
+
+{
+  "titulo": "No debe crearse",
+  "fechaLimite": "2026-12-15",
+  "idEstudiantes": [1]
+}
+
+# =====================================================
+# EDICION
+# =====================================================
+
+### 17. Editar sin mandar estudiantes: quita el material y deja la asignacion
+###     como estaba. Esperado 200.
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idMaterial": null,
+  "titulo": "Prueba de tarea editada",
+  "descripcion": "",
+  "fechaLimite": "2026-12-20"
+}
+
+### 18. Reasignar a otros estudiantes. Quita a los que no vienen y no hayan
+###     entregado, y agrega los nuevos. Esperado 200; comprobar con
+###     GET /api/tareas/{{idTarea}}.
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Prueba de tarea editada",
+  "fechaLimite": "2026-12-20",
+  "idEstudiantes": [1, 3]
+}
+
+### 19. Tarea que no existe. Esperado 400 con "La tarea indicada no existe."
+PUT {{host}}/api/tareas/999
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "No existe",
+  "fechaLimite": "2026-12-20"
+}
+
+### 20. Cambiar la fecha a una pasada. Esperado 400 con
+###     "La fecha límite no puede ser anterior a hoy."
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Prueba de tarea editada",
+  "fechaLimite": "2026-11-01"
+}
+
+### 21. Editar una tarea ya vencida sin cambiarle la fecha (la tarea 1 vence el
+###     2026-09-20). Esperado 200: solo se rechaza el pasado si la fecha cambia.
+PUT {{host}}/api/tareas/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idMaterial": 1,
+  "titulo": "Lectura de la semana",
+  "descripcion": "Leer un cuento del material y comentarlo.",
+  "fechaLimite": "2026-09-20"
+}
+
+### 22. Estudiantes que no existen: no cambia nada. Esperado 400 con
+###     "Ninguno de los estudiantes indicados está activo. ..."
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Prueba de tarea editada",
+  "fechaLimite": "2026-12-20",
+  "idEstudiantes": [9999]
+}
+
+### 23. Material que no existe. Esperado 400 con
+###     "El material indicado no existe o está inactivo."
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "idMaterial": 999,
+  "titulo": "Prueba de tarea editada",
+  "fechaLimite": "2026-12-20"
+}
+
+### 24. Editar como encargado. Esperado 403.
+PUT {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: application/json
+
+{
+  "titulo": "No debe cambiar",
+  "fechaLimite": "2026-12-20"
+}
+
+# =====================================================
+# BAJA
+# =====================================================
+
+### 25. Eliminar como encargado. Esperado 403.
+DELETE {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{tokenEncargado}}
+
+### 26. Eliminar (baja logica). Esperado 200 con "Tarea eliminada." Las
+###     asignaciones quedan como historial.
+DELETE {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+
+### 27. Eliminar la misma otra vez. Esperado 400 con
+###     "La tarea indicada no existe o ya fue eliminada."
+DELETE {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}
+
+### 28. Obtener la eliminada. Esperado 404.
+GET {{host}}/api/tareas/{{idTarea}}
+Authorization: Bearer {{token}}

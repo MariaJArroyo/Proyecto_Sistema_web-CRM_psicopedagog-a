@@ -375,7 +375,7 @@ public class PortalController : Controller
 
             Response.Headers.CacheControl = "no-store";
 
-            return File(contenido,"application/octet-stream",Path.GetFileName(nombre));
+            return File(contenido,"application/pdf",Path.GetFileName(nombre));
         }
         catch (HttpRequestException)
         {
@@ -393,6 +393,123 @@ public class PortalController : Controller
             });
         }
     }
+    #endregion
+
+
+    #region Recursos (HU-M11-2, 4 y 5)
+
+    // Los recursos no son por estudiante: todo encargado con un estudiante activo
+    // ve lo publicado. Se cargan los estudiantes solo para el selector del menu.
+    public async Task<IActionResult> Recursos(int? idEstudiante, CancellationToken cancelacion)
+    {
+        var modelo = new PortalRecursosViewModel();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var rutaInicio = "portal/inicio";
+
+            if (idEstudiante.HasValue)
+            {
+                rutaInicio += $"?idEstudiante={idEstudiante.Value}";
+            }
+
+            var inicio = await client.GetFromJsonAsync<PortalInicioViewModel>(UrlApi(rutaInicio), cancelacion);
+
+            if (inicio is not null)
+            {
+                modelo.Estudiantes = inicio.Estudiantes;
+                modelo.IdEstudiante = inicio.Resumen.IdEstudiante;
+            }
+
+            modelo.Recursos = await client
+                .GetFromJsonAsync<List<PortalRecursoViewModel>>(UrlApi("portal/recursos"), cancelacion)
+                ?? [];
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            ViewBag.ErrorCarga =
+                "No se pudo validar su sesión con el servicio. " + "Cierre sesión y vuelva a ingresar.";
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return Forbid();
+        }
+        catch (HttpRequestException)
+        {
+            ViewBag.ErrorCarga =
+                "No se pudieron cargar los recursos. Verifique la conexión " + "y que tenga estudiantes activos vinculados a su cuenta.";
+        }
+        catch (TaskCanceledException)
+            when (!cancelacion.IsCancellationRequested)
+        {
+            ViewBag.ErrorCarga =
+                "El servicio tardó demasiado en responder. " + "Intente nuevamente.";
+        }
+        catch (JsonException)
+        {
+            ViewBag.ErrorCarga = "No se pudo interpretar la información de los recursos.";
+        }
+
+        return View(modelo);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarRecurso(int idMaterial, CancellationToken cancelacion)
+    {
+        if (idMaterial <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un recurso válido." });
+        }
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            using var respuesta = await client.GetAsync(
+                UrlApi($"portal/recursos/{idMaterial}/archivo"),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancelacion);
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                return new ContentResult
+                {
+                    StatusCode = (int)respuesta.StatusCode,
+                    ContentType = "application/json",
+                    Content = await respuesta.Content.ReadAsStringAsync(cancelacion)
+                };
+            }
+
+            var nombre =
+                respuesta.Content.Headers.ContentDisposition?.FileNameStar
+                ?? respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+                ?? "recurso.pdf";
+
+            var contenido = await respuesta.Content.ReadAsByteArrayAsync(cancelacion);
+
+            Response.Headers.CacheControl = "no-store";
+
+            return File(contenido, "application/pdf", Path.GetFileName(nombre));
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503, new { mensaje = "No se pudo conectar con el servicio de archivos." });
+        }
+        catch (TaskCanceledException)
+            when (!cancelacion.IsCancellationRequested)
+        {
+            return StatusCode(504, new { mensaje = "La descarga tardó demasiado en responder." });
+        }
+    }
+
+    [HttpGet]
+    public Task<IActionResult> VerificarEnlaceRecurso(int idMaterial, CancellationToken cancelacion)
+        => ReenviarGetAsync($"portal/recursos/{idMaterial}/verificar-enlace", cancelacion);
+
     #endregion
 
 
