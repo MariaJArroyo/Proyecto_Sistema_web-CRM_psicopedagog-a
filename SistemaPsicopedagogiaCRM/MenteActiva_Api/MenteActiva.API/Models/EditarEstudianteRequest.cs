@@ -27,4 +27,10 @@ public class EditarEstudianteRequest
 
     [StringLength(1000)]
     public string? NecesidadesApoyo { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione una persona encargada.")]
+    public int IdEncargado { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Seleccione un parentesco.")]
+    public int IdParentesco { get; set; }
 }
