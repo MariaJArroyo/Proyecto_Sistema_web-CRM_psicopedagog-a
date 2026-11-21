@@ -1728,56 +1728,29 @@ BEGIN
 END$$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS SP_ConsultarEstudiantes_CRM;
-DELIMITER $$
-CREATE PROCEDURE SP_ConsultarEstudiantes_CRM()
+CREATE PROCEDURE SP_Portal_ListarEstudiantesPerfil(
+    IN p_IdUsuario INT
+)
 BEGIN
-
-     SELECT
+    SELECT
         e.IdEstudiante,
-
-        CONCAT(
-            e.Nombre,
-            ' ',
-            e.PrimerApellido,
-            ' ',
-            COALESCE(e.SegundoApellido, '')
-        ) AS Estudiante,
-
-        e.FechaNacimiento,
-
+        TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, NULLIF(e.SegundoApellido, ''))) AS Estudiante,
         ne.Nombre AS NivelEducativo,
-
-        i.Nombre AS Institucion,
-
-        CONCAT(
-            en.Nombre,
-            ' ',
-            en.PrimerApellido
-        ) AS Encargado
-
-    FROM TB_ESTUDIANTE e
-
-    LEFT JOIN TB_NIVEL_EDUCATIVO ne
-        ON ne.IdNivelEducativo = e.IdNivelEducativo
-
-    LEFT JOIN TB_INSTITUCION i
-        ON i.IdInstitucion = e.IdInstitucion
-
-    LEFT JOIN TB_ESTUDIANTE_ENCARGADO ee
-        ON ee.IdEstudiante = e.IdEstudiante
-        AND ee.EsPrincipal = 1
-
-    LEFT JOIN TB_ENCARGADO en
-        ON en.IdEncargado = ee.IdEncargado
-
-    WHERE e.Activo = 1
-
-    ORDER BY e.FechaRegistro DESC;
-
-
-
+        i.Nombre  AS Institucion,
+        p.Nombre  AS Parentesco,
+        e.FechaNacimiento,
+        ee.EsPrincipal
+    FROM TB_USUARIO u
+    JOIN TB_ENCARGADO en            ON en.IdEncargado = u.IdEncargado AND en.Activo = 1
+    JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEncargado = en.IdEncargado
+    JOIN TB_ESTUDIANTE e            ON e.IdEstudiante = ee.IdEstudiante AND e.Activo = 1
+    JOIN TB_PARENTESCO p            ON p.IdParentesco = ee.IdParentesco
+    LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = e.IdNivelEducativo
+    LEFT JOIN TB_INSTITUCION i      ON i.IdInstitucion = e.IdInstitucion
+    WHERE u.IdUsuario = p_IdUsuario
+    ORDER BY ee.EsPrincipal DESC, e.Nombre, e.PrimerApellido, e.IdEstudiante;
 END$$
+
 DELIMITER ;
 
 
