@@ -1623,77 +1623,144 @@ DELIMITER ;
 -- primero se baja el que estaba, porque el indice unico solo admite uno.
 DROP PROCEDURE IF EXISTS SP_Estudiante_Editar;
 DELIMITER $$
+
 CREATE PROCEDURE SP_Estudiante_Editar(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEstudiante INT,
-  IN p_Nombre VARCHAR(100),
-  IN p_PrimerApellido VARCHAR(100),
-  IN p_SegundoApellido VARCHAR(100),
-  IN p_FechaNacimiento DATE,
-  IN p_IdNivelEducativo INT,
-  IN p_IdInstitucion INT,
-  IN p_Observaciones VARCHAR(1000),
-  IN p_NecesidadesApoyo VARCHAR(1000),
-  IN p_IdEncargadoPrincipal INT
+    IN p_IdUsuarioAccion INT,
+    IN p_IdEstudiante INT,
+    IN p_Nombre VARCHAR(100),
+    IN p_PrimerApellido VARCHAR(100),
+    IN p_SegundoApellido VARCHAR(100),
+    IN p_FechaNacimiento DATE,
+    IN p_IdNivelEducativo INT,
+    IN p_IdInstitucion INT,
+    IN p_Observaciones VARCHAR(1000),
+    IN p_NecesidadesApoyo VARCHAR(1000),
+    IN p_IdEncargadoPrincipal INT,
+    IN p_IdParentesco INT
 )
 BEGIN
-  DECLARE v_Anterior JSON DEFAULT NULL;
+    DECLARE v_Anterior JSON DEFAULT NULL;
 
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
 
-  SELECT JSON_OBJECT('Nombre', Nombre, 'PrimerApellido', PrimerApellido,
-                     'IdNivelEducativo', IdNivelEducativo, 'IdInstitucion', IdInstitucion)
+    SELECT JSON_OBJECT(
+        'Nombre', Nombre,
+        'PrimerApellido', PrimerApellido,
+        'IdNivelEducativo', IdNivelEducativo,
+        'IdInstitucion', IdInstitucion
+    )
     INTO v_Anterior
-  FROM TB_ESTUDIANTE
-  WHERE IdEstudiante = p_IdEstudiante;
+    FROM TB_ESTUDIANTE
+    WHERE IdEstudiante = p_IdEstudiante;
 
-  IF v_Anterior IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe.';
-  END IF;
+    IF v_Anterior IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante indicado no existe.';
+    END IF;
 
-  IF p_IdEncargadoPrincipal IS NOT NULL
-     AND NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO
-                     WHERE IdEstudiante = p_IdEstudiante AND IdEncargado = p_IdEncargadoPrincipal) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ese encargado no esta asociado al estudiante.';
-  END IF;
+    IF p_IdEncargadoPrincipal IS NULL OR p_IdEncargadoPrincipal <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe seleccionar una persona encargada.';
+    END IF;
 
-  START TRANSACTION;
+    IF p_IdParentesco IS NULL OR p_IdParentesco <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe seleccionar un parentesco.';
+    END IF;
 
-  UPDATE TB_ESTUDIANTE
-  SET Nombre = p_Nombre,
-      PrimerApellido = p_PrimerApellido,
-      SegundoApellido = p_SegundoApellido,
-      FechaNacimiento = p_FechaNacimiento,
-      IdNivelEducativo = p_IdNivelEducativo,
-      IdInstitucion = p_IdInstitucion,
-      Observaciones = p_Observaciones,
-      NecesidadesApoyo = p_NecesidadesApoyo,
-      FechaModificacion = NOW()
-  WHERE IdEstudiante = p_IdEstudiante;
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_ENCARGADO
+        WHERE IdEncargado = p_IdEncargadoPrincipal
+          AND Activo = 1
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La persona encargada seleccionada no existe o está inactiva.';
+    END IF;
 
-  IF p_IdEncargadoPrincipal IS NOT NULL THEN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM TB_PARENTESCO
+        WHERE IdParentesco = p_IdParentesco
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El parentesco seleccionado no existe.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE TB_ESTUDIANTE
+    SET Nombre = p_Nombre,
+        PrimerApellido = p_PrimerApellido,
+        SegundoApellido = p_SegundoApellido,
+        FechaNacimiento = p_FechaNacimiento,
+        IdNivelEducativo = p_IdNivelEducativo,
+        IdInstitucion = p_IdInstitucion,
+        Observaciones = p_Observaciones,
+        NecesidadesApoyo = p_NecesidadesApoyo,
+        FechaModificacion = NOW()
+    WHERE IdEstudiante = p_IdEstudiante;
+
+    -- Si el encargado ya estaba relacionado, actualiza su parentesco.
+    -- Si no estaba relacionado, crea la relación sin eliminar las demás.
+    INSERT INTO TB_ESTUDIANTE_ENCARGADO (
+        IdEstudiante,
+        IdEncargado,
+        IdParentesco,
+        EsPrincipal
+    )
+    VALUES (
+        p_IdEstudiante,
+        p_IdEncargadoPrincipal,
+        p_IdParentesco,
+        0
+    )
+    ON DUPLICATE KEY UPDATE
+        IdParentesco = p_IdParentesco;
+
+    -- Cambia el encargado principal.
     UPDATE TB_ESTUDIANTE_ENCARGADO
     SET EsPrincipal = 0
-    WHERE IdEstudiante = p_IdEstudiante AND EsPrincipal = 1;
+    WHERE IdEstudiante = p_IdEstudiante
+      AND EsPrincipal = 1;
 
     UPDATE TB_ESTUDIANTE_ENCARGADO
     SET EsPrincipal = 1
-    WHERE IdEstudiante = p_IdEstudiante AND IdEncargado = p_IdEncargadoPrincipal;
-  END IF;
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdEncargado = p_IdEncargadoPrincipal;
 
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_ESTUDIANTE', p_IdEstudiante, 'Editar', v_Anterior,
-          JSON_OBJECT('Nombre', p_Nombre, 'PrimerApellido', p_PrimerApellido,
-                      'IdNivelEducativo', p_IdNivelEducativo, 'IdInstitucion', p_IdInstitucion));
+    INSERT INTO TB_BITACORA (
+        IdUsuario,
+        Entidad,
+        IdRegistro,
+        Accion,
+        ValorAnterior,
+        ValorNuevo
+    )
+    VALUES (
+        p_IdUsuarioAccion,
+        'TB_ESTUDIANTE',
+        p_IdEstudiante,
+        'Editar',
+        v_Anterior,
+        JSON_OBJECT(
+            'Nombre', p_Nombre,
+            'PrimerApellido', p_PrimerApellido,
+            'IdNivelEducativo', p_IdNivelEducativo,
+            'IdInstitucion', p_IdInstitucion,
+            'IdEncargadoPrincipal', p_IdEncargadoPrincipal,
+            'IdParentesco', p_IdParentesco
+        )
+    );
 
-  COMMIT;
+    COMMIT;
 END$$
-DELIMITER ;
 
+DELIMITER ;
 
 -- Baja logica del estudiante.
 DROP PROCEDURE IF EXISTS SP_Estudiante_Eliminar;
@@ -1884,10 +1951,233 @@ END$$
 
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS SP_BuscarAreasDificultad;
+DELIMITER $$
+CREATE PROCEDURE SP_BuscarAreasDificultad(IN p_Texto VARCHAR(100))
+BEGIN
+    SELECT IdAreaDificultad, Nombre
+    FROM TB_AREA_DIFICULTAD
+    WHERE Nombre LIKE CONCAT('%', TRIM(IFNULL(p_Texto, '')), '%')
+    ORDER BY Nombre
+    LIMIT 20;
+END$$
+DELIMITER ;
 
+DROP PROCEDURE IF EXISTS SP_BuscarNecesidadesApoyo;
+DELIMITER $$
+CREATE PROCEDURE SP_BuscarNecesidadesApoyo(IN p_Texto VARCHAR(100))
+BEGIN
+    SELECT IdNecesidadApoyo, Nombre
+    FROM TB_NECESIDAD_APOYO
+    WHERE Nombre LIKE CONCAT('%', TRIM(IFNULL(p_Texto, '')), '%')
+    ORDER BY Nombre
+    LIMIT 20;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarNecesidad;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_AgregarNecesidad(
+    IN p_IdEstudiante INT,
+    IN p_NombreNecesidad VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_IdNecesidad INT;
+    DECLARE v_Nombre VARCHAR(100);
+    DECLARE v_Activo BOOLEAN DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_Nombre = TRIM(p_NombreNecesidad);
+
+    IF v_Nombre IS NULL OR v_Nombre = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar la necesidad de apoyo.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    START TRANSACTION;
+
+    INSERT INTO TB_NECESIDAD_APOYO (Nombre)
+    VALUES (v_Nombre)
+    ON DUPLICATE KEY UPDATE IdNecesidadApoyo = LAST_INSERT_ID(IdNecesidadApoyo);
+
+    SET v_IdNecesidad = LAST_INSERT_ID();
+
+    SELECT Activo INTO v_Activo
+    FROM TB_ESTUDIANTE_NECESIDAD
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdNecesidadApoyo = v_IdNecesidad
+    FOR UPDATE;
+
+    IF v_Activo = 1 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esta necesidad de apoyo.';
+    ELSEIF v_Activo = 0 THEN
+        UPDATE TB_ESTUDIANTE_NECESIDAD
+        SET Activo = 1,
+            Observacion = NULLIF(TRIM(p_Observacion), '')
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdNecesidadApoyo = v_IdNecesidad;
+    ELSE
+        INSERT INTO TB_ESTUDIANTE_NECESIDAD (IdEstudiante, IdNecesidadApoyo, Observacion)
+        VALUES (p_IdEstudiante, v_IdNecesidad, NULLIF(TRIM(p_Observacion), ''));
+    END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_ListarNecesidades;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_ListarNecesidades(IN p_IdEstudiante INT)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT en.IdNecesidadApoyo, n.Nombre, en.Observacion
+    FROM TB_ESTUDIANTE_NECESIDAD en
+    INNER JOIN TB_NECESIDAD_APOYO n ON n.IdNecesidadApoyo = en.IdNecesidadApoyo
+    WHERE en.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+    ORDER BY n.Nombre;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_QuitarNecesidad;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_QuitarNecesidad(
+    IN p_IdEstudiante INT,
+    IN p_IdNecesidadApoyo INT
+)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_NECESIDAD
+                   WHERE IdEstudiante = p_IdEstudiante
+                     AND IdNecesidadApoyo = p_IdNecesidadApoyo
+                     AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La necesidad indicada no está registrada para este estudiante.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_NECESIDAD
+    SET Activo = 0
+    WHERE IdEstudiante = p_IdEstudiante
+      AND IdNecesidadApoyo = p_IdNecesidadApoyo;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_ListarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_ListarInfoAcademica(IN p_IdEstudiante INT)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no esta disponible.';
+    END IF;
+
+    SELECT IdInfoAcademica, Titulo, Detalle
+    FROM TB_ESTUDIANTE_INFO_ACADEMICA
+    WHERE IdEstudiante = p_IdEstudiante
+      AND Activo = 1
+    ORDER BY FechaRegistro DESC, IdInfoAcademica DESC;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_AgregarInfoAcademica(
+    IN p_IdEstudiante INT,
+    IN p_Titulo VARCHAR(100),
+    IN p_Detalle VARCHAR(1000)
+)
+BEGIN
+    IF NULLIF(TRIM(p_Titulo), '') IS NULL OR NULLIF(TRIM(p_Detalle), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el título y el detalle.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    INSERT INTO TB_ESTUDIANTE_INFO_ACADEMICA (IdEstudiante, Titulo, Detalle)
+    VALUES (p_IdEstudiante, TRIM(p_Titulo), TRIM(p_Detalle));
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_EditarInfoAcademica(
+    IN p_IdEstudiante INT,
+    IN p_IdInfoAcademica INT,
+    IN p_Titulo VARCHAR(100),
+    IN p_Detalle VARCHAR(1000)
+)
+BEGIN
+    IF NULLIF(TRIM(p_Titulo), '') IS NULL OR NULLIF(TRIM(p_Detalle), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el título y el detalle.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_INFO_ACADEMICA
+                   WHERE IdInfoAcademica = p_IdInfoAcademica
+                     AND IdEstudiante = p_IdEstudiante
+                     AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La información indicada no está registrada para este estudiante.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_INFO_ACADEMICA
+    SET Titulo = TRIM(p_Titulo),
+        Detalle = TRIM(p_Detalle),
+        FechaModificacion = NOW()
+    WHERE IdInfoAcademica = p_IdInfoAcademica
+      AND IdEstudiante = p_IdEstudiante;
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_QuitarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_QuitarInfoAcademica(
+    IN p_IdEstudiante INT,
+    IN p_IdInfoAcademica INT
+)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_INFO_ACADEMICA
+                   WHERE IdInfoAcademica = p_IdInfoAcademica
+                     AND IdEstudiante = p_IdEstudiante
+                     AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La información indicada no está registrada para este estudiante.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_INFO_ACADEMICA
+    SET Activo = 0, FechaModificacion = NOW()
+    WHERE IdInfoAcademica = p_IdInfoAcademica
+      AND IdEstudiante = p_IdEstudiante;
+END$$
+DELIMITER ;
 -- ============================================================
 -- REEMPLAZAR: Agregar área de dificultad
 -- ============================================================
+
 
 -- ============================================================
 -- REEMPLAZAR: Editar área de dificultad
@@ -2164,8 +2454,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS SP_Estudiante_EditarFicha;
-DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_EditarFicha(
     IN p_IdUsuarioAccion INT,
     IN p_IdEstudiante INT,
@@ -2176,7 +2464,9 @@ CREATE PROCEDURE SP_Estudiante_EditarFicha(
     IN p_IdNivelEducativo INT,
     IN p_NombreInstitucion VARCHAR(100),
     IN p_Observaciones VARCHAR(1000),
-    IN p_NecesidadesApoyo VARCHAR(1000)
+    IN p_NecesidadesApoyo VARCHAR(1000),
+    IN p_IdEncargado INT,
+    IN p_IdParentesco INT
 )
 BEGIN
     DECLARE v_IdInstitucion INT DEFAULT NULL;
@@ -2191,23 +2481,27 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM TB_ESTUDIANTE
-        WHERE IdEstudiante = p_IdEstudiante AND Activo = 1
+        SELECT 1
+        FROM TB_ESTUDIANTE
+        WHERE IdEstudiante = p_IdEstudiante
+          AND Activo = 1
     ) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
     END IF;
 
-    -- Institución escrita a mano: se busca por nombre y, si no existe, se crea
     IF v_NombreInstitucion IS NOT NULL THEN
 
-        SELECT IdInstitucion INTO v_IdInstitucion
+        SELECT IdInstitucion
+        INTO v_IdInstitucion
         FROM TB_INSTITUCION
         WHERE Nombre = v_NombreInstitucion
         LIMIT 1;
 
         IF v_IdInstitucion IS NULL THEN
-            INSERT INTO TB_INSTITUCION (Nombre) VALUES (v_NombreInstitucion);
+            INSERT INTO TB_INSTITUCION (Nombre)
+            VALUES (v_NombreInstitucion);
+
             SET v_IdInstitucion = LAST_INSERT_ID();
         END IF;
 
@@ -2224,9 +2518,11 @@ BEGIN
         v_IdInstitucion,
         NULLIF(TRIM(p_Observaciones), ''),
         NULLIF(TRIM(p_NecesidadesApoyo), ''),
-        NULL
+        p_IdEncargado,
+        p_IdParentesco
     );
 END$$
+
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS SP_Estudiante_CrearConEncargado;

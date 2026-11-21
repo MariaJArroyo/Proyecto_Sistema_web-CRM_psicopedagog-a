@@ -47,11 +47,6 @@
             <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
             <p class="TextoSuave mb-0">Información individual del estudiante</p>
         </div>
-
-        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalEditarFicha">
-            <i class="bi bi-pencil me-1" aria-hidden="true"></i>
-            Editar ficha
-        </button>
     </div>
 
     <!-- Layout de 2 columnas según boceto -->
@@ -92,24 +87,49 @@
 
                 <hr class="my-3">
 
-                <div>
-                    <h4 class="h6 fw-semibold mb-2">Necesidades de apoyo</h4>
+                <section id="NecesidadesApoyo"
+                         data-id-estudiante="@Model.IdEstudiante"
+                         data-url-lista="@Url.Action("ConsultarNecesidadesEstudiante", "Admin")"
+                         data-url-quitar="@Url.Action("QuitarNecesidadEstudiante", "Admin")">
+                    @Html.AntiForgeryToken()
+
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <h4 class="h6 fw-semibold mb-0">Necesidades de apoyo</h4>
+
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarNecesidad">
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                            Agregar necesidad
+                        </button>
+                    </div>
+
+                    <div id="AvisoNecesidades" class="alert d-none" role="status" aria-live="polite"></div>
+
+                    <div id="ListaNecesidadesApoyo">Cargando necesidades…</div>
 
                     @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
                     {
-                        <p id="FichaDatoNecesidades" class="mb-0">@Model.NecesidadesApoyo</p>
+                        <!-- Texto libre anterior (columna NecesidadesApoyo de TB_ESTUDIANTE) -->
+                        <p class="TextoSuave small mt-3 mb-0">Nota anterior: <span id="FichaDatoNecesidades">@Model.NecesidadesApoyo</span></p>
                     }
-                    else
-                    {
-                        <p id="FichaDatoNecesidades" class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
-                    }
-                </div>
+                </section>
             </div>
 
-            <div class="Tarjeta p-3 p-md-4">
-                <h3 class="mb-3">Información académica</h3>
+            <section id="InfoAcademica" class="Tarjeta p-3 p-md-4"
+                     data-id-estudiante="@Model.IdEstudiante"
+                     data-url-lista="@Url.Action("ConsultarInfoAcademicaEstudiante", "Admin")"
+                     data-url-quitar="@Url.Action("QuitarInfoAcademicaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
 
-                <dl class="row mb-0">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <h3 class="mb-0">Información académica</h3>
+
+                    <button id="BotonAgregarInfoAcademica" type="button" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                        Agregar información
+                    </button>
+                </div>
+
+                <dl class="row mb-3">
                     <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
                     <dd id="FichaDatoMateria" class="col-sm-8">
                         @(Model.AreasDificultad ?? "No registradas")
@@ -120,7 +140,11 @@
                         @(Model.Observaciones ?? "No hay observaciones registradas.")
                     </dd>
                 </dl>
-            </div>
+
+                <div id="AvisoInfoAcademica" class="alert d-none" role="status" aria-live="polite"></div>
+
+                <div id="ListaInfoAcademica" class="list-group list-group-flush">Cargando información…</div>
+            </section>
 
         </div>
 
@@ -279,7 +303,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioAgregarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
+            <form id="FormularioAgregarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("AgregarAreaEstudiante", "Admin")" data-url-buscar="@Url.Action("BuscarAreasDificultad", "Admin")">
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
@@ -290,7 +314,11 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="NombreArea" class="form-label">Área</label>
-                        <input id="NombreArea" name="NombreArea" type="text" class="form-control" maxlength="100" required placeholder="Ej. Razonamiento lógico-matemático">
+                        <div class="position-relative">
+                            <input id="NombreArea" name="NombreArea" type="text" class="form-control" maxlength="100" required autocomplete="off" placeholder="Busque o escriba un área (Ej. Razonamiento lógico-matemático)">
+                            <div id="ResultadosArea" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="AvisoLookupArea" class="form-text"></div>
                     </div>
 
                     <div class="mb-1">
@@ -309,12 +337,94 @@
     </div>
 </div>
 
+<!-- Modal agregar / editar información académica -->
+<div id="ModalInfoAcademica" class="modal fade" tabindex="-1" aria-labelledby="TituloModalInfoAcademica" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioInfoAcademica"
+                  data-url-agregar="@Url.Action("AgregarInfoAcademicaEstudiante", "Admin")"
+                  data-url-editar="@Url.Action("EditarInfoAcademicaEstudiante", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <input id="IdInfoAcademica" type="hidden">
+
+                <div class="modal-header">
+                    <h5 id="TituloModalInfoAcademica" class="modal-title">Agregar información académica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="AlertaInfoAcademica" class="alert d-none" role="alert"></div>
+
+                    <div class="mb-3">
+                        <label for="TituloInfoAcademica" class="form-label">Título</label>
+                        <input id="TituloInfoAcademica" type="text" class="form-control" maxlength="100" required placeholder="Ej. Rendimiento en matemática">
+                    </div>
+
+                    <div class="mb-1">
+                        <label for="DetalleInfoAcademica" class="form-label">Detalle</label>
+                        <textarea id="DetalleInfoAcademica" class="form-control" maxlength="1000" rows="4" required></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- Modal agregar necesidad de apoyo -->
+<div id="ModalAgregarNecesidad" class="modal fade" tabindex="-1" aria-labelledby="TituloAgregarNecesidad" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioAgregarNecesidad" data-url="@Url.Action("AgregarNecesidadEstudiante", "Admin")" data-url-buscar="@Url.Action("BuscarNecesidadesApoyo", "Admin")">
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 id="TituloAgregarNecesidad" class="modal-title">Agregar necesidad de apoyo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="AlertaAgregarNecesidad" class="alert d-none" role="alert"></div>
+
+                    <div class="mb-3">
+                        <label for="NombreNecesidad" class="form-label">Necesidad</label>
+                        <div class="position-relative">
+                            <input id="NombreNecesidad" type="text" class="form-control" maxlength="100" required autocomplete="off" placeholder="Busque o escriba una necesidad de apoyo">
+                            <div id="ResultadosNecesidad" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="AvisoLookupNecesidad" class="form-text"></div>
+                    </div>
+
+                    <div class="mb-1">
+                        <label for="ObservacionNecesidad" class="form-label">Observación</label>
+                        <textarea id="ObservacionNecesidad" class="form-control" maxlength="500" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
 <!-- Modal editar área -->
 <div id="ModalEditarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarArea" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioEditarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
+            <form id="FormularioEditarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarAreaEstudiante", "Admin")" data-url-buscar="@Url.Action("BuscarAreasDificultad", "Admin")">
                 @Html.AntiForgeryToken()
 
                 <input id="EditarIdArea" type="hidden">
@@ -327,7 +437,11 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="EditarNombreArea" class="form-label">Área</label>
-                        <input id="EditarNombreArea" type="text" class="form-control" maxlength="100" required>
+                        <div class="position-relative">
+                            <input id="EditarNombreArea" type="text" class="form-control" maxlength="100" required autocomplete="off">
+                            <div id="ResultadosEditarArea" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="AvisoLookupEditarArea" class="form-text"></div>
                     </div>
 
                     <div class="mb-1">
@@ -402,86 +516,6 @@
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button id="ConfirmarDesactivarArea" type="button" class="btn btn-danger">Desactivar</button>
             </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- Modal editar ficha -->
-<div id="ModalEditarFicha" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarFicha" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-
-            <form id="FormularioEditarFicha" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
-                @Html.AntiForgeryToken()
-
-                <div class="modal-header">
-                    <h5 id="TituloEditarFicha" class="modal-title">Editar ficha del estudiante</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-
-                        <div class="col-md-4">
-                            <label for="EditarNombreFicha" class="form-label">Nombre</label>
-                            <input id="EditarNombreFicha" type="text" class="form-control" maxlength="100" required value="@Model.Nombre">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="EditarPrimerApellidoFicha" class="form-label">Primer apellido</label>
-                            <input id="EditarPrimerApellidoFicha" type="text" class="form-control" maxlength="100" required value="@Model.PrimerApellido">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="EditarSegundoApellidoFicha" class="form-label">Segundo apellido</label>
-                            <input id="EditarSegundoApellidoFicha" type="text" class="form-control" maxlength="100" value="@Model.SegundoApellido">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="EditarFechaNacimientoFicha" class="form-label">Fecha de nacimiento</label>
-                            <input id="EditarFechaNacimientoFicha" type="text" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa" value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="EditarNivelFicha" class="form-label">Nivel educativo</label>
-
-                            <select id="EditarNivelFicha" class="form-select">
-                                <option value="">Sin especificar</option>
-
-                                @foreach (var nivel in niveles)
-                                {
-                                    <option value="@nivel.IdNivelEducativo" selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
-                                        @nivel.Nombre
-                                    </option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="EditarInstitucionFicha" class="form-label">Institución</label>
-                            <input id="EditarInstitucionFicha" type="text" class="form-control" maxlength="100" value="@Model.Institucion">
-                        </div>
-
-                        <div class="col-12">
-                            <label for="EditarResumenFicha" class="form-label">Observaciones</label>
-                            <textarea id="EditarResumenFicha" class="form-control" maxlength="1000" rows="3">@Model.Observaciones</textarea>
-                        </div>
-
-                        <div class="col-12">
-                            <label for="EditarNecesidadesFicha" class="form-label">Necesidades de apoyo</label>
-                            <textarea id="EditarNecesidadesFicha" class="form-control" maxlength="1000" rows="3">@Model.NecesidadesApoyo</textarea>
-                        </div>
-
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Actualizar</button>
-                </div>
-
-            </form>
 
         </div>
     </div>
@@ -574,12 +608,13 @@
 }
 
 @section Scripts {
+    <script src="~/js/lookupCatalogo.js" asp-append-version="true"></script>
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
+    <script src="~/js/necesidadesApoyo.js" asp-append-version="true"></script>
+    <script src="~/js/infoAcademica.js" asp-append-version="true"></script>
     <script src="~/js/areasEstado.js" asp-append-version="true"></script>
     @if (puedeVerDocumentos)
     {
         <script src="~/js/documentosEstudiante.js" asp-append-version="true"></script>
     }
 }
-
-
