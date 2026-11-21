@@ -468,13 +468,13 @@
         if (!resultado.ok) {
             // El modal de vista previa se cierra para que el motivo se lea en
             // el formulario, que es donde se corrige
-            bootstrap.Modal.getInstance($("ModalVistaPreviaCorreo"))?.hide();
+            CerrarModal($("ModalVistaPreviaCorreo"));
             mostrarAlerta(alerta, resultado.mensaje);
             notificar("El correo no se envió.", "danger");
             return;
         }
 
-        bootstrap.Modal.getInstance($("ModalVistaPreviaCorreo"))?.hide();
+        CerrarModal($("ModalVistaPreviaCorreo"));
 
         notificar(resultado.datos?.mensaje || "Correo enviado.", "success");
 
@@ -897,7 +897,7 @@
             return;
         }
 
-        modal("ModalPlantilla").hide();
+        CerrarModal($("ModalPlantilla"));
         notificar(idPlantillaEditando === null
             ? "Plantilla creada correctamente."
             : "Plantilla actualizada correctamente.", "success");
@@ -934,7 +934,7 @@
             `${RUTAS.estadoPlantilla}?id=${id}&activa=${activa}`, datosConToken({}));
 
         boton.disabled = false;
-        modal("ModalEstadoPlantilla").hide();
+        CerrarModal($("ModalEstadoPlantilla"));
         estadoPendiente = null;
 
         if (!resultado.ok) {

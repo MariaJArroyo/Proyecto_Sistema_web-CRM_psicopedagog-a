@@ -28,9 +28,6 @@ public class CrmController : ControllerBase
     [HttpGet("sesiones")]
     public IActionResult Sesiones() => Ok(CrmData.Sesiones);
 
-    [HttpGet("materiales")]
-    public IActionResult Materiales() => Ok(CrmData.Materiales);
-
     [HttpGet("usuarios")]
     public IActionResult Usuarios() => Ok(CrmData.Usuarios);
 

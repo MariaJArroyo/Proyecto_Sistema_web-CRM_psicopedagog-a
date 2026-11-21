@@ -4780,14 +4780,22 @@ BEGIN
          m.RutaArchivo,
          m.Publicado,
          m.FechaPublicacion,
-         u.NombreCompleto AS RegistradoPor
+         u.NombreCompleto AS RegistradoPor,
+         m.IdTipoMaterial,
+         m.IdNivelEducativo,
+         ne.Nombre AS NivelEducativo,
+         m.TipoActividad,
+         m.FechaActividad,
+         m.Activo
   FROM TB_MATERIAL m
   JOIN TB_TIPO_MATERIAL tm ON tm.IdTipoMaterial = m.IdTipoMaterial
   JOIN TB_USUARIO u ON u.IdUsuario = m.IdUsuarioRegistro
-  WHERE (p_IdTipoMaterial IS NULL OR m.IdTipoMaterial = p_IdTipoMaterial)
+  LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = m.IdNivelEducativo
+  WHERE m.Activo = 1
+    AND (p_IdTipoMaterial IS NULL OR m.IdTipoMaterial = p_IdTipoMaterial)
     AND (p_SoloPublicados IS NULL OR p_SoloPublicados = 0 OR m.Publicado = 1)
     AND (p_Busqueda IS NULL OR p_Busqueda = '' OR m.Titulo LIKE CONCAT('%', p_Busqueda, '%'))
-  ORDER BY m.FechaCreacion DESC;
+  ORDER BY m.FechaCreacion DESC, m.IdMaterial DESC;
 END$$
 DELIMITER ;
 
@@ -4802,10 +4810,11 @@ CREATE PROCEDURE SP_Tarea_Crear(
   IN p_Titulo VARCHAR(150),
   IN p_Descripcion VARCHAR(1000),
   IN p_FechaLimite DATE,
-  IN p_EstudiantesJson VARCHAR(500)
+  IN p_EstudiantesJson JSON
 )
 BEGIN
   DECLARE v_IdTarea INT;
+  DECLARE v_Validos INT DEFAULT 0;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -4813,8 +4822,39 @@ BEGIN
     RESIGNAL;
   END;
 
-  IF p_EstudiantesJson IS NULL OR JSON_LENGTH(p_EstudiantesJson) = 0 THEN
+  IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Escriba el título de la tarea.';
+  END IF;
+
+  IF p_FechaLimite IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique la fecha límite de la tarea.';
+  END IF;
+
+  IF p_EstudiantesJson IS NULL THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Asigne la tarea a por lo menos un estudiante.';
+  END IF;
+
+  IF NOT JSON_VALID(p_EstudiantesJson) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La lista de estudiantes no tiene un formato válido.';
+  END IF;
+
+  IF JSON_TYPE(p_EstudiantesJson) <> 'ARRAY' OR JSON_LENGTH(p_EstudiantesJson) = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Asigne la tarea a por lo menos un estudiante.';
+  END IF;
+
+  IF p_IdMaterial IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM TB_MATERIAL WHERE IdMaterial = p_IdMaterial AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El material indicado no existe o está inactivo.';
+  END IF;
+
+  -- Cuenta distintos: el mismo id repetido en la lista no debe duplicar la
+  -- asignacion (UX_TareaAsignacion_Relacion).
+  SELECT COUNT(DISTINCT e.IdEstudiante) INTO v_Validos
+  FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.IdEstudiante AND e.Activo = 1;
+
+  IF v_Validos = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ninguno de los estudiantes indicados está activo. Elija al menos un estudiante activo.';
   END IF;
 
   START TRANSACTION;
@@ -4825,14 +4865,14 @@ BEGIN
   SET v_IdTarea = LAST_INSERT_ID();
 
   INSERT INTO TB_TAREA_ASIGNACION (IdTarea, IdEstudiante, IdEstadoTarea)
-  SELECT v_IdTarea, j.IdEstudiante, 1
+  SELECT DISTINCT v_IdTarea, j.IdEstudiante, 1
   FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
   JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.IdEstudiante AND e.Activo = 1;
 
   INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
   VALUES (p_IdUsuarioAccion, 'TB_TAREA', v_IdTarea, 'Crear',
-          JSON_OBJECT('Titulo', p_Titulo, 'FechaLimite', p_FechaLimite,
-                      'Estudiantes', JSON_LENGTH(p_EstudiantesJson)));
+          JSON_OBJECT('IdMaterial', p_IdMaterial, 'Titulo', p_Titulo,
+                      'FechaLimite', p_FechaLimite, 'Estudiantes', v_Validos));
 
   COMMIT;
 
@@ -4848,10 +4888,177 @@ DELIMITER $$
 CREATE PROCEDURE SP_Tarea_Editar(
   IN p_IdUsuarioAccion INT,
   IN p_IdTarea INT,
+  IN p_IdMaterial INT,
   IN p_Titulo VARCHAR(150),
   IN p_Descripcion VARCHAR(1000),
   IN p_FechaLimite DATE,
-  IN p_EstudiantesJson VARCHAR(500)
+  IN p_EstudiantesJson JSON
+)
+BEGIN
+  DECLARE v_Anterior JSON DEFAULT NULL;
+  DECLARE v_MaterialActual INT DEFAULT NULL;
+  DECLARE v_Validos INT DEFAULT 0;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SELECT JSON_OBJECT('IdMaterial', IdMaterial, 'Titulo', Titulo, 'FechaLimite', FechaLimite),
+         IdMaterial
+    INTO v_Anterior, v_MaterialActual
+  FROM TB_TAREA
+  WHERE IdTarea = p_IdTarea
+    AND Activo = 1;
+
+  IF v_Anterior IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea indicada no existe.';
+  END IF;
+
+  IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Escriba el título de la tarea.';
+  END IF;
+
+  IF p_FechaLimite IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique la fecha límite de la tarea.';
+  END IF;
+
+  -- Si la tarea ya tenia este material y despues se dio de baja, se deja pasar:
+  -- editar el titulo no debe fallar por algo que no se esta cambiando.
+  IF p_IdMaterial IS NOT NULL
+     AND (v_MaterialActual IS NULL OR p_IdMaterial <> v_MaterialActual)
+     AND NOT EXISTS (
+       SELECT 1 FROM TB_MATERIAL WHERE IdMaterial = p_IdMaterial AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El material indicado no existe o está inactivo.';
+  END IF;
+
+  IF p_EstudiantesJson IS NOT NULL THEN
+    IF NOT JSON_VALID(p_EstudiantesJson) THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La lista de estudiantes no tiene un formato válido.';
+    END IF;
+
+    IF JSON_TYPE(p_EstudiantesJson) <> 'ARRAY' THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La lista de estudiantes no tiene un formato válido.';
+    END IF;
+
+    IF JSON_LENGTH(p_EstudiantesJson) > 0 THEN
+      SELECT COUNT(DISTINCT e.IdEstudiante) INTO v_Validos
+      FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
+      JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.IdEstudiante AND e.Activo = 1;
+
+      IF v_Validos = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ninguno de los estudiantes indicados está activo. Elija al menos un estudiante activo.';
+      END IF;
+    END IF;
+  END IF;
+
+  START TRANSACTION;
+
+  UPDATE TB_TAREA
+  SET IdMaterial = p_IdMaterial,
+      Titulo = p_Titulo,
+      Descripcion = p_Descripcion,
+      FechaLimite = p_FechaLimite
+  WHERE IdTarea = p_IdTarea;
+
+  IF p_EstudiantesJson IS NOT NULL AND JSON_LENGTH(p_EstudiantesJson) > 0 THEN
+    DELETE FROM TB_TAREA_ASIGNACION
+    WHERE IdTarea = p_IdTarea
+      AND IdEstadoTarea = 1
+      -- Sin el IS NOT NULL, un elemento que no es numero sale como NULL, el
+      -- NOT IN da NULL y no se borra ninguna asignacion
+      AND IdEstudiante NOT IN (
+        SELECT j.IdEstudiante
+        FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
+        WHERE j.IdEstudiante IS NOT NULL);
+
+    INSERT IGNORE INTO TB_TAREA_ASIGNACION (IdTarea, IdEstudiante, IdEstadoTarea)
+    SELECT DISTINCT p_IdTarea, j.IdEstudiante, 1
+    FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.IdEstudiante AND e.Activo = 1;
+  END IF;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_TAREA', p_IdTarea, 'Editar', v_Anterior,
+          JSON_OBJECT('IdMaterial', p_IdMaterial, 'Titulo', p_Titulo,
+                      'FechaLimite', p_FechaLimite));
+
+  COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Tareas activas para la tabla administrativa. Asignados cuenta todas las
+-- asignaciones; Entregaron las que estan Entregadas o Revisadas.
+DROP PROCEDURE IF EXISTS SP_Tarea_Listar;
+DELIMITER $$
+CREATE PROCEDURE SP_Tarea_Listar()
+BEGIN
+  SELECT t.IdTarea,
+         t.Titulo,
+         t.Descripcion,
+         t.FechaLimite,
+         t.IdMaterial,
+         m.Titulo AS Material,
+         t.FechaCreacion,
+         COUNT(ta.IdTareaAsignacion) AS Asignados,
+         CAST(COALESCE(SUM(ta.IdEstadoTarea IN (2, 3)), 0) AS SIGNED) AS Entregaron
+  FROM TB_TAREA t
+  LEFT JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
+  LEFT JOIN TB_TAREA_ASIGNACION ta ON ta.IdTarea = t.IdTarea
+  WHERE t.Activo = 1
+  GROUP BY t.IdTarea, t.Titulo, t.Descripcion, t.FechaLimite, t.IdMaterial,
+           m.Titulo, t.FechaCreacion
+  ORDER BY t.FechaLimite DESC, t.IdTarea DESC;
+END$$
+DELIMITER ;
+
+
+-- Una tarea para el formulario de edicion. Devuelve dos resultados: la tarea y
+-- los estudiantes a quienes esta asignada.
+DROP PROCEDURE IF EXISTS SP_Tarea_Obtener;
+DELIMITER $$
+CREATE PROCEDURE SP_Tarea_Obtener(
+  IN p_IdTarea INT
+)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM TB_TAREA WHERE IdTarea = p_IdTarea AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea indicada no existe.';
+  END IF;
+
+  SELECT t.IdTarea,
+         t.IdMaterial,
+         m.Titulo AS Material,
+         t.Titulo,
+         t.Descripcion,
+         t.FechaLimite,
+         t.FechaCreacion
+  FROM TB_TAREA t
+  LEFT JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
+  WHERE t.IdTarea = p_IdTarea;
+
+  SELECT ta.IdTareaAsignacion,
+         ta.IdEstudiante,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido,
+              NULLIF(e.SegundoApellido, ''))) AS Estudiante,
+         et.Nombre AS Estado,
+         ta.FechaEntrega
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ta.IdEstudiante
+  JOIN TB_ESTADO_TAREA et ON et.IdEstadoTarea = ta.IdEstadoTarea
+  WHERE ta.IdTarea = p_IdTarea
+  ORDER BY e.Nombre, e.PrimerApellido, ta.IdTareaAsignacion;
+END$$
+DELIMITER ;
+
+
+-- Baja logica. Las asignaciones y entregas quedan intactas como historial.
+DROP PROCEDURE IF EXISTS SP_Tarea_Eliminar;
+DELIMITER $$
+CREATE PROCEDURE SP_Tarea_Eliminar(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdTarea INT
 )
 BEGIN
   DECLARE v_Anterior JSON DEFAULT NULL;
@@ -4862,40 +5069,25 @@ BEGIN
     RESIGNAL;
   END;
 
-  SELECT JSON_OBJECT('Titulo', Titulo, 'FechaLimite', FechaLimite)
+  SELECT JSON_OBJECT('Titulo', Titulo, 'FechaLimite', FechaLimite, 'Activo', Activo)
     INTO v_Anterior
   FROM TB_TAREA
-  WHERE IdTarea = p_IdTarea;
+  WHERE IdTarea = p_IdTarea
+    AND Activo = 1;
 
   IF v_Anterior IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea indicada no existe.';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea indicada no existe o ya fue eliminada.';
   END IF;
 
   START TRANSACTION;
 
   UPDATE TB_TAREA
-  SET Titulo = p_Titulo,
-      Descripcion = p_Descripcion,
-      FechaLimite = p_FechaLimite
+  SET Activo = 0
   WHERE IdTarea = p_IdTarea;
 
-  IF p_EstudiantesJson IS NOT NULL AND JSON_LENGTH(p_EstudiantesJson) > 0 THEN
-    DELETE FROM TB_TAREA_ASIGNACION
-    WHERE IdTarea = p_IdTarea
-      AND IdEstadoTarea = 1
-      AND IdEstudiante NOT IN (
-        SELECT j.IdEstudiante
-        FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j);
-
-    INSERT IGNORE INTO TB_TAREA_ASIGNACION (IdTarea, IdEstudiante, IdEstadoTarea)
-    SELECT p_IdTarea, j.IdEstudiante, 1
-    FROM JSON_TABLE(p_EstudiantesJson, '$[*]' COLUMNS (IdEstudiante INT PATH '$')) AS j
-    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = j.IdEstudiante AND e.Activo = 1;
-  END IF;
-
   INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_TAREA', p_IdTarea, 'Editar', v_Anterior,
-          JSON_OBJECT('Titulo', p_Titulo, 'FechaLimite', p_FechaLimite));
+  VALUES (p_IdUsuarioAccion, 'TB_TAREA', p_IdTarea, 'Eliminar', v_Anterior,
+          JSON_OBJECT('Activo', 0));
 
   COMMIT;
 END$$
@@ -4904,7 +5096,9 @@ DELIMITER ;
 
 -- Entrega desde el portal. Recibe el usuario autenticado y comprueba que el
 -- estudiante este a su cargo: si se confiara en el id que manda el navegador,
--- cualquier encargado podria entregar por otro.
+-- cualquier encargado podria entregar por otro. Una tarea dada de baja o un
+-- estudiante inactivo cuentan como si la tarea no existiera, igual que en el
+-- listado del portal.
 DROP PROCEDURE IF EXISTS SP_TareaAsignacion_Entregar;
 DELIMITER $$
 CREATE PROCEDURE SP_TareaAsignacion_Entregar(
@@ -4917,6 +5111,8 @@ BEGIN
 
   SELECT ta.IdEstudiante INTO v_IdEstudiante
   FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ta.IdEstudiante AND e.Activo = 1
   JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = ta.IdEstudiante
   JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
   WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
@@ -4936,21 +5132,50 @@ END$$
 DELIMITER ;
 
 
+-- Revision de una entrega por el personal. Solo se revisa lo que esta
+-- Entregado, y el cambio de estado deja su fila en la bitacora.
 DROP PROCEDURE IF EXISTS SP_TareaAsignacion_Revisar;
 DELIMITER $$
 CREATE PROCEDURE SP_TareaAsignacion_Revisar(
+  IN p_IdUsuarioAccion INT,
   IN p_IdTareaAsignacion INT,
   IN p_Comentario VARCHAR(500)
 )
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM TB_TAREA_ASIGNACION WHERE IdTareaAsignacion = p_IdTareaAsignacion) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La asignacion indicada no existe.';
+  DECLARE v_Estado INT DEFAULT NULL;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SELECT ta.IdEstadoTarea INTO v_Estado
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion;
+
+  IF v_Estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La asignación indicada no existe.';
   END IF;
+
+  IF v_Estado <> 2 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se puede revisar una tarea entregada.';
+  END IF;
+
+  START TRANSACTION;
 
   UPDATE TB_TAREA_ASIGNACION
   SET IdEstadoTarea = 3,
       ComentarioRevision = p_Comentario
   WHERE IdTareaAsignacion = p_IdTareaAsignacion;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_TAREA_ASIGNACION', p_IdTareaAsignacion, 'CambiarEstado',
+          JSON_OBJECT('IdEstadoTarea', v_Estado),
+          JSON_OBJECT('IdEstadoTarea', 3, 'ComentarioRevision', p_Comentario));
+
+  COMMIT;
 END$$
 DELIMITER ;
 
@@ -6165,9 +6390,10 @@ BEGIN
             AND FechaHoraInicio >= NOW()) AS CitasProximas,
 
          (SELECT COUNT(*)
-          FROM TB_TAREA_ASIGNACION
-          WHERE IdEstudiante = v_IdEstudiante
-            AND IdEstadoTarea IN (1, 4)) AS TareasPendientes,
+          FROM TB_TAREA_ASIGNACION ta
+          JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+          WHERE ta.IdEstudiante = v_IdEstudiante
+            AND ta.IdEstadoTarea IN (1, 4)) AS TareasPendientes,
 
          (SELECT COUNT(*)
           FROM TB_REPORTE
@@ -6190,7 +6416,7 @@ BEGIN
           WHERE p.IdEstudiante = v_IdEstudiante
             AND p.IdEstadoPago IN (2, 3, 4)) AS SaldoPendiente;
 END$$
-DELIMITER $$
+DELIMITER ;
 
 
 
@@ -6350,7 +6576,9 @@ BEGIN
   JOIN TB_ESTADO_TAREA et ON et.IdEstadoTarea = ta.IdEstadoTarea
   LEFT JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
                         AND m.Publicado = 1
+                        AND m.Activo = 1
   WHERE ta.IdEstudiante = p_IdEstudiante
+    AND t.Activo = 1
     AND (
       v_Filtro = 'todas'
 
@@ -6619,6 +6847,8 @@ BEGIN
     JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
     WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
       AND ta.IdEstudiante = p_IdEstudiante
+      AND t.Activo = 1
+      AND m.Activo = 1
       AND m.Publicado = 1
       AND NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL
   ) THEN
@@ -6637,10 +6867,118 @@ BEGIN
   JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
   WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
     AND ta.IdEstudiante = p_IdEstudiante
+    AND t.Activo = 1
+    AND m.Activo = 1
     AND m.Publicado = 1
     AND NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL;
 END$$
 
+DELIMITER ;
+
+
+-- =====================================================
+-- RECURSOS PUBLICADOS (guias, PDF, actividades y enlaces)
+-- Todo encargado con al menos un estudiante activo ve todo lo publicado y
+-- activo; el nivel educativo es solo una etiqueta, no filtra. No devuelve
+-- RutaArchivo: el nombre del archivo en disco no sale del API.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ListarRecursos;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ListarRecursos(
+  IN p_IdUsuario INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'No tiene estudiantes activos a su cargo.';
+  END IF;
+
+  SELECT m.IdMaterial,
+         m.IdTipoMaterial,
+         tm.Nombre AS TipoMaterial,
+         m.Titulo,
+         m.Descripcion,
+         m.Url,
+         CASE
+           WHEN NULLIF(TRIM(m.RutaArchivo), '') IS NOT NULL THEN 1
+           ELSE 0
+         END AS TieneArchivo,
+         m.IdNivelEducativo,
+         ne.Nombre AS NivelEducativo,
+         m.TipoActividad,
+         m.FechaActividad,
+         m.FechaPublicacion
+  FROM TB_MATERIAL m
+  JOIN TB_TIPO_MATERIAL tm ON tm.IdTipoMaterial = m.IdTipoMaterial
+  LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = m.IdNivelEducativo
+  WHERE m.Publicado = 1
+    AND m.Activo = 1
+  ORDER BY m.IdTipoMaterial, m.FechaPublicacion DESC, m.IdMaterial DESC;
+END$$
+DELIMITER ;
+
+
+-- =====================================================
+-- UN RECURSO PUBLICADO (descarga del PDF y verificacion del enlace)
+-- Misma regla que SP_Portal_ListarRecursos. Este si devuelve RutaArchivo,
+-- porque el API la necesita para abrir el archivo; el API no la saca en
+-- ninguna respuesta.
+-- =====================================================
+
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerRecurso;
+DELIMITER $$
+
+CREATE PROCEDURE SP_Portal_ObtenerRecurso(
+  IN p_IdUsuario INT,
+  IN p_IdMaterial INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'No tiene estudiantes activos a su cargo.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_MATERIAL m
+    WHERE m.IdMaterial = p_IdMaterial
+      AND m.Publicado = 1
+      AND m.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El recurso no está disponible.';
+  END IF;
+
+  SELECT m.IdMaterial,
+         m.IdTipoMaterial,
+         m.Titulo,
+         m.Url,
+         m.RutaArchivo
+  FROM TB_MATERIAL m
+  WHERE m.IdMaterial = p_IdMaterial
+    AND m.Publicado = 1
+    AND m.Activo = 1;
+END$$
 DELIMITER ;
 
 

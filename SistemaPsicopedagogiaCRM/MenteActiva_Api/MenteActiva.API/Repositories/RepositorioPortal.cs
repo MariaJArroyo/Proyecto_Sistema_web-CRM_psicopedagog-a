@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using MenteActiva.Api.Models;
 
 namespace MenteActiva.Api.Repositories;

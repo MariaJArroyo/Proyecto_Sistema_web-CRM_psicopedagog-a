@@ -1,0 +1,276 @@
+﻿### Pruebas de los endpoints de materiales (M11, guias, enlaces y actividades)
+###
+### Los PDF tienen su propio endpoint y sus pruebas aparte.
+###
+### Como correrlo:
+###   1. Levantar el API. La base tiene que venir de 01, 02, 03 y 05 recien
+###      corridos: trae un solo material, el enlace 1.
+###   2. Ejecutar los logins y pegar cada token donde corresponde.
+###   3. Ejecutar de arriba hacia abajo. Las altas devuelven el id nuevo; con
+###      la base recien creada salen 2, 3 y 4 en el orden de abajo, y las
+###      variables ya estan puestas asi. Si no, cambiarlas.
+###
+### ESCRIBEN: las altas, las ediciones, la publicacion y la baja. Para dejar el
+### entorno como estaba hay que borrar los materiales creados (IdMaterial > 1)
+### o volver a correr los scripts. Ojo: al arrancar, el API completa las citas
+### vencidas y les genera su cobro; eso tambien hay que revertirlo.
+###
+### Errores: las reglas que no se cumplen salen como 400 con { "mensaje" }.
+### Un material que no existe o esta dado de baja da 404 al leerlo y 400 al
+### escribirlo, igual que en solicitudes y plantillas.
+
+@host = https://localhost:7201
+@correoAdmin = admin.prueba@example.com
+@claveAdmin = Admin123*
+@correoEncargado = andrea.prueba@example.com
+@claveEncargado = Andrea123*
+@token = PEGAR_AQUI_EL_TOKEN
+@tokenEncargado = PEGAR_AQUI_EL_TOKEN_DEL_ENCARGADO
+@idEnlace = 2
+@idActividad = 3
+@idGuia = 4
+
+### 0. Login del administrador.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoAdmin}}",
+  "contrasena": "{{claveAdmin}}"
+}
+
+### 0b. Login del encargado, para las pruebas de rol.
+POST {{host}}/api/autenticacion/login
+Content-Type: application/json
+
+{
+  "correo": "{{correoEncargado}}",
+  "contrasena": "{{claveEncargado}}"
+}
+
+# =====================================================
+# CONSULTAS
+# =====================================================
+
+### 1. Listar todo lo activo. Esperado 200 con el enlace 1, publicado.
+GET {{host}}/api/materiales
+Authorization: Bearer {{token}}
+
+### 2. Listar con filtros: tipo 3 (enlace), solo publicados, por titulo.
+###    Esperado 200 con el enlace 1.
+GET {{host}}/api/materiales?idTipoMaterial=3&soloPublicados=true&busqueda=cuentos
+Authorization: Bearer {{token}}
+
+### 3. Listar como encargado. Esperado 403: el portal no lee por aqui.
+GET {{host}}/api/materiales
+Authorization: Bearer {{tokenEncargado}}
+
+### 4. Obtener uno. Esperado 200 con tieneArchivo = false y sin rutaArchivo.
+GET {{host}}/api/materiales/1
+Authorization: Bearer {{token}}
+
+### 5. Obtener uno que no existe. Esperado 404 con
+###    { "mensaje": "El material no existe." }
+GET {{host}}/api/materiales/999
+Authorization: Bearer {{token}}
+
+# =====================================================
+# ALTAS
+# =====================================================
+
+### 6. Crear un enlace ya publicado. Esperado 200 con idMaterial.
+POST {{host}}/api/materiales/enlaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Khan Academy",
+  "url": "https://es.khanacademy.org",
+  "publicar": true
+}
+
+### 7. Enlace con otro esquema. Esperado 400 con
+###    "La dirección del enlace debe empezar con http:// o https:// y ser válida."
+POST {{host}}/api/materiales/enlaces
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Enlace malo",
+  "url": "ftp://ejemplo.com"
+}
+
+### 8. Crear una actividad como borrador. El tipo se acepta en cualquier
+###    combinacion de mayusculas y se guarda como "Ludica". Esperado 200.
+POST {{host}}/api/materiales/actividades
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Juego de memoria",
+  "tipoActividad": "ludica",
+  "fechaActividad": "2026-12-01"
+}
+
+### 9. Actividad con un tipo que no existe. Esperado 400 con
+###    "El tipo de actividad debe ser Lúdica, Cognitiva o Motriz."
+POST {{host}}/api/materiales/actividades
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Actividad mala",
+  "tipoActividad": "Otra",
+  "fechaActividad": "2026-12-01"
+}
+
+### 10. Crear una guia como borrador, nivel I Ciclo. Esperado 200.
+POST {{host}}/api/materiales/guias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Guía de comprensión lectora",
+  "descripcion": "Pasos para leer un texto corto.",
+  "idNivelEducativo": 2
+}
+
+### 11. Guia sin nivel. Esperado 400 con "Seleccione el nivel educativo."
+POST {{host}}/api/materiales/guias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Guía sin nivel"
+}
+
+### 12. Guia con un nivel que no existe. Esperado 400 con
+###     "El nivel educativo indicado no existe."
+POST {{host}}/api/materiales/guias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Guía con nivel malo",
+  "idNivelEducativo": 99
+}
+
+### 13. Titulo en blanco. Esperado 400 con "Indique el título."
+POST {{host}}/api/materiales/guias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "   ",
+  "idNivelEducativo": 1
+}
+
+### 14. Crear como encargado. Esperado 403.
+POST {{host}}/api/materiales/guias
+Authorization: Bearer {{tokenEncargado}}
+Content-Type: application/json
+
+{
+  "titulo": "No deberia entrar",
+  "idNivelEducativo": 1
+}
+
+# =====================================================
+# CAMBIOS
+# =====================================================
+
+### 15. Editar la guia. url, tipoActividad y fechaActividad no le tocan a
+###     una guia: se ignoran. Esperado 200 y, al leerla, nivel 5 y sin url.
+PUT {{host}}/api/materiales/{{idGuia}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Guía de comprensión lectora (v2)",
+  "descripcion": "Versión revisada.",
+  "idNivelEducativo": 5,
+  "url": "https://se-ignora.com",
+  "tipoActividad": "Motriz",
+  "fechaActividad": "2026-01-01"
+}
+
+### 16. Editar la guia quitandole el nivel. Esperado 400 con
+###     "Seleccione el nivel educativo."
+PUT {{host}}/api/materiales/{{idGuia}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Guía sin nivel"
+}
+
+### 17. Editar el enlace con una direccion javascript:. Esperado 400.
+PUT {{host}}/api/materiales/{{idEnlace}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Khan Academy",
+  "url": "javascript:alert(1)"
+}
+
+### 18. Editar la actividad. Esperado 200.
+PUT {{host}}/api/materiales/{{idActividad}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Juego de memoria (grupo)",
+  "tipoActividad": "Cognitiva",
+  "fechaActividad": "2026-12-05",
+  "idNivelEducativo": 1
+}
+
+### 19. Editar uno que no existe. Esperado 400 con
+###     "El material indicado no existe."
+PUT {{host}}/api/materiales/999
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "titulo": "Nada",
+  "idNivelEducativo": 1
+}
+
+### 20. Publicar la guia. Esperado 200 con "Material publicado." Publicarla
+###     otra vez tambien da 200 y conserva la fecha de publicacion.
+PUT {{host}}/api/materiales/{{idGuia}}/publicacion
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "publicado": true
+}
+
+### 21. Despublicar la guia. Esperado 200 con "Material retirado del portal."
+###     y fechaPublicacion en null.
+PUT {{host}}/api/materiales/{{idGuia}}/publicacion
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "publicado": false
+}
+
+### 22. Publicacion sin el campo. Esperado 400 con
+###     "Indique si el material queda publicado."
+PUT {{host}}/api/materiales/{{idGuia}}/publicacion
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### 23. Dar de baja la actividad. Esperado 200 con "Material eliminado."
+DELETE {{host}}/api/materiales/{{idActividad}}
+Authorization: Bearer {{token}}
+
+### 24. Darla de baja otra vez. Esperado 400 con
+###     "El material indicado no existe." Leerla da 404 y ya no sale en el
+###     listado; la fila sigue en la tabla con Activo = 0.
+DELETE {{host}}/api/materiales/{{idActividad}}
+Authorization: Bearer {{token}}

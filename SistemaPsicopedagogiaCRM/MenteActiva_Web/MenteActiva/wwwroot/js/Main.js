@@ -405,6 +405,27 @@ function InicializarSelectorEstudiantePortal() {
 }
 
 
+// Bootstrap ignora hide() mientras un modal termina de abrirse (~300 ms). Si la
+// respuesta del servidor llega antes, el modal se cierra al acabar la animacion.
+document.addEventListener("show.bs.modal", function (evento) {
+  evento.target.dataset.abriendo = "1";
+});
+document.addEventListener("shown.bs.modal", function (evento) {
+  delete evento.target.dataset.abriendo;
+});
+
+function CerrarModal(elemento) {
+  if (!elemento) {
+    return;
+  }
+  var instancia = bootstrap.Modal.getOrCreateInstance(elemento);
+  if (elemento.dataset.abriendo === "1") {
+    elemento.addEventListener("shown.bs.modal", function () { instancia.hide(); }, { once: true });
+    return;
+  }
+  instancia.hide();
+}
+
 function MostrarToast(mensaje, tipo) {
   var contenedor = document.querySelector(".ContenedorToasts");
   if (!contenedor) {
@@ -414,7 +435,10 @@ function MostrarToast(mensaje, tipo) {
   var clasesTipo = {
     exito: "text-bg-success",
     error: "text-bg-danger",
-    info: "text-bg-primary"
+    info: "text-bg-primary",
+    // Comunicacion, Mensajeria y Sesiones pasan los nombres de Bootstrap
+    success: "text-bg-success",
+    danger: "text-bg-danger"
   };
   var claseFondo = clasesTipo[tipo] || clasesTipo.exito;
 
