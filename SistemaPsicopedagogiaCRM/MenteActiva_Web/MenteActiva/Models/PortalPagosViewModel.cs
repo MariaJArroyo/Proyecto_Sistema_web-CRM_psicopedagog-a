@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Models;
+namespace MenteActiva.Models;
 
 public class PortalPagosViewModel
 {
@@ -9,4 +9,7 @@ public class PortalPagosViewModel
     public string Filtro { get; set; } = "todos";
 
     public List<PortalPagoViewModel> Pagos { get; set; } = [];
+
+    // Pagos que la familia reporto para este estudiante (SINPE o transferencia)
+    public List<PortalReportePagoViewModel> Reportes { get; set; } = [];
 }

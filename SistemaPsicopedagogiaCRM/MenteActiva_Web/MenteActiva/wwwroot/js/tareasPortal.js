@@ -7,7 +7,7 @@
     pantalla.addEventListener("click", async evento => {
         const boton = evento.target.closest("[data-descargar-tarea]");
         if (!boton || boton.disabled) return;
-        const texto = boton.textContent;
+        const texto = boton.innerHTML;
         boton.disabled = true;
         boton.setAttribute("aria-busy", "true");
         boton.textContent = "Descargando…";
@@ -19,7 +19,7 @@
         } finally {
             boton.disabled = false;
             boton.removeAttribute("aria-busy");
-            boton.textContent = texto;
+            boton.innerHTML = texto;
         }
     });
 })();

@@ -2449,3 +2449,317 @@ button.TopbarAdmin-Usuario {
 
 
 
+
+
+/* =========================================================
+   Pagos > Pagos reportados por las familias (reportesPagoAdmin.js)
+   ========================================================= */
+
+.PanelReportesPago {
+  border-left: 4px solid var(--color-borde);
+}
+
+/* Con algo por validar el panel toma el color de acento */
+.PanelReportesPago-ConPendientes {
+  border-left-color: var(--color-acento);
+  background: linear-gradient(110deg, #FFFFFF 60%, #FFF8EE 100%);
+}
+
+.PanelReportesPago-Icono {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #FDF1E1;
+  color: #D08A2E;
+  font-size: 1.25rem;
+}
+
+.PanelReportesPago-Contador {
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  background-color: var(--color-acento);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ListaReportesPago {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.ListaReportesPago-Vacia {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--color-borde);
+  border-radius: 10px;
+  color: var(--color-texto-suave);
+  font-size: 0.92rem;
+}
+
+.ListaReportesPago-Vacia .bi {
+  font-size: 1.2rem;
+}
+
+.FilaReportePago {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-borde);
+  border-radius: 12px;
+  background-color: var(--color-superficie);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.FilaReportePago:hover {
+  border-color: #C9D7F0;
+  box-shadow: var(--sombra-suave);
+}
+
+.FilaReportePago-Pendiente {
+  border-color: #F6D7AE;
+  background-color: #FFFCF7;
+}
+
+.FilaReportePago-Metodo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #EAF0FB;
+  color: var(--color-primario);
+  font-size: 1.1rem;
+}
+
+.FilaReportePago-Principal {
+  min-width: 0;
+}
+
+.FilaReportePago-Monto {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.FilaReportePago-Estado {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ChipReporte {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.ChipReporte-Pendiente { color: #7A4A10; background: #FDF1E1; border-color: #F6D7AE; }
+.ChipReporte-Aprobado { color: #256B47; background: #E3F5EC; border-color: #C5E8D4; }
+.ChipReporte-Rechazado { color: #A63F48; background: #FDE8E9; border-color: #F4CBD0; }
+
+/* Modal de revision */
+.VisorComprobante {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background-color: #F4F6FA;
+}
+
+.VisorComprobante-Imagen img {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+  box-shadow: var(--sombra-media);
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+.VisorComprobante-Pdf {
+  width: 100%;
+  height: 60vh;
+  border: 0;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.VisorComprobante-Vacio {
+  color: var(--color-texto-suave);
+  text-align: center;
+}
+
+.VisorComprobante-Vacio .bi {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 2.4rem;
+}
+
+.VisorComprobante-Referencia {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  background-color: #fff;
+  color: var(--color-texto);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+}
+
+.DatosReporte {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.45rem 1rem;
+}
+
+.DatosReporte dt {
+  font-weight: 500;
+  color: var(--color-texto-suave);
+}
+
+.DatosReporte dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.PanelRechazo {
+  padding: 0.85rem;
+  border: 1px solid #F4CBD0;
+  border-radius: 10px;
+  background-color: #FFF7F8;
+}
+
+@media (max-width: 767.98px) {
+  .FilaReportePago {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .FilaReportePago-Estado {
+    grid-column: 2 / 3;
+  }
+
+  .FilaReportePago .btn {
+    grid-column: 3 / 4;
+  }
+}
+
+
+/* =========================================================
+   Ficha del estudiante > Documentos (documentosEstudiante.js)
+   ========================================================= */
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.BuscadorDocumentos {
+  width: 220px;
+}
+
+.TablaDocumentos td:first-child {
+  max-width: 420px;
+}
+
+.DocTipo {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #EEF2F7;
+  color: #58677C;
+  font-size: 1.2rem;
+}
+
+.DocTipo-Pdf { background-color: #FDE8E9; color: #C9474F; }
+.DocTipo-Imagen { background-color: #F0EAFB; color: #8A68C2; }
+.DocTipo-Word { background-color: #E6EEFB; color: #2F5DA8; }
+.DocTipo-Excel { background-color: #E3F5EC; color: #2E8A5C; }
+.DocTipo-Ppt { background-color: #FDF1E1; color: #C9742E; }
+
+.InterruptorPortal .form-check-input {
+  cursor: pointer;
+}
+
+.InterruptorPortal .form-check-input:checked {
+  background-color: var(--color-exito);
+  border-color: var(--color-exito);
+}
+
+/* Zona para elegir o soltar un archivo */
+.ZonaArchivo {
+  display: block;
+  padding: 1.25rem 1rem;
+  border: 2px dashed #CFDAEA;
+  border-radius: 12px;
+  background-color: #F8FAFD;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ZonaArchivo:hover,
+.ZonaArchivo.Arrastrando,
+.ZonaArchivo:focus-within {
+  border-color: var(--color-primario);
+  background-color: #EAF0FB;
+}
+
+.ZonaArchivo.TieneArchivo {
+  border-style: solid;
+  border-color: #BFE3CF;
+  background-color: #F3FBF7;
+}
+
+.ZonaArchivo-Vacia,
+.ZonaArchivo-Elegido {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.ZonaArchivo .bi {
+  font-size: 1.8rem;
+  color: var(--color-primario);
+}
+
+.ZonaArchivo.TieneArchivo .bi {
+  color: var(--color-exito);
+}
+
+.ZonaArchivo-Nombre {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 575.98px) {
+  .BuscadorDocumentos {
+    width: 100%;
+  }
+}

@@ -840,6 +840,93 @@ CREATE TABLE IF NOT EXISTS TB_ABONO (
   CONSTRAINT CK_Abono_MontoPositivo CHECK (Monto > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- M-Pagos. Pago que reporta la familia desde el portal (SINPE Movil o
+-- transferencia), con la referencia, el comprobante o ambos. No es dinero
+-- recibido todavia: la profesional lo revisa y, si lo aprueba, se convierte
+-- en un abono de TB_ABONO (IdAbono queda apuntando a ese abono). Si lo
+-- rechaza, queda el motivo para que la familia lo vea en el portal.
+-- ArchivoComprobante guarda solo el nombre del archivo en Archivos/Comprobantes
+-- del API, nunca una ruta.
+CREATE TABLE IF NOT EXISTS TB_REPORTE_PAGO (
+  IdReportePago INT NOT NULL AUTO_INCREMENT,
+  IdPago INT NOT NULL,
+  IdEncargado INT NOT NULL,
+  IdUsuarioReporta INT NOT NULL,
+  IdMetodoPago INT NOT NULL,
+  Monto DECIMAL(10,2) NOT NULL,
+  FechaPago DATE NOT NULL,
+  Referencia VARCHAR(100) NULL,
+  ArchivoComprobante VARCHAR(100) NULL,
+  TipoArchivo VARCHAR(50) NULL,
+  Comentario VARCHAR(500) NULL,
+  Estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente',
+  IdUsuarioRevisa INT NULL,
+  FechaRevision DATETIME NULL,
+  MotivoRechazo VARCHAR(500) NULL,
+  IdAbono INT NULL,
+  FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (IdReportePago),
+  KEY IX_ReportePago_Pago (IdPago),
+  KEY IX_ReportePago_Encargado (IdEncargado),
+  KEY IX_ReportePago_Estado (Estado, FechaCreacion),
+  CONSTRAINT FK_ReportePago_Pago FOREIGN KEY (IdPago)
+    REFERENCES TB_PAGO (IdPago) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_ReportePago_Encargado FOREIGN KEY (IdEncargado)
+    REFERENCES TB_ENCARGADO (IdEncargado) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_ReportePago_UsuarioReporta FOREIGN KEY (IdUsuarioReporta)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_ReportePago_MetodoPago FOREIGN KEY (IdMetodoPago)
+    REFERENCES TB_METODO_PAGO (IdMetodoPago) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_ReportePago_UsuarioRevisa FOREIGN KEY (IdUsuarioRevisa)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_ReportePago_Abono FOREIGN KEY (IdAbono)
+    REFERENCES TB_ABONO (IdAbono) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_ReportePago_MontoPositivo CHECK (Monto > 0),
+  -- Desde el portal solo se reportan SINPE Movil (2) y Transferencia (3)
+  CONSTRAINT CK_ReportePago_Metodo CHECK (IdMetodoPago IN (2, 3)),
+  CONSTRAINT CK_ReportePago_Estado CHECK (Estado IN ('Pendiente', 'Aprobado', 'Rechazado')),
+  -- Sin referencia ni comprobante no hay nada que validar
+  CONSTRAINT CK_ReportePago_Respaldo CHECK (
+    (Referencia IS NOT NULL AND TRIM(Referencia) <> '') OR ArchivoComprobante IS NOT NULL),
+  CONSTRAINT CK_ReportePago_RevisionCoherente CHECK (
+    (Estado = 'Pendiente' AND FechaRevision IS NULL AND IdAbono IS NULL)
+    OR (Estado = 'Aprobado' AND FechaRevision IS NOT NULL AND IdAbono IS NOT NULL)
+    OR (Estado = 'Rechazado' AND FechaRevision IS NOT NULL AND MotivoRechazo IS NOT NULL))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- Documentos del estudiante: evaluaciones, informes, constancias, fotos de
+-- trabajos... los sube la profesional desde la ficha. VisibleEnPortal decide
+-- si la familia lo ve en la pestana Documentos del portal. Borrar es logico
+-- (Activo = 0): el archivo se conserva en disco por si hay que recuperarlo.
+-- ArchivoNombre es el nombre GUID en Archivos/Documentos del API, nunca una
+-- ruta; NombreOriginal es el que tenia el archivo al subirlo.
+CREATE TABLE IF NOT EXISTS TB_DOCUMENTO_ESTUDIANTE (
+  IdDocumento INT NOT NULL AUTO_INCREMENT,
+  IdEstudiante INT NOT NULL,
+  IdUsuarioRegistro INT NOT NULL,
+  Titulo VARCHAR(150) NOT NULL,
+  Descripcion VARCHAR(500) NULL,
+  ArchivoNombre VARCHAR(100) NOT NULL,
+  NombreOriginal VARCHAR(255) NOT NULL,
+  TipoArchivo VARCHAR(100) NOT NULL,
+  TamanoBytes BIGINT NOT NULL,
+  VisibleEnPortal BOOLEAN NOT NULL DEFAULT 0,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
+  FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (IdDocumento),
+  UNIQUE KEY UX_DocumentoEstudiante_Archivo (ArchivoNombre),
+  KEY IX_DocumentoEstudiante_Estudiante (IdEstudiante, Activo),
+  KEY IX_DocumentoEstudiante_UsuarioRegistro (IdUsuarioRegistro),
+  CONSTRAINT FK_DocumentoEstudiante_Estudiante FOREIGN KEY (IdEstudiante)
+    REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_DocumentoEstudiante_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_DocumentoEstudiante_TituloNoVacio CHECK (TRIM(Titulo) <> ''),
+  CONSTRAINT CK_DocumentoEstudiante_Tamano CHECK (TamanoBytes > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 
 -- ============================================================
 -- 6. Materiales y tareas

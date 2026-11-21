@@ -919,6 +919,118 @@ public class AdminController : Controller
     }
     #endregion
 
+    #region Documentos del estudiante
+
+    // Igual que las areas y las sesiones: solo Administrador y Psicopedagoga,
+    // porque pueden ser evaluaciones o informes con informacion clinica.
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> ConsultarDocumentosEstudiante(int idEstudiante, CancellationToken cancelacion)
+        => ReenviarGetAsync($"estudiantes/{idEstudiante}/documentos", cancelacion);
+
+    // Reenvia el archivo como multipart, con su tamanio conocido, para que el
+    // API conteste con su propio mensaje si pasa del limite
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> SubirDocumentoEstudiante(
+        int idEstudiante, IFormFile? archivo, string? titulo, string? descripcion, bool visibleEnPortal,
+        CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un estudiante válido." });
+        }
+
+        if (archivo is null || archivo.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un archivo." });
+        }
+
+        using var cuerpo = new MultipartFormDataContent();
+        await using var flujo = archivo.OpenReadStream();
+
+        var parteArchivo = new StreamContent(flujo);
+
+        if (System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(archivo.ContentType, out var tipo))
+        {
+            parteArchivo.Headers.ContentType = tipo;
+        }
+
+        cuerpo.Add(parteArchivo, "archivo", archivo.FileName);
+
+        if (!string.IsNullOrWhiteSpace(titulo))
+        {
+            cuerpo.Add(new StringContent(titulo.Trim()), "titulo");
+        }
+
+        if (!string.IsNullOrWhiteSpace(descripcion))
+        {
+            cuerpo.Add(new StringContent(descripcion.Trim()), "descripcion");
+        }
+
+        cuerpo.Add(new StringContent(visibleEnPortal ? "true" : "false"), "visibleEnPortal");
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsync(
+            UrlApi($"estudiantes/{idEstudiante}/documentos"), cuerpo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo subir el documento.", cancelacion);
+    }
+
+    // descargar = false lo muestra en el navegador (PDF e imagenes); true lo baja
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> VerDocumentoEstudiante(int id, bool descargar, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return NotFound();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(
+            UrlApi($"estudiantes/documentos/{id}/archivo"), HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode);
+        }
+
+        var tipoArchivo = respuesta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        var disposicion = respuesta.Content.Headers.ContentDisposition;
+        var nombre = disposicion?.FileNameStar ?? disposicion?.FileName?.Trim('"') ?? "documento";
+        var bytes = await respuesta.Content.ReadAsByteArrayAsync(cancelacion);
+
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return descargar ? File(bytes, tipoArchivo, nombre) : File(bytes, tipoArchivo);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> CambiarVisibilidadDocumento(int id, bool visible, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"estudiantes/documentos/{id}/visibilidad"), new { visible }, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo cambiar la visibilidad.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EliminarDocumentoEstudiante(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.DeleteAsync(UrlApi($"estudiantes/documentos/{id}"), cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo eliminar el documento.", cancelacion);
+    }
+
+    #endregion
+
     #region Listar áreas actuales e inactivas
 
     [HttpGet]
@@ -1191,6 +1303,29 @@ public class AdminController : Controller
     [HttpGet]
     public Task<IActionResult> ContarPagosVencidos(CancellationToken cancelacion)
         => ContarAsync("contadores/pagos-vencidos", cancelacion);
+
+    // La burbuja de Pagos suma los cobros vencidos y los pagos que las familias
+    // reportaron y faltan por validar; el tooltip dice de que esta hecho el numero
+    [HttpGet]
+    public async Task<IActionResult> PendientesPagos(CancellationToken cancelacion)
+    {
+        var vencidos = await ContarCampoAsync("contadores/pagos-vencidos", "total", cancelacion);
+        var reportados = await ContarCampoAsync("pagos/reportes/pendientes/total", "total", cancelacion);
+
+        var partes = new List<string>();
+
+        if (reportados > 0)
+        {
+            partes.Add(reportados == 1 ? "1 pago reportado por validar" : $"{reportados} pagos reportados por validar");
+        }
+
+        if (vencidos > 0)
+        {
+            partes.Add(vencidos == 1 ? "1 cobro vencido" : $"{vencidos} cobros vencidos");
+        }
+
+        return Json(new { total = vencidos + reportados, vencidos, reportados, detalle = string.Join(" y ", partes) });
+    }
 
     // Comunicacion tiene dos cosas que avisar y un solo enlace en el menu, asi
     // que la burbuja suma las dos y manda ademas el texto ya armado para que el
@@ -1703,6 +1838,65 @@ public class AdminController : Controller
             UrlApi($"pagos/{id}/anular"), new { motivo }, cancelacion);
 
         return await ReenviarRespuestaAsync(respuesta, "No se pudo anular el cobro.", cancelacion);
+    }
+
+    // ---------- pagos reportados por las familias desde el portal ----------
+
+    // estado: Pendiente, Aprobado, Rechazado o vacio para todos
+    [HttpGet]
+    public Task<IActionResult> ConsultarReportesPago(string? estado, CancellationToken cancelacion)
+        => ReenviarGetAsync($"pagos/reportes?estado={Uri.EscapeDataString(estado ?? string.Empty)}", cancelacion);
+
+    // Se devuelve sin nombre de archivo para que el navegador la muestre en
+    // linea (la imagen va dentro del modal de revision)
+    [HttpGet]
+    public async Task<IActionResult> ComprobanteReportePago(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return NotFound();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(
+            UrlApi($"pagos/reportes/{id}/comprobante"), HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode);
+        }
+
+        var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return File(await respuesta.Content.ReadAsByteArrayAsync(cancelacion), tipo);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AprobarReportePago(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsync(
+            UrlApi($"pagos/reportes/{id}/aprobar"), content: null, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo aprobar el pago.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RechazarReportePago(int id, string? motivo, CancellationToken cancelacion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return BadRequest(new { mensaje = "Indique el motivo: la familia lo verá en el portal." });
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"pagos/reportes/{id}/rechazar"), new { motivo = motivo.Trim() }, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo rechazar el reporte.", cancelacion);
     }
 
     #endregion

@@ -1728,6 +1728,11 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Faltaban el DROP y el DELIMITER: sin ellos MySQL cortaba el procedimiento
+-- en el primer ; y el script fallaba con "near '' at line 21"
+DROP PROCEDURE IF EXISTS SP_Portal_ListarEstudiantesPerfil;
+DELIMITER $$
+
 CREATE PROCEDURE SP_Portal_ListarEstudiantesPerfil(
     IN p_IdUsuario INT
 )
@@ -1751,6 +1756,35 @@ BEGIN
     ORDER BY ee.EsPrincipal DESC, e.Nombre, e.PrimerApellido, e.IdEstudiante;
 END$$
 
+DELIMITER ;
+
+
+-- Lista de estudiantes del panel. p_IncluirInactivos = 1 trae tambien los
+-- inactivos (la pantalla filtra por estado con la columna Activo).
+DROP PROCEDURE IF EXISTS SP_ConsultarEstudiantes_CRM;
+DELIMITER $$
+
+CREATE PROCEDURE SP_ConsultarEstudiantes_CRM(
+  IN p_IncluirInactivos BOOLEAN
+)
+BEGIN
+    SELECT
+        e.IdEstudiante,
+        CONCAT(e.Nombre, ' ', e.PrimerApellido, ' ', COALESCE(e.SegundoApellido, '')) AS Estudiante,
+        e.FechaNacimiento,
+        ne.Nombre AS NivelEducativo,
+        i.Nombre AS Institucion,
+        en.IdEncargado,
+        CONCAT(en.Nombre, ' ', en.PrimerApellido) AS Encargado,
+        e.Activo
+    FROM TB_ESTUDIANTE e
+    LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = e.IdNivelEducativo
+    LEFT JOIN TB_INSTITUCION i ON i.IdInstitucion = e.IdInstitucion
+    LEFT JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = e.IdEstudiante AND ee.EsPrincipal = 1
+    LEFT JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    WHERE e.Activo = 1 OR IFNULL(p_IncluirInactivos, 0) = 1
+    ORDER BY e.FechaRegistro DESC;
+END$$
 DELIMITER ;
 
 
@@ -9012,12 +9046,19 @@ BEGIN
     SET
         NombreCompleto = p_NombreCompleto,
         Correo = p_Correo,
-        Telefono = COALESCE(
-            NULLIF(TRIM(p_Telefono), ''),
-            Telefono
-        ),
+        -- Vacio = sin telefono. Antes un vacio dejaba el anterior y no se podia borrar
+        Telefono = NULLIF(TRIM(p_Telefono), ''),
         FechaModificacion = NOW()
     WHERE IdUsuario = p_IdUsuario;
+
+    -- Si la cuenta es de un encargado, su correo de contacto tambien cambia:
+    -- los recordatorios de citas y los avisos salen de TB_ENCARGADO.Correo
+    UPDATE TB_ENCARGADO en
+    JOIN TB_USUARIO u ON u.IdEncargado = en.IdEncargado
+    SET en.Correo = p_Correo,
+        en.FechaModificacion = NOW()
+    WHERE u.IdUsuario = p_IdUsuario
+      AND (en.Correo IS NULL OR en.Correo <> p_Correo);
 
     SELECT Telefono
     INTO v_TelefonoNuevo
@@ -9112,4 +9153,601 @@ BEGIN
     ORDER BY ee.EsPrincipal DESC, e.Nombre, e.PrimerApellido, e.IdEstudiante;
 END$$
 
+DELIMITER ;
+
+
+-- ============================================================
+-- M-Pagos. Pagos reportados por las familias desde el portal
+-- (TB_REPORTE_PAGO). El portal reporta; el panel aprueba o rechaza.
+-- Aprobar crea el abono en TB_ABONO y recalcula el cobro.
+-- ============================================================
+
+-- El encargado reporta un SINPE o una transferencia de uno de sus cargos.
+-- El archivo ya lo guardo el API: aqui llega solo su nombre.
+DROP PROCEDURE IF EXISTS SP_Portal_ReportarPago;
+DELIMITER $$
+CREATE PROCEDURE SP_Portal_ReportarPago(
+  IN p_IdUsuario     INT,
+  IN p_IdEstudiante  INT,
+  IN p_IdPago        INT,
+  IN p_IdMetodoPago  INT,
+  IN p_Monto         DECIMAL(10,2),
+  IN p_FechaPago     DATE,
+  IN p_Referencia    VARCHAR(100),
+  IN p_Archivo       VARCHAR(100),
+  IN p_TipoArchivo   VARCHAR(50),
+  IN p_Comentario    VARCHAR(500),
+  IN p_Hoy           DATE
+)
+BEGIN
+  DECLARE v_IdEncargado INT DEFAULT NULL;
+  DECLARE v_Estado INT DEFAULT NULL;
+  DECLARE v_MontoCargo DECIMAL(10,2) DEFAULT 0;
+  DECLARE v_Abonado DECIMAL(10,2) DEFAULT 0;
+  DECLARE v_EnRevision DECIMAL(10,2) DEFAULT 0;
+  DECLARE v_IdReporte INT;
+
+  SELECT u.IdEncargado INTO v_IdEncargado
+  FROM TB_USUARIO u
+  WHERE u.IdUsuario = p_IdUsuario;
+
+  IF v_IdEncargado IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE ee.IdEncargado = v_IdEncargado
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  SELECT IdEstadoPago, Monto INTO v_Estado, v_MontoCargo
+  FROM TB_PAGO
+  WHERE IdPago = p_IdPago AND IdEstudiante = p_IdEstudiante;
+
+  IF v_Estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cargo no existe o no corresponde al estudiante.';
+  END IF;
+
+  IF v_Estado NOT IN (2, 3, 4) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Este cargo no tiene saldo pendiente.';
+  END IF;
+
+  IF p_IdMetodoPago IS NULL OR p_IdMetodoPago NOT IN (2, 3) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione SINPE Móvil o transferencia.';
+  END IF;
+
+  IF p_Monto IS NULL OR p_Monto <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El monto tiene que ser mayor que cero.';
+  END IF;
+
+  IF p_FechaPago IS NULL OR p_FechaPago > p_Hoy THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique la fecha en que hizo el pago; no puede ser futura.';
+  END IF;
+
+  IF (p_Referencia IS NULL OR TRIM(p_Referencia) = '') AND p_Archivo IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Adjunte el comprobante o escriba el número de referencia.';
+  END IF;
+
+  SELECT IFNULL(SUM(Monto), 0) INTO v_Abonado
+  FROM TB_ABONO
+  WHERE IdPago = p_IdPago AND Activo = 1;
+
+  SELECT IFNULL(SUM(Monto), 0) INTO v_EnRevision
+  FROM TB_REPORTE_PAGO
+  WHERE IdPago = p_IdPago AND Estado = 'Pendiente';
+
+  IF v_Abonado + v_EnRevision + p_Monto > v_MontoCargo THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'El monto supera el saldo del cargo, contando los pagos que ya están en revisión.';
+  END IF;
+
+  INSERT INTO TB_REPORTE_PAGO (IdPago, IdEncargado, IdUsuarioReporta, IdMetodoPago, Monto,
+                               FechaPago, Referencia, ArchivoComprobante, TipoArchivo, Comentario)
+  VALUES (p_IdPago, v_IdEncargado, p_IdUsuario, p_IdMetodoPago, p_Monto,
+          p_FechaPago, NULLIF(TRIM(p_Referencia), ''), p_Archivo, p_TipoArchivo,
+          NULLIF(TRIM(p_Comentario), ''));
+
+  SET v_IdReporte = LAST_INSERT_ID();
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+  VALUES (p_IdUsuario, 'TB_REPORTE_PAGO', v_IdReporte, 'Crear',
+          JSON_OBJECT('IdPago', p_IdPago, 'Monto', p_Monto, 'IdMetodoPago', p_IdMetodoPago));
+
+  SELECT v_IdReporte AS IdReportePago;
+END$$
+DELIMITER ;
+
+
+-- Lo que la familia reporto para un estudiante, con su estado de revision
+DROP PROCEDURE IF EXISTS SP_Portal_ListarReportesPago;
+DELIMITER $$
+CREATE PROCEDURE SP_Portal_ListarReportesPago(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  SELECT r.IdReportePago,
+         r.IdPago,
+         p.Concepto,
+         mp.Nombre AS MetodoPago,
+         r.Monto,
+         r.FechaPago,
+         r.Referencia,
+         (r.ArchivoComprobante IS NOT NULL) AS TieneComprobante,
+         r.Estado,
+         r.MotivoRechazo,
+         r.FechaCreacion,
+         r.FechaRevision
+  FROM TB_REPORTE_PAGO r
+  JOIN TB_PAGO p ON p.IdPago = r.IdPago
+  JOIN TB_METODO_PAGO mp ON mp.IdMetodoPago = r.IdMetodoPago
+  WHERE p.IdEstudiante = p_IdEstudiante
+  ORDER BY (r.Estado = 'Pendiente') DESC, r.FechaCreacion DESC, r.IdReportePago DESC;
+END$$
+DELIMITER ;
+
+
+-- Panel: reportes por estado. Vacio o NULL = todos.
+DROP PROCEDURE IF EXISTS SP_Pago_ListarReportes;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_ListarReportes(
+  IN p_Estado VARCHAR(20)
+)
+BEGIN
+  DECLARE v_Estado VARCHAR(20) DEFAULT NULLIF(TRIM(p_Estado), '');
+
+  IF v_Estado IS NOT NULL AND v_Estado NOT IN ('Pendiente', 'Aprobado', 'Rechazado') THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estado indicado no es válido.';
+  END IF;
+
+  SELECT r.IdReportePago,
+         r.IdPago,
+         p.Concepto,
+         p.Monto AS MontoCargo,
+         CASE
+           WHEN p.IdEstadoPago = 5 THEN 0
+           ELSE GREATEST(p.Monto - IFNULL(ab.Abonado, 0), 0)
+         END AS SaldoCargo,
+         p.IdEstudiante,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, NULLIF(e.SegundoApellido, ''))) AS Estudiante,
+         r.IdEncargado,
+         TRIM(CONCAT_WS(' ', en.Nombre, en.PrimerApellido, NULLIF(en.SegundoApellido, ''))) AS Encargado,
+         r.IdMetodoPago,
+         mp.Nombre AS MetodoPago,
+         r.Monto,
+         r.FechaPago,
+         r.Referencia,
+         (r.ArchivoComprobante IS NOT NULL) AS TieneComprobante,
+         r.TipoArchivo,
+         r.Comentario,
+         r.Estado,
+         r.MotivoRechazo,
+         r.FechaCreacion,
+         r.FechaRevision,
+         ur.NombreCompleto AS RevisadoPor
+  FROM TB_REPORTE_PAGO r
+  JOIN TB_PAGO p ON p.IdPago = r.IdPago
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = p.IdEstudiante
+  JOIN TB_ENCARGADO en ON en.IdEncargado = r.IdEncargado
+  JOIN TB_METODO_PAGO mp ON mp.IdMetodoPago = r.IdMetodoPago
+  LEFT JOIN TB_USUARIO ur ON ur.IdUsuario = r.IdUsuarioRevisa
+  LEFT JOIN (
+    SELECT a.IdPago, SUM(a.Monto) AS Abonado
+    FROM TB_ABONO a
+    WHERE a.Activo = 1
+    GROUP BY a.IdPago
+  ) ab ON ab.IdPago = p.IdPago
+  WHERE v_Estado IS NULL OR r.Estado = v_Estado
+  ORDER BY (r.Estado = 'Pendiente') DESC, r.FechaCreacion DESC, r.IdReportePago DESC;
+END$$
+DELIMITER ;
+
+
+-- Nombre y tipo del archivo, para que el API lo sirva
+DROP PROCEDURE IF EXISTS SP_Pago_ObtenerComprobanteReporte;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_ObtenerComprobanteReporte(
+  IN p_IdReportePago INT
+)
+BEGIN
+  SELECT r.IdReportePago,
+         r.ArchivoComprobante,
+         r.TipoArchivo
+  FROM TB_REPORTE_PAGO r
+  WHERE r.IdReportePago = p_IdReportePago;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Pago_ContarReportesPendientes;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_ContarReportesPendientes()
+BEGIN
+  SELECT COUNT(*) AS Total
+  FROM TB_REPORTE_PAGO
+  WHERE Estado = 'Pendiente';
+END$$
+DELIMITER ;
+
+
+-- Aprobar: el reporte se vuelve un abono con el mismo monto, metodo, fecha y
+-- referencia. Se valida igual que SP_Pago_RegistrarAbono (no se llama a esa
+-- SP porque abre su propia transaccion y aqui todo va en una sola).
+DROP PROCEDURE IF EXISTS SP_Pago_AprobarReporte;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_AprobarReporte(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdReportePago INT
+)
+BEGIN
+  DECLARE v_Estado VARCHAR(20) DEFAULT NULL;
+  DECLARE v_IdPago INT;
+  DECLARE v_IdEncargado INT;
+  DECLARE v_IdMetodo INT;
+  DECLARE v_Monto DECIMAL(10,2);
+  DECLARE v_Fecha DATE;
+  DECLARE v_Referencia VARCHAR(100);
+  DECLARE v_Comentario VARCHAR(500);
+  DECLARE v_EstadoPago INT;
+  DECLARE v_MontoCargo DECIMAL(10,2);
+  DECLARE v_IdEstudiante INT;
+  DECLARE v_Abonado DECIMAL(10,2) DEFAULT 0;
+  DECLARE v_IdAbono INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  -- FOR UPDATE: dos personas aprobando el mismo reporte a la vez no lo
+  -- convierten en dos abonos
+  SELECT Estado, IdPago, IdEncargado, IdMetodoPago, Monto, FechaPago, Referencia, Comentario
+    INTO v_Estado, v_IdPago, v_IdEncargado, v_IdMetodo, v_Monto, v_Fecha, v_Referencia, v_Comentario
+  FROM TB_REPORTE_PAGO
+  WHERE IdReportePago = p_IdReportePago
+  FOR UPDATE;
+
+  IF v_Estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pago reportado no existe.';
+  END IF;
+
+  IF v_Estado <> 'Pendiente' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Este pago ya fue revisado.';
+  END IF;
+
+  SELECT IdEstadoPago, Monto, IdEstudiante
+    INTO v_EstadoPago, v_MontoCargo, v_IdEstudiante
+  FROM TB_PAGO
+  WHERE IdPago = v_IdPago
+  FOR UPDATE;
+
+  IF v_EstadoPago = 5 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cobro fue anulado: rechace el reporte en su lugar.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_ENCARGADO
+                 WHERE IdEstudiante = v_IdEstudiante AND IdEncargado = v_IdEncargado) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Quien reportó ya no está asociado al estudiante del cobro.';
+  END IF;
+
+  SELECT IFNULL(SUM(Monto), 0) INTO v_Abonado
+  FROM TB_ABONO
+  WHERE IdPago = v_IdPago AND Activo = 1;
+
+  IF v_Abonado + v_Monto > v_MontoCargo THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'El monto reportado supera el saldo actual del cobro. Revise los pagos ya registrados.';
+  END IF;
+
+  INSERT INTO TB_ABONO (IdPago, IdEncargadoPagador, IdMetodoPago, IdUsuarioRegistro,
+                        Monto, FechaAbono, Referencia, Observaciones)
+  VALUES (v_IdPago, v_IdEncargado, v_IdMetodo, p_IdUsuarioAccion,
+          v_Monto, v_Fecha, v_Referencia,
+          LEFT(CONCAT('Reportado por la familia desde el portal',
+                      IF(v_Comentario IS NULL, '', CONCAT(': ', v_Comentario))), 500));
+
+  SET v_IdAbono = LAST_INSERT_ID();
+
+  UPDATE TB_REPORTE_PAGO
+  SET Estado = 'Aprobado',
+      IdUsuarioRevisa = p_IdUsuarioAccion,
+      FechaRevision = NOW(),
+      IdAbono = v_IdAbono
+  WHERE IdReportePago = p_IdReportePago;
+
+  CALL SP_Pago_RecalcularEstado(v_IdPago);
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_REPORTE_PAGO', p_IdReportePago, 'CambiarEstado',
+          JSON_OBJECT('Estado', 'Pendiente'),
+          JSON_OBJECT('Estado', 'Aprobado', 'IdAbono', v_IdAbono, 'Monto', v_Monto));
+
+  COMMIT;
+
+  SELECT v_IdAbono AS IdAbono;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Pago_RechazarReporte;
+DELIMITER $$
+CREATE PROCEDURE SP_Pago_RechazarReporte(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdReportePago INT,
+  IN p_Motivo VARCHAR(500)
+)
+BEGIN
+  DECLARE v_Estado VARCHAR(20) DEFAULT NULL;
+
+  IF p_Motivo IS NULL OR TRIM(p_Motivo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el motivo: la familia lo verá en el portal.';
+  END IF;
+
+  SELECT Estado INTO v_Estado
+  FROM TB_REPORTE_PAGO
+  WHERE IdReportePago = p_IdReportePago;
+
+  IF v_Estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pago reportado no existe.';
+  END IF;
+
+  IF v_Estado <> 'Pendiente' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Este pago ya fue revisado.';
+  END IF;
+
+  UPDATE TB_REPORTE_PAGO
+  SET Estado = 'Rechazado',
+      IdUsuarioRevisa = p_IdUsuarioAccion,
+      FechaRevision = NOW(),
+      MotivoRechazo = TRIM(p_Motivo)
+  WHERE IdReportePago = p_IdReportePago
+    AND Estado = 'Pendiente';
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_REPORTE_PAGO', p_IdReportePago, 'CambiarEstado',
+          JSON_OBJECT('Estado', 'Pendiente'),
+          JSON_OBJECT('Estado', 'Rechazado', 'Motivo', TRIM(p_Motivo)));
+END$$
+DELIMITER ;
+
+
+-- ============================================================
+-- Documentos del estudiante (TB_DOCUMENTO_ESTUDIANTE).
+-- La ficha los sube y decide si se ven en el portal; el portal
+-- solo lista y descarga los visibles de sus estudiantes.
+-- ============================================================
+
+DROP PROCEDURE IF EXISTS SP_Documento_Crear;
+DELIMITER $$
+CREATE PROCEDURE SP_Documento_Crear(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdEstudiante    INT,
+  IN p_Titulo          VARCHAR(150),
+  IN p_Descripcion     VARCHAR(500),
+  IN p_ArchivoNombre   VARCHAR(100),
+  IN p_NombreOriginal  VARCHAR(255),
+  IN p_TipoArchivo     VARCHAR(100),
+  IN p_TamanoBytes     BIGINT,
+  IN p_VisibleEnPortal BOOLEAN
+)
+BEGIN
+  DECLARE v_IdDocumento INT;
+
+  IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE WHERE IdEstudiante = p_IdEstudiante) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe.';
+  END IF;
+
+  IF p_Titulo IS NULL OR TRIM(p_Titulo) = '' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el título del documento.';
+  END IF;
+
+  IF p_ArchivoNombre IS NULL OR p_TamanoBytes IS NULL OR p_TamanoBytes <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un archivo.';
+  END IF;
+
+  INSERT INTO TB_DOCUMENTO_ESTUDIANTE (IdEstudiante, IdUsuarioRegistro, Titulo, Descripcion,
+                                       ArchivoNombre, NombreOriginal, TipoArchivo, TamanoBytes,
+                                       VisibleEnPortal)
+  VALUES (p_IdEstudiante, p_IdUsuarioAccion, TRIM(p_Titulo), NULLIF(TRIM(p_Descripcion), ''),
+          p_ArchivoNombre, LEFT(TRIM(p_NombreOriginal), 255), p_TipoArchivo, p_TamanoBytes,
+          IFNULL(p_VisibleEnPortal, 0));
+
+  SET v_IdDocumento = LAST_INSERT_ID();
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
+  VALUES (p_IdUsuarioAccion, 'TB_DOCUMENTO_ESTUDIANTE', v_IdDocumento, 'Crear',
+          JSON_OBJECT('IdEstudiante', p_IdEstudiante, 'Titulo', TRIM(p_Titulo),
+                      'VisibleEnPortal', IFNULL(p_VisibleEnPortal, 0)));
+
+  SELECT v_IdDocumento AS IdDocumento;
+END$$
+DELIMITER ;
+
+
+-- Lista de la ficha: los activos del estudiante, el mas reciente primero
+DROP PROCEDURE IF EXISTS SP_Documento_ListarPorEstudiante;
+DELIMITER $$
+CREATE PROCEDURE SP_Documento_ListarPorEstudiante(
+  IN p_IdEstudiante INT
+)
+BEGIN
+  SELECT d.IdDocumento,
+         d.IdEstudiante,
+         d.Titulo,
+         d.Descripcion,
+         d.NombreOriginal,
+         d.TipoArchivo,
+         d.TamanoBytes,
+         d.VisibleEnPortal,
+         d.FechaCreacion,
+         u.NombreCompleto AS SubidoPor
+  FROM TB_DOCUMENTO_ESTUDIANTE d
+  JOIN TB_USUARIO u ON u.IdUsuario = d.IdUsuarioRegistro
+  WHERE d.IdEstudiante = p_IdEstudiante
+    AND d.Activo = 1
+  ORDER BY d.FechaCreacion DESC, d.IdDocumento DESC;
+END$$
+DELIMITER ;
+
+
+-- Para servir el archivo desde el panel
+DROP PROCEDURE IF EXISTS SP_Documento_ObtenerArchivo;
+DELIMITER $$
+CREATE PROCEDURE SP_Documento_ObtenerArchivo(
+  IN p_IdDocumento INT
+)
+BEGIN
+  SELECT d.IdDocumento,
+         d.ArchivoNombre,
+         d.NombreOriginal,
+         d.TipoArchivo
+  FROM TB_DOCUMENTO_ESTUDIANTE d
+  WHERE d.IdDocumento = p_IdDocumento
+    AND d.Activo = 1;
+END$$
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS SP_Documento_CambiarVisibilidad;
+DELIMITER $$
+CREATE PROCEDURE SP_Documento_CambiarVisibilidad(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdDocumento     INT,
+  IN p_Visible         BOOLEAN
+)
+BEGIN
+  DECLARE v_Actual BOOLEAN DEFAULT NULL;
+
+  SELECT VisibleEnPortal INTO v_Actual
+  FROM TB_DOCUMENTO_ESTUDIANTE
+  WHERE IdDocumento = p_IdDocumento AND Activo = 1;
+
+  IF v_Actual IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El documento no existe o fue eliminado.';
+  END IF;
+
+  IF v_Actual <> IFNULL(p_Visible, 0) THEN
+    UPDATE TB_DOCUMENTO_ESTUDIANTE
+    SET VisibleEnPortal = IFNULL(p_Visible, 0)
+    WHERE IdDocumento = p_IdDocumento;
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_DOCUMENTO_ESTUDIANTE', p_IdDocumento, 'CambiarEstado',
+            JSON_OBJECT('VisibleEnPortal', v_Actual),
+            JSON_OBJECT('VisibleEnPortal', IFNULL(p_Visible, 0)));
+  END IF;
+END$$
+DELIMITER ;
+
+
+-- Borrado logico. El archivo queda en disco.
+DROP PROCEDURE IF EXISTS SP_Documento_Eliminar;
+DELIMITER $$
+CREATE PROCEDURE SP_Documento_Eliminar(
+  IN p_IdUsuarioAccion INT,
+  IN p_IdDocumento     INT
+)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM TB_DOCUMENTO_ESTUDIANTE
+                 WHERE IdDocumento = p_IdDocumento AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El documento no existe o ya fue eliminado.';
+  END IF;
+
+  UPDATE TB_DOCUMENTO_ESTUDIANTE
+  SET Activo = 0,
+      VisibleEnPortal = 0
+  WHERE IdDocumento = p_IdDocumento;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior)
+  VALUES (p_IdUsuarioAccion, 'TB_DOCUMENTO_ESTUDIANTE', p_IdDocumento, 'Eliminar',
+          JSON_OBJECT('Activo', 1));
+END$$
+DELIMITER ;
+
+
+-- Portal: solo los visibles y activos, y solo de un estudiante a cargo del usuario
+DROP PROCEDURE IF EXISTS SP_Portal_ListarDocumentos;
+DELIMITER $$
+CREATE PROCEDURE SP_Portal_ListarDocumentos(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
+  END IF;
+
+  SELECT d.IdDocumento,
+         d.Titulo,
+         d.Descripcion,
+         d.NombreOriginal,
+         d.TipoArchivo,
+         d.TamanoBytes,
+         d.FechaCreacion
+  FROM TB_DOCUMENTO_ESTUDIANTE d
+  WHERE d.IdEstudiante = p_IdEstudiante
+    AND d.Activo = 1
+    AND d.VisibleEnPortal = 1
+  ORDER BY d.FechaCreacion DESC, d.IdDocumento DESC;
+END$$
+DELIMITER ;
+
+
+-- Portal: el archivo de un documento visible. Devuelve vacio si no corresponde,
+-- asi el API responde 404 sin decir si el documento existe.
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerDocumento;
+DELIMITER $$
+CREATE PROCEDURE SP_Portal_ObtenerDocumento(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_IdDocumento INT
+)
+BEGIN
+  SELECT d.IdDocumento,
+         d.ArchivoNombre,
+         d.NombreOriginal,
+         d.TipoArchivo
+  FROM TB_DOCUMENTO_ESTUDIANTE d
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = d.IdEstudiante AND e.Activo = 1
+  JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = d.IdEstudiante
+  JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado AND en.Activo = 1
+  JOIN TB_USUARIO u ON u.IdEncargado = en.IdEncargado
+  WHERE d.IdDocumento = p_IdDocumento
+    AND d.IdEstudiante = p_IdEstudiante
+    AND d.Activo = 1
+    AND d.VisibleEnPortal = 1
+    AND u.IdUsuario = p_IdUsuario
+  LIMIT 1;
+END$$
 DELIMITER ;
