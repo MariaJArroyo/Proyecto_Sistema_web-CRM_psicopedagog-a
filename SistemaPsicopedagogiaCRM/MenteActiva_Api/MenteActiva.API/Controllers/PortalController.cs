@@ -12,14 +12,10 @@ namespace MenteActiva.Api.Controllers;
 public class PortalController : ControllerBase
 {
     private readonly IServicioPortal _servicio;
-    private readonly IWebHostEnvironment _entorno;
 
-    public PortalController(
-        IServicioPortal servicio,
-        IWebHostEnvironment entorno)
+    public PortalController(IServicioPortal servicio)
     {
         _servicio = servicio;
-        _entorno = entorno;
     }
 
     #region Inicio
@@ -97,68 +93,58 @@ public class PortalController : ControllerBase
 
     #region  tareas
     [HttpGet("tareas/{idTareaAsignacion:int}/archivo")]
-        public async Task<IActionResult> DescargarArchivoTarea(int idTareaAsignacion,[FromQuery] int idEstudiante,CancellationToken cancelacion)
+    public async Task<IActionResult> DescargarArchivoTarea(int idTareaAsignacion, [FromQuery] int idEstudiante, CancellationToken cancelacion)
+    {
+        var archivo = await _servicio.AbrirArchivoTareaAsync(User.ObtenerIdUsuario(), idEstudiante, idTareaAsignacion, cancelacion);
+
+        if (archivo is null)
         {
-            var archivo = await _servicio.ObtenerArchivoTareaAsync(User.ObtenerIdUsuario(),idEstudiante, idTareaAsignacion,cancelacion);
-
-            var nombre = archivo.RutaArchivo.Trim();
-
-            // RutaArchivo debe contener únicamente el nombre del archivo.
-            if (string.IsNullOrWhiteSpace(nombre)
-                || nombre is "." or ".."
-                || Path.IsPathRooted(nombre)
-                || nombre.IndexOfAny(new[] { '/', '\\', ':' }) >= 0
-                || nombre.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            {
-                return NotFound(new
-                {
-                    mensaje = "La ruta del archivo no es válida."
-                });
-            }
-
-            var carpeta = Path.Combine(_entorno.ContentRootPath, "Archivos", "Materiales");
-
-            var rutaArchivo = Path.Combine(carpeta, nombre);
-            var informacion = new FileInfo(rutaArchivo);
-
-            if (!informacion.Exists || informacion.LinkTarget is not null)
-            {
-                return NotFound(new
-                {
-                    mensaje = "El archivo no está disponible en el servidor."
-                });
-            }
-
-            try
-            {
-                var flujo = new FileStream(rutaArchivo, FileMode.Open,FileAccess.Read,FileShare.Read);
-
-                Response.Headers.CacheControl = "no-store";
-
-                return File(flujo,"application/octet-stream",nombre);
-            }
-            catch (FileNotFoundException)
-            {
-                return NotFound(new
-                {
-                    mensaje = "El archivo ya no está disponible."
-                });
-            }
-            catch (DirectoryNotFoundException)
-            {
-                return NotFound(new
-                {
-                    mensaje = "El archivo ya no está disponible."
-                });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return StatusCode(500, new
-                {
-                    mensaje = "No se pudo acceder al archivo."
-                });
-            }
+            return NotFound(new { mensaje = "El archivo no está disponible en el servidor." });
         }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return File(archivo.Contenido, "application/pdf", archivo.NombreDescarga);
+    }
+    #endregion
+
+    #region Recursos
+
+    // Guias, PDF, actividades y enlaces publicados. Sin RutaArchivo.
+    [HttpGet("recursos")]
+    public async Task<ActionResult<IReadOnlyList<PortalRecursoResponse>>> ListarRecursos(CancellationToken cancelacion)
+    {
+        var resultado = await _servicio.ListarRecursosAsync(User.ObtenerIdUsuario(), cancelacion);
+
+        return Ok(resultado);
+    }
+
+    // Lo publicado y activo, para cualquier encargado con un estudiante activo
+    // (SP_Portal_ObtenerRecurso). Lo demas sale como 400 con su mensaje.
+    [HttpGet("recursos/{idMaterial:int}/archivo")]
+    public async Task<IActionResult> DescargarArchivoRecurso(int idMaterial, CancellationToken cancelacion)
+    {
+        var archivo = await _servicio.ObtenerArchivoRecursoAsync(User.ObtenerIdUsuario(), idMaterial, cancelacion);
+
+        if (archivo is null)
+        {
+            return NotFound(new { mensaje = "El archivo no está disponible en el servidor." });
+        }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return File(archivo.Contenido, "application/pdf", archivo.NombreDescarga);
+    }
+
+    // 200 con { disponible, mensaje } tambien cuando el enlace esta caido
+    [HttpGet("recursos/{idMaterial:int}/verificar-enlace")]
+    public async Task<ActionResult<VerificacionEnlaceResponse>> VerificarEnlaceRecurso(int idMaterial, CancellationToken cancelacion)
+    {
+        var resultado = await _servicio.VerificarEnlaceRecursoAsync(User.ObtenerIdUsuario(), idMaterial, cancelacion);
+
+        return Ok(resultado);
+    }
+
     #endregion
 
 

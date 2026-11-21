@@ -1263,7 +1263,309 @@ public class AdminController : Controller
         return View(dashboard);
     }
 
-    public IActionResult Materiales() => View();
+    #region Materiales
+
+    // Los tres roles del panel, como el API. La pantalla recibe niveles y
+    // estudiantes ya cargados (selectores de los formularios); los materiales y
+    // las tareas los pide por fetch para poder refrescarlos sin recargar.
+    public async Task<IActionResult> Materiales(CancellationToken cancelacion)
+    {
+        var niveles = new List<NivelEducativoViewModel>();
+        var estudiantes = new List<EstudianteViewModel>();
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            niveles = await client.GetFromJsonAsync<List<NivelEducativoViewModel>>(
+                UrlApi("clientes/niveles"), cancelacion) ?? niveles;
+
+            estudiantes = await client.GetFromJsonAsync<List<EstudianteViewModel>>(
+                UrlApi("estudiantes"), cancelacion) ?? estudiantes;
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+        catch (HttpRequestException)
+        {
+            // Sin catalogos la pantalla se ve, pero los formularios no tienen de
+            // donde elegir nivel ni estudiantes
+            ViewBag.ErrorCarga = "No se pudieron cargar los niveles y estudiantes. El servicio no está disponible.";
+        }
+
+        ViewBag.Niveles = niveles;
+        ViewBag.Estudiantes = estudiantes;
+        ViewBag.TamanoMaximoMb = _config.GetValue("Materiales:TamanoMaximoMb", 10);
+
+        return View();
+    }
+
+    // ---------- consultas: se reenvian tal cual al navegador ----------
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarMateriales(int? idTipoMaterial, CancellationToken cancelacion)
+        => ReenviarGetAsync(
+            idTipoMaterial is > 0 ? $"materiales?idTipoMaterial={idTipoMaterial}" : "materiales",
+            cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> VerificarEnlaceMaterial(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"materiales/{id}/verificar-enlace", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> ConsultarTareas(CancellationToken cancelacion)
+        => ReenviarGetAsync("tareas", cancelacion);
+
+    [HttpGet]
+    public Task<IActionResult> DetalleTarea(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"tareas/{id}", cancelacion);
+
+    // El PDF se abre por navegacion (un enlace), no por fetch. Se pide completo
+    // y se entrega con el nombre que decide el API: el nombre en disco no sale
+    // de ahi.
+    [HttpGet]
+    public async Task<IActionResult> DescargarPdfMaterial(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(UrlApi($"materiales/{id}/archivo"), cancelacion);
+
+        if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return SesionVencida();
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode, "El archivo no está disponible.");
+        }
+
+        var disposicion = respuesta.Content.Headers.ContentDisposition;
+        var nombre = disposicion?.FileNameStar ?? disposicion?.FileName?.Trim('"') ?? "material.pdf";
+
+        Response.Headers.CacheControl = "no-store";
+
+        return File(await respuesta.Content.ReadAsByteArrayAsync(cancelacion), "application/pdf", nombre);
+    }
+
+    // ---------- altas y cambios de material (por fetch, con token en el FormData) ----------
+
+    // Reenvia el archivo como multipart con su tamanio conocido: asi el API
+    // responde con su mensaje propio cuando pasa del limite y no con el corte
+    // generico del servidor, que sale en ingles.
+    [HttpPost]
+    public async Task<IActionResult> SubirPdfMaterial(
+        IFormFile? archivo, string? titulo, string? descripcion,
+        int? idNivelEducativo, bool publicar, CancellationToken cancelacion)
+    {
+        if (archivo is null || archivo.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un archivo." });
+        }
+
+        using var cuerpo = new MultipartFormDataContent();
+        await using var flujo = archivo.OpenReadStream();
+
+        var parteArchivo = new StreamContent(flujo);
+
+        if (System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(archivo.ContentType, out var tipo))
+        {
+            parteArchivo.Headers.ContentType = tipo;
+        }
+
+        cuerpo.Add(parteArchivo, "archivo", archivo.FileName);
+
+        if (!string.IsNullOrWhiteSpace(titulo))
+        {
+            cuerpo.Add(new StringContent(titulo.Trim()), "titulo");
+        }
+
+        if (!string.IsNullOrWhiteSpace(descripcion))
+        {
+            cuerpo.Add(new StringContent(descripcion.Trim()), "descripcion");
+        }
+
+        if (idNivelEducativo is > 0)
+        {
+            cuerpo.Add(new StringContent(idNivelEducativo.Value.ToString(CultureInfo.InvariantCulture)), "idNivelEducativo");
+        }
+
+        cuerpo.Add(new StringContent(publicar ? "true" : "false"), "publicar");
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsync(UrlApi("materiales/pdf"), cuerpo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo subir el archivo.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CrearGuiaMaterial(
+        string? titulo, string? descripcion, int? idNivelEducativo, bool publicar,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("materiales/guias"),
+            new { titulo, descripcion, idNivelEducativo = IdONulo(idNivelEducativo), publicar },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar la guía.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CrearEnlaceMaterial(
+        string? titulo, string? descripcion, string? url, int? idNivelEducativo, bool publicar,
+        CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("materiales/enlaces"),
+            new { titulo, descripcion, url, idNivelEducativo = IdONulo(idNivelEducativo), publicar },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar el enlace.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CrearActividadMaterial(
+        string? titulo, string? descripcion, string? tipoActividad, DateTime? fechaActividad,
+        int? idNivelEducativo, bool publicar, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("materiales/actividades"),
+            new
+            {
+                titulo,
+                descripcion,
+                tipoActividad,
+                fechaActividad,
+                idNivelEducativo = IdONulo(idNivelEducativo),
+                publicar
+            },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar la actividad.", cancelacion);
+    }
+
+    // Una sola accion para los cuatro tipos: el API usa de estos campos solo los
+    // que le tocan al tipo del material
+    [HttpPost]
+    public async Task<IActionResult> EditarMaterial(
+        int id, string? titulo, string? descripcion, string? url, string? tipoActividad,
+        DateTime? fechaActividad, int? idNivelEducativo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"materiales/{id}"),
+            new
+            {
+                titulo,
+                descripcion,
+                url,
+                tipoActividad,
+                fechaActividad,
+                idNivelEducativo = IdONulo(idNivelEducativo)
+            },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo actualizar el material.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> PublicarMaterial(int id, bool publicado, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"materiales/{id}/publicacion"), new { publicado }, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo cambiar la publicación.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EliminarMaterial(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.DeleteAsync(UrlApi($"materiales/{id}"), cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo eliminar el material.", cancelacion);
+    }
+
+    // ---------- tareas ----------
+
+    [HttpPost]
+    public async Task<IActionResult> CrearTarea(
+        string? titulo, string? descripcion, DateTime? fechaLimite, int? idMaterial,
+        int[]? idEstudiantes, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsJsonAsync(
+            UrlApi("tareas"),
+            new { titulo, descripcion, fechaLimite, idMaterial = IdONulo(idMaterial), idEstudiantes },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo crear la tarea.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EditarTarea(
+        int id, string? titulo, string? descripcion, DateTime? fechaLimite, int? idMaterial,
+        int[]? idEstudiantes, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"tareas/{id}"),
+            new { titulo, descripcion, fechaLimite, idMaterial = IdONulo(idMaterial), idEstudiantes },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo actualizar la tarea.", cancelacion);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EliminarTarea(int id, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.DeleteAsync(UrlApi($"tareas/{id}"), cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo eliminar la tarea.", cancelacion);
+    }
+
+    // Un select sin elegir llega como 0 o vacio; el API espera nulo (niveles y material)
+    private static int? IdONulo(int? id) => id is > 0 ? id : null;
+
+    #endregion
+
     #region Pagos
 
     // Los 3 roles del panel: el Asistente tambien lleva los pagos

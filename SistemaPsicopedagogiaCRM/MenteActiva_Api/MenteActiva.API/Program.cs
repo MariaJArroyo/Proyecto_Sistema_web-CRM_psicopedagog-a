@@ -15,6 +15,13 @@ builder.Services.AddControllers()
     {
         opciones.InvalidModelStateResponseFactory = contexto =>
         {
+            var mensajeLectura = MensajeErrorDeLectura(contexto.ModelState);
+
+            if (mensajeLectura is not null)
+            {
+                return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new { mensaje = mensajeLectura });
+            }
+
             var errores = contexto.ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
@@ -81,6 +88,32 @@ builder.Services.AddScoped<IServicioEncargado, ServicioEncargado>();
 
 builder.Services.AddScoped<IRepositorioSolicitud, RepositorioSolicitud>();
 builder.Services.AddScoped<IServicioSolicitudes, ServicioSolicitudes>();
+
+// ---------- Materiales ----------
+builder.Services.AddScoped<IRepositorioMaterial, RepositorioMaterial>();
+builder.Services.AddScoped<IServicioMateriales, ServicioMateriales>();
+
+builder.Services.AddOptions<OpcionesMateriales>()
+    .Bind(builder.Configuration.GetSection(OpcionesMateriales.Seccion))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<AlmacenMateriales>();
+builder.Services.AddSingleton<IAlmacenMateriales>(sp => sp.GetRequiredService<AlmacenMateriales>());
+
+// Cliente propio para comprobar enlaces: sin redirecciones automaticas, sin
+// proxy y conectando solo a direcciones publicas (ver VerificadorEnlaces)
+builder.Services.AddHttpClient(VerificadorEnlaces.NombreCliente, cliente =>
+    {
+        cliente.Timeout = Timeout.InfiniteTimeSpan;
+        cliente.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; VerificadorEnlaces/1.0)");
+    })
+    .ConfigurePrimaryHttpMessageHandler(VerificadorEnlaces.CrearManejador);
+builder.Services.AddScoped<IVerificadorEnlaces, VerificadorEnlaces>();
+
+// ---------- Tareas ----------
+builder.Services.AddScoped<IRepositorioTarea, RepositorioTarea>();
+builder.Services.AddScoped<IServicioTareas, ServicioTareas>();
 
 // ---------- Comunicacion ----------
 builder.Services.AddScoped<IRepositorioPlantilla, RepositorioPlantilla>();
@@ -149,6 +182,9 @@ builder.Services.AddAuthorization(opciones =>
 
 var app = builder.Build();
 
+// La carpeta de los PDF no va en git; se crea aqui si falta
+app.Services.GetRequiredService<AlmacenMateriales>().CrearCarpeta();
+
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
@@ -165,3 +201,33 @@ app.MapControllers();
 
 app.Run();
 
+// Los errores al leer el cuerpo los escribe el framework, en ingles, y llegarian
+// tal cual al aviso de la pantalla. La llave de un error de JSON es su ruta ("$",
+// "$.titulo"); el del formulario sale de Kestrel cuando corta un cuerpo grande
+// enviado por partes, sin Content-Length (LimiteSubidaPdf solo ve el declarado).
+static string? MensajeErrorDeLectura(Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary estado)
+{
+    if (estado.Keys.Any(llave => llave.StartsWith('$')))
+    {
+        return "Los datos enviados no tienen un formato v\u00e1lido.";
+    }
+
+    var mensajes = estado.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+
+    if (mensajes.Any(m => m.Contains("Request body too large", StringComparison.Ordinal)))
+    {
+        return "Lo enviado pasa del tama\u00f1o m\u00e1ximo permitido.";
+    }
+
+    if (mensajes.Any(m => m.StartsWith("Failed to read the request form", StringComparison.Ordinal)))
+    {
+        return "No se pudo leer el formulario enviado.";
+    }
+
+    if (mensajes.Any(m => m.StartsWith("A non-empty request body is required", StringComparison.Ordinal)))
+    {
+        return "La petici\u00f3n no trae datos.";
+    }
+
+    return null;
+}

@@ -856,15 +856,32 @@ CREATE TABLE IF NOT EXISTS TB_MATERIAL (
   Publicado BOOLEAN NOT NULL DEFAULT 0,
   FechaPublicacion DATETIME NULL,
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  IdNivelEducativo INT NULL,
+  TipoActividad VARCHAR(30) NULL,
+  FechaActividad DATE NULL,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
+  FechaModificacion DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (IdMaterial),
   KEY IX_Material_TipoMaterial (IdTipoMaterial),
   KEY IX_Material_UsuarioRegistro (IdUsuarioRegistro),
+  KEY IX_Material_NivelEducativo (IdNivelEducativo),
   CONSTRAINT FK_Material_TipoMaterial FOREIGN KEY (IdTipoMaterial)
     REFERENCES TB_TIPO_MATERIAL (IdTipoMaterial) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT FK_Material_UsuarioRegistro FOREIGN KEY (IdUsuarioRegistro)
     REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_Material_NivelEducativo FOREIGN KEY (IdNivelEducativo)
+    REFERENCES TB_NIVEL_EDUCATIVO (IdNivelEducativo) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT CK_Material_TituloNoVacio CHECK (TRIM(Titulo) <> ''),
-  CONSTRAINT CK_Material_PublicacionCoherente CHECK (Publicado = 0 OR FechaPublicacion IS NOT NULL)
+  CONSTRAINT CK_Material_PublicacionCoherente CHECK (Publicado = 0 OR FechaPublicacion IS NOT NULL),
+  CONSTRAINT CK_Material_TipoActividad CHECK (TipoActividad IS NULL OR TipoActividad IN ('Ludica', 'Cognitiva', 'Motriz')),
+  -- Tipo de material: 1 Guia, 2 PDF, 3 Enlace, 4 Actividad. Tipo y fecha de
+  -- actividad solo existen en el 4 y ahi son obligatorios; el PDF lleva archivo
+  -- y el enlace lleva url.
+  CONSTRAINT CK_Material_ActividadCoherente CHECK (
+    (IdTipoMaterial = 4 AND TipoActividad IS NOT NULL AND FechaActividad IS NOT NULL)
+    OR (IdTipoMaterial <> 4 AND TipoActividad IS NULL AND FechaActividad IS NULL)),
+  CONSTRAINT CK_Material_PdfConArchivo CHECK (IdTipoMaterial <> 2 OR RutaArchivo IS NOT NULL),
+  CONSTRAINT CK_Material_EnlaceConUrl CHECK (IdTipoMaterial <> 3 OR Url IS NOT NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_TAREA (
@@ -875,6 +892,7 @@ CREATE TABLE IF NOT EXISTS TB_TAREA (
   Descripcion VARCHAR(1000) NULL,
   FechaLimite DATE NOT NULL,
   FechaCreacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
   PRIMARY KEY (IdTarea),
   KEY IX_Tarea_Material (IdMaterial),
   KEY IX_Tarea_UsuarioRegistro (IdUsuarioRegistro),

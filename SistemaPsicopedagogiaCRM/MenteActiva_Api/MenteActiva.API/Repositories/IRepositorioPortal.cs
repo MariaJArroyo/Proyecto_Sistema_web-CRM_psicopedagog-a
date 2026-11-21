@@ -19,5 +19,13 @@ namespace MenteActiva.Api.Repositories
         Task<PortalArchivoTareaResponse?> ObtenerArchivoTareaAsync(int idUsuario,int idEstudiante,int idTareaAsignacion,CancellationToken cancelacion);
         Task<PortalReporteDetalleResponse?> ObtenerReporteAsync(int idUsuario, int idEstudiante, int idReporte, CancellationToken cancelacion);
 
+        // SP_Portal_ObtenerRecurso. Lanza ReglaNegocioException si el usuario no
+        // tiene estudiantes activos o el material no esta publicado y activo.
+        Task<PortalRecursoDetalleResponse?> ObtenerRecursoAsync(int idUsuario, int idMaterial, CancellationToken cancelacion);
+
+        // SP_Portal_ListarRecursos. Lanza ReglaNegocioException si el usuario no
+        // tiene estudiantes activos.
+        Task<IReadOnlyList<PortalRecursoResponse>> ListarRecursosAsync(int idUsuario, CancellationToken cancelacion);
+
     }
 }
