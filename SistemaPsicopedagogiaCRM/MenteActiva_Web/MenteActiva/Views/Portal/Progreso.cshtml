@@ -1,14 +1,16 @@
-
 @model PortalProgresoViewModel
 
 @{
     ViewData["Title"] = "Progreso";
     var error = ViewBag.ErrorCarga as string;
+    var conRecomendaciones = Model.Sesiones
+        .Where(s => !string.IsNullOrWhiteSpace(s.Recomendaciones))
+        .ToList();
 }
 
 <main class="PrincipalPortal" id="PortalProgreso" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-graph-up-arrow", "Progreso del estudiante", "Reportes, avances y recomendaciones de la profesora."))
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-graph-up-arrow", "Progreso", "Reportes, avances y recomendaciones de la profesora."))
 
         @if (!string.IsNullOrWhiteSpace(error))
         {
@@ -16,137 +18,175 @@
         }
         else if (Model.Estudiantes.Count == 0)
         {
-            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+            <div class="EstadoVacio">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <p class="mb-0">No hay estudiantes disponibles para consultar.</p>
+            </div>
         }
         else
         {
-            <form asp-controller="Portal" asp-action="Progreso" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
-                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
-
-                <div class="col-md-6 col-lg-4">
-                    <label asp-for="FiltroReportes" class="form-label">Reportes</label>
-                    <select asp-for="FiltroReportes" class="form-select FiltroPortal" aria-describedby="AyudaFiltroReportes">
-                        <option value="todos">Todos los Reportes</option>
-                        <option value="nuevos">Reportes Nuevos: últimos 30 días</option>
-                        <option value="viejos">Reportes Pasados a los últimos 30 días</option>
-                    </select>
-                </div>
-
-                <p id="AyudaFiltroReportes" class="TextoSuave small mb-0">
-                    El filtro usa la fecha de generación del reporte; no modifica las sesiones ni las recomendaciones.
-                </p>
-            </form>
-
             <div id="AlertaProgreso" class="alert" role="status" aria-live="polite" hidden></div>
 
-            <section aria-labelledby="TituloReportes" class="mb-5">
-                <h3 id="TituloReportes" class="h4 mb-3">Reportes disponibles</h3>
+            @* Tres pestanas en vez de tres secciones apiladas: se ve una cosa a la vez
+               y la pagina casi no necesita scroll. El #hash de la URL abre la pestana
+               (Inicio enlaza a #Recomendaciones). *@
+            <ul class="nav SubpestanasPortal" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="PestanaReportes" type="button" role="tab"
+                            data-bs-toggle="tab" data-bs-target="#Reportes" aria-controls="Reportes" aria-selected="true">
+                        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>Reportes
+                        <span class="ContadorPortal">@Model.Reportes.Count</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="PestanaAvances" type="button" role="tab"
+                            data-bs-toggle="tab" data-bs-target="#Avances" aria-controls="Avances" aria-selected="false">
+                        <i class="bi bi-bar-chart-steps" aria-hidden="true"></i>Avances por sesión
+                        <span class="ContadorPortal">@Model.Sesiones.Count</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="PestanaRecomendaciones" type="button" role="tab"
+                            data-bs-toggle="tab" data-bs-target="#Recomendaciones" aria-controls="Recomendaciones" aria-selected="false">
+                        <i class="bi bi-lightbulb" aria-hidden="true"></i>Recomendaciones
+                        <span class="ContadorPortal">@conRecomendaciones.Count</span>
+                    </button>
+                </li>
+            </ul>
 
-                @if (Model.Reportes.Count == 0)
-                {
-                    <div class="EstadoVacio">
-                        <p class="mb-0">No hay reportes disponibles para el filtro seleccionado.</p>
+            <div class="tab-content">
+                <section class="tab-pane fade show active" id="Reportes" role="tabpanel" aria-labelledby="PestanaReportes" tabindex="0">
+                    <div class="CabeceraPanelPortal">
+                        <p id="AyudaFiltroReportes">
+                            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>El filtro usa la fecha en que se generó el reporte.
+                        </p>
+                        <form asp-controller="Portal" asp-action="Progreso" method="get" data-portal-filtros class="FiltroEnLinea">
+                            <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                            <label asp-for="FiltroReportes" class="visually-hidden">Reportes</label>
+                            <select asp-for="FiltroReportes" class="form-select FiltroPortal" aria-describedby="AyudaFiltroReportes">
+                                <option value="todos">Todos los reportes</option>
+                                <option value="nuevos">Nuevos: últimos 30 días</option>
+                                <option value="viejos">Anteriores a 30 días</option>
+                            </select>
+                        </form>
                     </div>
-                }
-                else
-                {
-                    <div class="row g-3">
-                        @foreach (var reporte in Model.Reportes)
-                        {
-                            <div class="col-md-6">
-                                <article class="Tarjeta p-3 h-100">
-                                    <h4 class="h5">@reporte.Titulo</h4>
 
-                                    <p>
-                                        <strong>Período:</strong>
-                                        @reporte.PeriodoInicio.ToString("dd/MM/yyyy") al @reporte.PeriodoFin.ToString("dd/MM/yyyy")
-                                    </p>
+                    @if (Model.Reportes.Count == 0)
+                    {
+                        <div class="EstadoVacio">
+                            <i class="bi bi-file-earmark" aria-hidden="true"></i>
+                            <p class="mb-0">No hay reportes disponibles para el filtro seleccionado.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            @foreach (var reporte in Model.Reportes)
+                            {
+                                <div class="col-md-6 col-xl-4">
+                                    <article class="Tarjeta ItemPortal">
+                                        <div class="ItemPortal-Cabecera">
+                                            <h2 class="ItemPortal-Titulo">@reporte.Titulo</h2>
+                                            <span class="IndicadorPortal-Icono" style="width:38px;height:38px;font-size:1.05rem;--ind-fondo:#F0EAFB;--ind-color:#8A68C2;" aria-hidden="true">
+                                                <i class="bi bi-file-earmark-text"></i>
+                                            </span>
+                                        </div>
 
-                                    <p class="TextoSuave">
-                                        Generado: @reporte.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
-                                    </p>
+                                        <ul class="DatosPortal flex-column mb-2">
+                                            <li>
+                                                <i class="bi bi-calendar-range" aria-hidden="true"></i>
+                                                @reporte.PeriodoInicio.ToString("dd/MM/yyyy") al @reporte.PeriodoFin.ToString("dd/MM/yyyy")
+                                            </li>
+                                            <li>
+                                                <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                                Generado el @reporte.FechaGeneracion.ToString("dd/MM/yyyy")
+                                            </li>
+                                        </ul>
 
-                                    <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
-                                        <button type="button" class="btn btn-outline-primary"
-                                                data-reporte-accion="detalle"
-                                                data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
-                                            Ver detalle
-                                        </button>
+                                        <div class="ItemPortal-Pie justify-content-end">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    data-reporte-accion="pdf"
+                                                    data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
+                                                <i class="bi bi-filetype-pdf me-1" aria-hidden="true"></i>PDF
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary"
+                                                    data-reporte-accion="detalle"
+                                                    data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
+                                                Ver detalle
+                                            </button>
+                                        </div>
+                                    </article>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
 
-                                        <button type="button" class="btn btn-outline-secondary"
-                                                data-reporte-accion="pdf"
-                                                data-url="@Url.Action("DetalleReporte", "Portal", new { idEstudiante = Model.IdEstudiante, idReporte = reporte.IdReporte })">
-                                            Descargar PDF
-                                        </button>
-                                    </div>
-                                </article>
-                            </div>
-                        }
-                    </div>
-                }
-            </section>
+                <section class="tab-pane fade" id="Avances" role="tabpanel" aria-labelledby="PestanaAvances" tabindex="0">
+                    @if (Model.Sesiones.Count == 0)
+                    {
+                        <div class="EstadoVacio">
+                            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i>
+                            <p class="mb-0">No hay sesiones disponibles.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <ol class="LineaTiempoPortal">
+                            @foreach (var sesion in Model.Sesiones)
+                            {
+                                <li>
+                                    <article class="Tarjeta">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-1">
+                                            <h2 class="ItemPortal-Titulo">@sesion.TemaTrabajado</h2>
+                                            <span class="ChipFechaPortal">
+                                                <i class="bi bi-calendar3" aria-hidden="true"></i>@sesion.Fecha.ToString("dd/MM/yyyy") · @sesion.TipoAtencion
+                                            </span>
+                                        </div>
+                                        <p class="mb-0 TextoSuave" style="white-space: pre-wrap">@(string.IsNullOrWhiteSpace(sesion.Avances)
+                                            ? "No hay avances registrados para esta sesión."
+                                            : sesion.Avances)</p>
+                                    </article>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </section>
 
-            <div class="row g-4 mb-5">
-                <div class="col-lg-6">
-                    <section aria-labelledby="TituloAvances" class="h-100">
-                        <h3 id="TituloAvances" class="h4 mb-3">Avances por sesión</h3>
-
-                        @if (Model.Sesiones.Count == 0)
-                        {
-                            <div class="EstadoVacio">
-                                <p class="mb-0">No hay sesiones disponibles.</p>
-                            </div>
-                        }
-
-                        @foreach (var sesion in Model.Sesiones)
-                        {
-                            <article class="Tarjeta p-3 mb-3">
-                                <h4 class="h5">@sesion.TemaTrabajado</h4>
-
-                                <p class="TextoSuave">
-                                    @sesion.Fecha.ToString("dd/MM/yyyy") · @sesion.TipoAtencion
-                                </p>
-
-                                <p class="mb-0">
-                                    @(string.IsNullOrWhiteSpace(sesion.Avances)
-                                        ? "No hay avances registrados para esta sesión."
-                                        : sesion.Avances)
-                                </p>
-                            </article>
-                        }
-                    </section>
-                </div>
-
-                <div class="col-lg-6">
-                    <section id="Recomendaciones" aria-labelledby="TituloRecomendaciones" class="h-100">
-                        <h3 id="TituloRecomendaciones" class="h4 mb-3">Recomendaciones para casa</h3>
-
-                        @if (!Model.Sesiones.Any(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
-                        {
-                            <div class="EstadoVacio">
-                                <p class="mb-0">No hay recomendaciones registradas.</p>
-                            </div>
-                        }
-
-                        @foreach (var sesion in Model.Sesiones.Where(s => !string.IsNullOrWhiteSpace(s.Recomendaciones)))
-                        {
-                            <details class="Tarjeta p-3 mb-3">
-                                <summary>
-                                    @sesion.TemaTrabajado · @sesion.Fecha.ToString("dd/MM/yyyy")
-                                </summary>
-
-                                <p class="mt-3 mb-0" style="white-space: pre-wrap">@sesion.Recomendaciones</p>
-                            </details>
-                        }
-                    </section>
-                </div>
+                <section class="tab-pane fade" id="Recomendaciones" role="tabpanel" aria-labelledby="PestanaRecomendaciones" tabindex="0">
+                    @if (conRecomendaciones.Count == 0)
+                    {
+                        <div class="EstadoVacio">
+                            <i class="bi bi-lightbulb" aria-hidden="true"></i>
+                            <p class="mb-0">No hay recomendaciones registradas.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="AcordeonPortal">
+                            @for (var i = 0; i < conRecomendaciones.Count; i++)
+                            {
+                                var sesion = conRecomendaciones[i];
+                                <details class="Tarjeta" open="@(i == 0 ? "open" : null)">
+                                    <summary>
+                                        <span>
+                                            <i class="bi bi-lightbulb text-warning me-2" aria-hidden="true"></i>@sesion.TemaTrabajado
+                                            <span class="TextoSuave small ms-1">· @sesion.Fecha.ToString("dd/MM/yyyy")</span>
+                                        </span>
+                                    </summary>
+                                    <p>@sesion.Recomendaciones</p>
+                                </details>
+                            }
+                        </div>
+                    }
+                </section>
             </div>
         }
     </div>
 </main>
 
 <div class="modal fade" id="ModalReportePortal" tabindex="-1" aria-labelledby="TituloDetalleReportePortal" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title fs-5" id="TituloDetalleReportePortal">Detalle del reporte</h2>

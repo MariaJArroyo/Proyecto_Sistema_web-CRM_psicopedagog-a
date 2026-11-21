@@ -108,7 +108,7 @@
                 // Cada opción del selector conserva el estudiante al que apunta.
                 if (enlace.hasAttribute("data-portal-cambiar-estudiante")) return;
                 const url = new URL(enlace.href, window.location.origin);
-                const esPortal = /\/Portal\/(Inicio|Citas|Progreso|Tareas|Recursos|Pagos)\/?$/i.test(url.pathname);
+                const esPortal = /\/Portal\/(Inicio|Citas|Progreso|Tareas|Recursos|Documentos|Pagos)\/?$/i.test(url.pathname);
                 if (url.origin !== window.location.origin || !esPortal) return;
                 // Evita duplicar IdEstudiante e idEstudiante por diferencias de mayúsculas.
                 for (const clave of Array.from(url.searchParams.keys())) {

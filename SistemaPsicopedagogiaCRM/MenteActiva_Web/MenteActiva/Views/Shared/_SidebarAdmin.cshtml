@@ -54,15 +54,16 @@
           </a>
         }
         <!-- Razor: asp-controller="Pagos" asp-action="Index" -->
-        <!-- Burbuja: cobros que ya pasaron su fecha de vencimiento -->
+        <!-- Burbuja: pagos reportados por validar mas cobros vencidos -->
         <a href="/Admin/Pagos" class="SidebarAdmin-Enlace@(seccion == "Pagos" ? " activo" : "")">
           <div class="SidebarAdmin-Icono">
             <i class="bi bi-cash-coin"></i>
             <sup class="SidebarAdmin-Contador d-none"
-                 data-contador="/Admin/ContarPagosVencidos"
-                 data-contador-nombre="pagosVencidos"
-                 data-contador-singular="cobro vencido"
-                 data-contador-plural="cobros vencidos"></sup>
+                 data-contador="/Admin/PendientesPagos"
+                 data-contador-campo-titulo="detalle"
+                 data-contador-nombre="pagosPendientes"
+                 data-contador-singular="pendiente en pagos"
+                 data-contador-plural="pendientes en pagos"></sup>
           </div>
           <span>Pagos</span>
         </a>

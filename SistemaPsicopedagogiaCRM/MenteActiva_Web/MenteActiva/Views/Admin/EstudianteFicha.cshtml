@@ -10,6 +10,9 @@
     var nombreCompleto =
         $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
 
+    // Documentos: solo Administrador y Psicopedagoga (pueden ser informes clinicos)
+    var puedeVerDocumentos = User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
+
     int? edad = null;
 
     if (Model.FechaNacimiento.HasValue)
@@ -202,6 +205,72 @@
         </div>
 
     </div>
+
+
+    @if (puedeVerDocumentos)
+    {
+        <!-- Documentos del estudiante: los pinta documentosEstudiante.js -->
+        <section id="DocumentosEstudiante" class="Tarjeta p-3 p-md-4 mt-3" aria-labelledby="TituloDocumentos"
+                 data-id-estudiante="@Model.IdEstudiante"
+                 data-url-lista="@Url.Action("ConsultarDocumentosEstudiante", "Admin")"
+                 data-url-subir="@Url.Action("SubirDocumentoEstudiante", "Admin")"
+                 data-url-ver="@Url.Action("VerDocumentoEstudiante", "Admin")"
+                 data-url-visibilidad="@Url.Action("CambiarVisibilidadDocumento", "Admin")"
+                 data-url-eliminar="@Url.Action("EliminarDocumentoEstudiante", "Admin")">
+            @Html.AntiForgeryToken()
+
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #fff4e4; color: #d69a43;">
+                        <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0" id="TituloDocumentos">
+                            Documentos
+                            <span class="badge rounded-pill text-bg-light border ms-1 align-middle" id="ContadorDocumentos">0</span>
+                        </h3>
+                        <p class="TextoSuave small mb-0">
+                            Evaluaciones, informes y otros archivos. El interruptor decide si la familia lo ve en el portal.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <div class="input-group input-group-sm BuscadorDocumentos">
+                        <span class="input-group-text bg-white"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input type="search" class="form-control" id="BuscarDocumento" placeholder="Buscar documento" aria-label="Buscar documento">
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#ModalSubirDocumento">
+                        <i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Subir documento
+                    </button>
+                </div>
+            </div>
+
+            <div id="AvisoDocumentos" class="alert d-none" role="status" aria-live="polite"></div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 TablaDocumentos" id="TablaDocumentos">
+                    <thead>
+                        <tr>
+                            <th>Documento</th>
+                            <th class="d-none d-md-table-cell">Subido</th>
+                            <th class="d-none d-lg-table-cell text-end">Tamaño</th>
+                            <th>Portal</th>
+                            <th class="TablaAcciones text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="CuerpoDocumentos">
+                        <tr><td colspan="5" class="TextoSuave">Cargando documentos…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="EstadoVacio d-none" id="VacioDocumentos">
+                <i class="bi bi-folder2" aria-hidden="true"></i>
+                <p class="mb-0" id="TextoVacioDocumentos">Todavía no hay documentos para este estudiante.</p>
+            </div>
+        </section>
+    }
 
 </main>
 
@@ -418,9 +487,99 @@
     </div>
 </div>
 
+@if (puedeVerDocumentos)
+{
+    <!-- Modal subir documento -->
+    <div id="ModalSubirDocumento" class="modal fade" tabindex="-1" aria-labelledby="TituloSubirDocumento" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="FormularioSubirDocumento" novalidate>
+                    <div class="modal-header">
+                        <h5 id="TituloSubirDocumento" class="modal-title">Subir documento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div id="AvisoSubirDocumento" class="alert alert-danger d-none" role="alert"></div>
+
+                        <label class="ZonaArchivo mb-3" id="ZonaDocumento" for="ArchivoDocumento">
+                            <input type="file" id="ArchivoDocumento" class="visually-hidden"
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                            <span class="ZonaArchivo-Vacia">
+                                <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+                                <span><strong>Elija un archivo</strong> o arrástrelo aquí</span>
+                                <small class="TextoSuave">PDF, imagen, Word, Excel o PowerPoint · máximo 15 MB</small>
+                            </span>
+                            <span class="ZonaArchivo-Elegido d-none">
+                                <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+                                <span class="ZonaArchivo-Nombre"></span>
+                                <small class="TextoSuave ZonaArchivo-Tamano"></small>
+                            </span>
+                        </label>
+
+                        <div class="mb-3">
+                            <label for="TituloDocumento" class="form-label CampoObligatorio">Título</label>
+                            <input type="text" id="TituloDocumento" class="form-control" maxlength="150"
+                                   placeholder="Ej. Evaluación psicopedagógica inicial">
+                            <div class="invalid-feedback">Indique el título del documento.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="DescripcionDocumento" class="form-label">Descripción <span class="TextoSuave">(opcional)</span></label>
+                            <textarea id="DescripcionDocumento" class="form-control" rows="2" maxlength="500"></textarea>
+                        </div>
+
+                        <div class="form-check form-switch InterruptorPortal">
+                            <input class="form-check-input" type="checkbox" role="switch" id="VisibleDocumento">
+                            <label class="form-check-label" for="VisibleDocumento">
+                                <strong>Visible para la familia</strong>
+                                <span class="d-block TextoSuave small">Aparece en la pestaña Documentos del portal. Lo puede cambiar después.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="BotonSubirDocumento">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Subir
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal eliminar documento -->
+    <div id="ModalEliminarDocumento" class="modal fade" tabindex="-1" aria-labelledby="TituloEliminarDocumento" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 id="TituloEliminarDocumento" class="modal-title">Eliminar documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-semibold mb-1" id="NombreEliminarDocumento"></p>
+                    <p class="mb-0">Dejará de aparecer en la ficha y en el portal de la familia.</p>
+                    <div id="AvisoEliminarDocumento" class="alert alert-danger d-none mt-3" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="ConfirmarEliminarDocumento">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
     <script src="~/js/areasEstado.js" asp-append-version="true"></script>
+    @if (puedeVerDocumentos)
+    {
+        <script src="~/js/documentosEstudiante.js" asp-append-version="true"></script>
+    }
 }
 
 

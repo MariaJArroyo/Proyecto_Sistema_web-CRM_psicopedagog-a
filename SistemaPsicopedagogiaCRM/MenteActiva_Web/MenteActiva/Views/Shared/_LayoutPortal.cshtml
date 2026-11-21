@@ -9,9 +9,11 @@
 <html lang="es">
 <head>
   <partial name="_CabeceraComun" model="titulo" />
+  @* Va despues de Styles.css: el portal sobrescribe sus reglas viejas desde aqui *@
+  <link href="~/css/Portal.css" rel="stylesheet" asp-append-version="true">
 </head>
 
-<body data-moneda="@moneda">
+<body class="CuerpoPortal" data-moneda="@moneda">
 
   <partial name="_NavbarPortal" />
 
@@ -39,8 +41,11 @@
   <script src="~/js/contadores.js"
           asp-append-version="true"></script>
 
-   <script src="~/js/filtros-portal.js"
-        asp-append-version="true"></script>
+  <script src="~/js/filtros-portal.js"
+          asp-append-version="true"></script>
+
+  <script src="~/js/portalAnimaciones.js"
+          asp-append-version="true"></script>
 
   @await RenderSectionAsync("Scripts", required: false)
 </body>

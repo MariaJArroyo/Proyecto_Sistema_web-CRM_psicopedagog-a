@@ -212,27 +212,9 @@
                                 Estudiante
                             </label>
 
-                            <select class="form-select"
-                                    id="EstudianteNuevoPlan"
-                                    name="IdEstudiante">
-
-                                <option value="" selected>
-                                    Seleccione un estudiante
-                                </option>
-
-                                @if (ViewBag.Estudiantes != null)
-                                {
-                                    foreach (var estudiante in ViewBag.Estudiantes)
-                                    {
-                                        <option value="@estudiante.IdEstudiante">
-                                            @estudiante.Estudiante
-                                        </option>
-                                    }
-                                }
-
-                            </select>
-
-                            <div class="invalid-feedback"></div>
+                            @* Lookup igual al de Agenda, Pagos y Sesiones: buscadorEstudiantes.js
+                               pinta aqui el campo de busqueda y el IdEstudiante oculto *@
+                            <div id="BuscadorEstudiantePlan"></div>
                         </div>
 
 
@@ -992,8 +974,22 @@
 @section Scripts {
 
     <script src="~/js/Validaciones.js" asp-append-version="true"></script>
+    <script src="~/js/buscadorEstudiantes.js" asp-append-version="true"></script>
 
     <script>
+
+        // Estudiante del plan nuevo: lookup en vez de lista desplegable
+        var buscadorPlan = crearBuscadorEstudiantes(
+            document.getElementById("BuscadorEstudiantePlan"), {
+                idEntrada: "EstudianteNuevoPlan",
+                nombreCampo: "IdEstudiante",
+                url: "@Url.Action("BuscarEstudiantesCita", "Admin")"
+            });
+
+        document.getElementById("ModalNuevoPlan")
+            .addEventListener("show.bs.modal", function () {
+                buscadorPlan.limpiar();
+            });
 
         document.addEventListener("DOMContentLoaded", function () {
 
@@ -1749,14 +1745,13 @@ if (accionConfirmadaPlan === "eliminar") {
                 return;
             }
 
-        var idEstudianteSeleccionado =
-            Number(
-                document.getElementById("EstudianteNuevoPlan").value
-            );
+        var idEstudianteSeleccionado = Number(buscadorPlan.valor);
 
       
 
-        if (idEstudianteSeleccionado <= 0) {
+        if (!buscadorPlan.validar() || idEstudianteSeleccionado <= 0) {
+
+            buscadorPlan.enfocar();
 
             MostrarToast(
                 "Debe seleccionar un estudiante.",
@@ -1826,6 +1821,7 @@ if (accionConfirmadaPlan === "eliminar") {
                 }
 
                 evento.target.reset();
+                buscadorPlan.limpiar();
 
                 evento.target
                     .querySelectorAll(".is-valid")

@@ -72,6 +72,39 @@
         </div>
     </div>
 
+    <!-- Pagos que las familias reportaron desde el portal (SINPE o transferencia).
+         Los pinta reportesPagoAdmin.js; aprobar crea el abono en el cobro. -->
+    <section class="Tarjeta p-3 p-md-4 mb-4 PanelReportesPago" id="PanelReportesPago" aria-labelledby="TituloReportesPago">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="PanelReportesPago-Icono" aria-hidden="true"><i class="bi bi-phone-vibrate"></i></span>
+                <div>
+                    <h3 class="h5 mb-0" id="TituloReportesPago">
+                        Pagos reportados por las familias
+                        <span class="badge rounded-pill PanelReportesPago-Contador d-none" id="ContadorReportesPago"></span>
+                    </h3>
+                    <p class="TextoSuave small mb-0">SINPE y transferencias que los encargados reportaron desde el portal. Revise el comprobante y apruebe o rechace.</p>
+                </div>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Filtrar pagos reportados" id="FiltroReportesPago">
+                <input type="radio" class="btn-check" name="estadoReporte" id="ReportesPendientes" value="Pendiente" checked>
+                <label class="btn btn-outline-primary" for="ReportesPendientes">Por validar</label>
+                <input type="radio" class="btn-check" name="estadoReporte" id="ReportesAprobados" value="Aprobado">
+                <label class="btn btn-outline-primary" for="ReportesAprobados">Aprobados</label>
+                <input type="radio" class="btn-check" name="estadoReporte" id="ReportesRechazados" value="Rechazado">
+                <label class="btn btn-outline-primary" for="ReportesRechazados">Rechazados</label>
+                <input type="radio" class="btn-check" name="estadoReporte" id="ReportesTodos" value="">
+                <label class="btn btn-outline-primary" for="ReportesTodos">Todos</label>
+            </div>
+        </div>
+
+        <div class="alert d-none" id="AlertaReportesPago" role="alert"></div>
+
+        <div class="ListaReportesPago" id="ListaReportesPago" aria-live="polite">
+            <p class="TextoSuave mb-0">Cargando…</p>
+        </div>
+    </section>
+
     <div class="Tarjeta p-3 p-md-4">
 
         <div class="row g-2 mb-3 align-items-end">
@@ -383,7 +416,64 @@
 </div>
 
 
+<!-- ========================================================= -->
+<!-- MODAL REVISAR PAGO REPORTADO -->
+<!-- ========================================================= -->
+<div class="modal fade" id="ModalRevisarReporte" tabindex="-1" aria-labelledby="TituloRevisarReporte" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title fs-5" id="TituloRevisarReporte">Revisar pago reportado</h2>
+                    <p class="TextoSuave small mb-0" id="SubtituloRevisarReporte"></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert d-none" id="AlertaRevisarReporte" role="alert"></div>
+                <div class="row g-4">
+                    <div class="col-lg-7">
+                        <div class="VisorComprobante" id="VisorComprobante"></div>
+                    </div>
+                    <div class="col-lg-5">
+                        <dl class="DatosReporte mb-3" id="DatosRevisarReporte"></dl>
+
+                        <div id="AccionesRevisarReporte">
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-success" id="BotonAprobarReporte">
+                                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                                    <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Aprobar y registrar el pago
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" id="BotonMostrarRechazo">
+                                    <i class="bi bi-x-circle me-1" aria-hidden="true"></i>Rechazar
+                                </button>
+                            </div>
+                            <p class="TextoSuave small mt-2 mb-0">
+                                Al aprobar se registra un abono por el monto reportado y el saldo del cobro se recalcula.
+                            </p>
+
+                            <div class="PanelRechazo mt-3 d-none" id="PanelRechazoReporte">
+                                <label for="MotivoRechazoReporte" class="form-label CampoObligatorio">Motivo del rechazo</label>
+                                <textarea class="form-control" id="MotivoRechazoReporte" rows="3" maxlength="500"
+                                          placeholder="Ej. No encontramos el depósito con esa referencia. Por favor revise el número."></textarea>
+                                <div class="invalid-feedback">Indique el motivo: la familia lo verá en el portal.</div>
+                                <div class="d-flex justify-content-end gap-2 mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="BotonCancelarRechazo">Cancelar</button>
+                                    <button type="button" class="btn btn-sm btn-danger" id="BotonConfirmarRechazo">
+                                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Confirmar rechazo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="~/js/buscadorEstudiantes.js" asp-append-version="true"></script>
     <script src="~/js/pagos.js" asp-append-version="true"></script>
+    <script src="~/js/reportesPagoAdmin.js" asp-append-version="true"></script>
 }

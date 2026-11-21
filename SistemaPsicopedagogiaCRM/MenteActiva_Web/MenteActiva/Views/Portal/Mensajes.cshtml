@@ -3,7 +3,8 @@
     ViewData["Title"] = "Mensajes";
 }
 
-<main class="container py-4">
+<main class="PrincipalPortal" id="PortalMensajes">
+    <div class="container">
     @Html.AntiForgeryToken()
 
     @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-chat-dots", "Mensajes", "Escríbale al consultorio y vea sus respuestas. Los mensajes no son por estudiante: la conversación es con la persona que le atiende."))
@@ -29,6 +30,7 @@
 
         @* La misma parcial que usa el panel: la pantalla es la misma de los dos lados *@
         <partial name="_Mensajeria" model="@("Consultorio")" />
+    </div>
     </div>
 </main>
 

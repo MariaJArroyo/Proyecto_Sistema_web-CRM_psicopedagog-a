@@ -99,14 +99,14 @@ public class AutenticacionController : ControllerBase
     public async Task<IActionResult> CambiarContrasena(
     [FromBody] CambiarContrasenaRequest peticion)
     {
-        var correo = User.FindFirst(ClaimTypes.Email)?.Value;
-
-        if (string.IsNullOrWhiteSpace(correo))
+        // Por id y no por el correo del token: si la persona cambio su correo en
+        // el perfil, el token todavia trae el anterior hasta que vuelva a entrar
+        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var idUsuario))
         {
             return Unauthorized(new { mensaje = "No se pudo identificar al usuario." });
         }
 
-        var resultado = await _servicio.CambiarContrasenaAsync(correo, peticion);
+        var resultado = await _servicio.CambiarContrasenaAsync(idUsuario, peticion);
 
         if (!resultado)
         {

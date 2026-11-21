@@ -5,93 +5,135 @@
 }
 <main class="PrincipalPortal" id="PortalTareas" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-journal-check", "Tareas del estudiante", "Consulte las actividades asignadas y sus materiales."))
+        <div class="BarraTituloPortal">
+            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-journal-check", "Tareas", "Las actividades asignadas y sus materiales."))
+
+            @if (string.IsNullOrWhiteSpace(error) && Model.Estudiantes.Count > 0)
+            {
+                <form asp-controller="Portal" asp-action="Tareas" method="get" data-portal-filtros class="FiltroEnLinea">
+                    <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                    <label asp-for="Filtro" class="visually-hidden">Mostrar</label>
+                    <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="pendientes">Tareas pendientes</option>
+                        <option value="asignadas">Tareas asignadas</option>
+                        <option value="entregadas">Tareas entregadas</option>
+                        <option value="todas">Todas las tareas</option>
+                    </select>
+                </form>
+            }
+        </div>
+
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
         }
         else if (Model.Estudiantes.Count == 0)
         {
-            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+            <div class="EstadoVacio">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <p class="mb-0">No hay estudiantes disponibles para consultar.</p>
+            </div>
         }
         else
         {
-            <form asp-controller="Portal" asp-action="Tareas" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
-                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
-                <div class="col-md-6 col-lg-4">
-                    <label asp-for="Filtro" class="form-label">Mostrar</label>
-                    <select asp-for="Filtro" class="form-select FiltroPortal">
-                        <option value="pendientes">Tareas Pendientes</option>
-                        <option value="asignadas">Tareas Asignadas</option>
-                        <option value="entregadas">Tareas Entregadas</option>
-                        <option value="todas">Todas las Tareas</option>
-                    </select>
-                </div>
-            </form>
             <div id="MensajeDescargaTarea" class="alert alert-danger" role="alert" hidden></div>
+
             @if (Model.Tareas.Count == 0)
             {
-                <div class="EstadoVacio"><p class="mb-0">No hay tareas para el filtro seleccionado.</p></div>
+                <div class="EstadoVacio">
+                    <i class="bi bi-journal-x" aria-hidden="true"></i>
+                    <p class="mb-0">No hay tareas para el filtro seleccionado.</p>
+                </div>
             }
             else
             {
                 <div class="row g-3">
                     @foreach (var tarea in Model.Tareas)
                     {
-                        <div class="col-md-6">
-                            <article class="Tarjeta p-3 h-100">
-                                <div class="d-flex justify-content-between gap-2 mb-3">
-                                    <h3 class="h5">@tarea.Titulo</h3>
-                                    @{
-                                        var claseEstado = tarea.Estado.ToLowerInvariant() switch
-                                        {
-                                            "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
-                                            "asignada" => "EstadoBadge EstadoBadge-Programada",
-                                            "entregada" => "EstadoBadge EstadoBadge-Completada",
-                                            "completada" => "EstadoBadge EstadoBadge-Completada",
-                                            "vencida" => "EstadoBadge EstadoBadge-Cancelada",
-                                            _ => "EstadoBadge EstadoBadge-Neutro"
-                                        };
-                                    }
-                                    <span class="@claseEstado align-self-start">@tarea.Estado</span>
-                                </div>
-                                <p style="white-space: pre-wrap">@tarea.Descripcion</p>
-                                <p><strong>Fecha límite:</strong> @tarea.FechaLimite.ToString("dd/MM/yyyy")</p>
-                                @if (tarea.FechaEntrega.HasValue)
-                                {
-                                    <p><strong>Entregada:</strong> @tarea.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante))
-                                {
-                                    <p><strong>Comentario del estudiante:</strong> @tarea.ComentarioEstudiante</p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(tarea.ComentarioRevision))
-                                {
-                                    <p><strong>Comentario de revisión:</strong> @tarea.ComentarioRevision</p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(tarea.Material))
-                                {
-                                    <p><strong>Material:</strong> @tarea.Material</p>
-                                }
-                                <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
-                                    @if (tarea.TieneArchivo)
-                                    {
-                                        <button type="button" class="btn btn-outline-primary"
-                                                data-descargar-tarea
-                                                data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">
-                                            Descargar archivo
-                                        </button>
-                                    }
+                        var claseEstado = tarea.Estado.ToLowerInvariant() switch
+                        {
+                            "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
+                            "asignada" => "EstadoBadge EstadoBadge-Programada",
+                            "entregada" => "EstadoBadge EstadoBadge-Completada",
+                            "completada" => "EstadoBadge EstadoBadge-Completada",
+                            "vencida" => "EstadoBadge EstadoBadge-Cancelada",
+                            _ => "EstadoBadge EstadoBadge-Neutro"
+                        };
+                        var tieneComentarios = !string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante)
+                            || !string.IsNullOrWhiteSpace(tarea.ComentarioRevision)
+                            || !string.IsNullOrWhiteSpace(tarea.Material)
+                            || tarea.FechaEntrega.HasValue;
+                        var tieneEnlace = Uri.TryCreate(tarea.MaterialUrl, UriKind.Absolute, out var enlaceMaterial)
+                            && (enlaceMaterial.Scheme == Uri.UriSchemeHttps || enlaceMaterial.Scheme == Uri.UriSchemeHttp);
 
-                                    @if (Uri.TryCreate(tarea.MaterialUrl, UriKind.Absolute, out var enlaceMaterial)
-                                        && (enlaceMaterial.Scheme == Uri.UriSchemeHttps || enlaceMaterial.Scheme == Uri.UriSchemeHttp))
+                        <div class="col-md-6 col-xl-4">
+                            <article class="Tarjeta ItemPortal">
+                                <div class="ItemPortal-Cabecera">
+                                    <h2 class="ItemPortal-Titulo">@tarea.Titulo</h2>
+                                    <span class="@claseEstado">@tarea.Estado</span>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(tarea.Descripcion))
+                                {
+                                    <p class="ItemPortal-Texto">@tarea.Descripcion</p>
+                                }
+
+                                @if (tieneComentarios)
+                                {
+                                    <details class="DetallePortal">
+                                        <summary>Más detalles</summary>
+                                        <dl>
+                                            @if (tarea.FechaEntrega.HasValue)
+                                            {
+                                                <dt>Entregada</dt>
+                                                <dd>@tarea.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</dd>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante))
+                                            {
+                                                <dt>Comentario del estudiante</dt>
+                                                <dd>@tarea.ComentarioEstudiante</dd>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(tarea.ComentarioRevision))
+                                            {
+                                                <dt>Comentario de revisión</dt>
+                                                <dd>@tarea.ComentarioRevision</dd>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(tarea.Material))
+                                            {
+                                                <dt>Material</dt>
+                                                <dd>@tarea.Material</dd>
+                                            }
+                                        </dl>
+                                    </details>
+                                }
+
+                                <div class="ItemPortal-Pie">
+                                    <span class="ChipFechaPortal">
+                                        <i class="bi bi-flag" aria-hidden="true"></i>Entrega: @tarea.FechaLimite.ToString("dd/MM/yyyy")
+                                    </span>
+
+                                    @if (tarea.TieneArchivo || tieneEnlace)
                                     {
-                                        <a href="@enlaceMaterial.AbsoluteUri"
-                                           target="_blank"
-                                           rel="noopener noreferrer"
-                                           class="btn btn-outline-secondary">
-                                            Abrir material
-                                        </a>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @if (tarea.TieneArchivo)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        data-descargar-tarea
+                                                        data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">
+                                                    <i class="bi bi-download me-1" aria-hidden="true"></i>Archivo
+                                                </button>
+                                            }
+
+                                            @if (tieneEnlace)
+                                            {
+                                                <a href="@enlaceMaterial!.AbsoluteUri"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="btn btn-sm btn-outline-secondary">
+                                                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Material
+                                                </a>
+                                            }
+                                        </div>
                                     }
                                 </div>
                             </article>

@@ -1,68 +1,98 @@
 @model PortalCitasViewModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Citas";
     var error = ViewBag.ErrorCarga as string;
+    var cultura = new CultureInfo("es-CR");
 }
 <main class="PrincipalPortal" id="PortalCitas" data-portal-estudiante="@Model.IdEstudiante">
     <div class="container">
-        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-calendar-event", "Citas del estudiante", "Consulte las próximas citas y el historial."))
+        <div class="BarraTituloPortal">
+            @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-calendar-event", "Citas", "Las próximas citas y el historial del estudiante."))
+
+            @if (string.IsNullOrWhiteSpace(error) && Model.Estudiantes.Count > 0)
+            {
+                <form asp-controller="Portal" asp-action="Citas" method="get" data-portal-filtros class="FiltroEnLinea">
+                    <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
+                    <label asp-for="Filtro" class="visually-hidden">Mostrar</label>
+                    <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="futuras">Citas futuras</option>
+                        <option value="pasadas">Citas pasadas</option>
+                        <option value="canceladas">Citas canceladas</option>
+                        <option value="completadas">Citas completadas</option>
+                        <option value="todas">Todas las citas</option>
+                    </select>
+                </form>
+            }
+        </div>
+
         @if (!string.IsNullOrWhiteSpace(error))
         {
             <div class="alert alert-danger" role="alert">@error</div>
         }
         else if (Model.Estudiantes.Count == 0)
         {
-            <div class="alert alert-info">No hay estudiantes disponibles para consultar.</div>
+            <div class="EstadoVacio">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <p class="mb-0">No hay estudiantes disponibles para consultar.</p>
+            </div>
+        }
+        else if (Model.Citas.Count == 0)
+        {
+            <div class="EstadoVacio">
+                <i class="bi bi-calendar-x" aria-hidden="true"></i>
+                <p class="mb-0">No hay citas para el filtro seleccionado.</p>
+            </div>
         }
         else
         {
-            <form asp-controller="Portal" asp-action="Citas" method="get" data-portal-filtros class="row g-3 align-items-end mb-4">
-                <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
-                <div class="col-md-6 col-lg-4">
-                    <label asp-for="Filtro" class="form-label">Mostrar</label>
-                    <select asp-for="Filtro" class="form-select FiltroPortal">
-                        <option value="futuras">Citas Futuras</option>
-                        <option value="pasadas">Citas Pasadas</option>
-                        <option value="canceladas">Citas Canceladas</option>
-                        <option value="completadas">Citas Completadas</option>
-                        <option value="todas">Todas las citas</option>
-                    </select>
-                </div>
-            </form>
-            @if (Model.Citas.Count == 0)
-            {
-                <div class="EstadoVacio"><p class="mb-0">No hay citas para el filtro seleccionado.</p></div>
-            }
-            else
-            {
-                <div class="row g-3">
-                    @foreach (var cita in Model.Citas)
+            <div class="row g-3">
+                @foreach (var cita in Model.Citas)
+                {
+                    var estado = cita.Estado.ToLowerInvariant();
+                    var claseEstado = estado switch
                     {
-                        <div class="col-md-6 col-lg-4">
-                            <article class="Tarjeta p-3 h-100">
-                                <div class="d-flex justify-content-between gap-2 mb-3">
-                                    <h3 class="h5 mb-0">@cita.TipoSesion</h3>
-                                    @{
-                                        var claseEstado = cita.Estado.ToLowerInvariant() switch
-                                        {
-                                            "confirmada" => "EstadoBadge EstadoBadge-Confirmada",
-                                            "programada" => "EstadoBadge EstadoBadge-Programada",
-                                            "completada" => "EstadoBadge EstadoBadge-Completada",
-                                            "cancelada" => "EstadoBadge EstadoBadge-Cancelada",
-                                            _ => "EstadoBadge EstadoBadge-Neutro"
-                                        };
-                                    }
-                                    <span class="@claseEstado align-self-start">@cita.Estado</span>
+                        "confirmada" => "EstadoBadge EstadoBadge-Confirmada",
+                        "programada" => "EstadoBadge EstadoBadge-Programada",
+                        "completada" => "EstadoBadge EstadoBadge-Completada",
+                        "cancelada" => "EstadoBadge EstadoBadge-Cancelada",
+                        _ => "EstadoBadge EstadoBadge-Neutro"
+                    };
+                    var mismoDia = cita.FechaHoraInicio.Date == cita.FechaHoraFin.Date;
+
+                    <div class="col-md-6 col-xl-4">
+                        <article class="Tarjeta CitaPortal@(estado == "cancelada" ? " CitaPortal-Cancelada" : "")">
+                            <div class="CitaPortal-Fecha" aria-hidden="true">
+                                <span class="CitaPortal-Dia">@cita.FechaHoraInicio.Day</span>
+                                <span class="CitaPortal-Mes">@cita.FechaHoraInicio.ToString("MMM", cultura).TrimEnd('.')</span>
+                                <span class="CitaPortal-Anio">@cita.FechaHoraInicio.Year</span>
+                            </div>
+                            <div class="CitaPortal-Cuerpo">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <h2 class="CitaPortal-Titulo">@cita.TipoSesion</h2>
+                                    <span class="@claseEstado">@cita.Estado</span>
                                 </div>
-                                <p><strong>Fecha:</strong> @cita.FechaHoraInicio.ToString("dd/MM/yyyy")</p>
-                                <p><strong>Inicio:</strong> @cita.FechaHoraInicio.ToString("HH:mm")</p>
-                                <p><strong>Fin:</strong> @cita.FechaHoraFin.ToString("dd/MM/yyyy HH:mm")</p>
-                                <p class="mb-0"><strong>Modalidad:</strong> @cita.Modalidad</p>
-                            </article>
-                        </div>
-                    }
-                </div>
-            }
+                                <p class="visually-hidden">@cita.FechaHoraInicio.ToString("dddd d 'de' MMMM 'de' yyyy", cultura)</p>
+                                <ul class="DatosPortal">
+                                    <li>
+                                        <i class="bi bi-clock" aria-hidden="true"></i>
+                                        @cita.FechaHoraInicio.ToString("HH:mm") –
+                                        @(mismoDia ? cita.FechaHoraFin.ToString("HH:mm") : cita.FechaHoraFin.ToString("dd/MM/yyyy HH:mm"))
+                                    </li>
+                                    <li>
+                                        <i class="bi @(cita.Modalidad.Contains("irtual", StringComparison.OrdinalIgnoreCase) ? "bi-camera-video" : "bi-geo-alt")" aria-hidden="true"></i>
+                                        @cita.Modalidad
+                                    </li>
+                                    <li class="text-capitalize">
+                                        <i class="bi bi-calendar3" aria-hidden="true"></i>
+                                        @cita.FechaHoraInicio.ToString("dddd", cultura)
+                                    </li>
+                                </ul>
+                            </div>
+                        </article>
+                    </div>
+                }
+            </div>
         }
     </div>
 </main>

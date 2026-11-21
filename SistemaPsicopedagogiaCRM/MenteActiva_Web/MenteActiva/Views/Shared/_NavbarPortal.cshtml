@@ -13,6 +13,7 @@
         PortalTareasViewModel tareas => (Estudiantes: tareas.Estudiantes, IdEstudiante: tareas.IdEstudiante),
         PortalPagosViewModel pagos => (Estudiantes: pagos.Estudiantes, IdEstudiante: pagos.IdEstudiante),
         PortalRecursosViewModel recursos => (Estudiantes: recursos.Estudiantes, IdEstudiante: recursos.IdEstudiante),
+        PortalDocumentosViewModel documentos => (Estudiantes: documentos.Estudiantes, IdEstudiante: documentos.IdEstudiante),
         // Los mensajes no son por estudiante, pero la pantalla carga igual los
         // estudiantes para no perder el selector ni el enlace de las demas
         PortalMensajesViewModel mensajes => (Estudiantes: mensajes.Estudiantes, IdEstudiante: mensajes.IdEstudiante),
@@ -26,101 +27,148 @@
     int? idActual = estudianteActual?.IdEstudiante;
     var filtroActual = Context.Request.Query["filtro"].ToString();
     var filtroReportesActual = Context.Request.Query["filtroReportes"].ToString();
+
+    // "Lucía Vindas Solís" -> "LV"
+    static string Iniciales(string nombre)
+    {
+        var partes = (nombre ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return string.Concat(partes.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+
+    // Las pestanas principales. Mi perfil y Salir van en el menu de la persona.
+    var pestanas = new (string Accion, string Texto, string Icono)[]
+    {
+        ("Inicio", "Inicio", "bi-house"),
+        ("Citas", "Citas", "bi-calendar-event"),
+        ("Progreso", "Progreso", "bi-graph-up-arrow"),
+        ("Tareas", "Tareas", "bi-journal-check"),
+        ("Recursos", "Recursos", "bi-book"),
+        ("Documentos", "Documentos", "bi-folder2-open"),
+        ("Pagos", "Pagos", "bi-wallet2"),
+        ("Mensajes", "Mensajes", "bi-chat-dots")
+    };
 }
 
-<nav class="navbar navbar-expand-xl NavbarPortal sticky-top py-2">
-    <div class="container">
-        <a class="navbar-brand" asp-controller="Portal" asp-action="Inicio" asp-route-idEstudiante="@idActual">
-            <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía" class="LogoMarca">
-            Mente Activa Psicopedagogía
+<header class="CabeceraPortal sticky-top">
+    <div class="container CabeceraPortal-Barra">
+        <a class="MarcaPortal" asp-controller="Portal" asp-action="Inicio" asp-route-idEstudiante="@idActual">
+            <img src="~/img/LogoMenteActiva.jpeg" alt="Logo Mente Activa Psicopedagogía">
+            <span class="text-truncate">
+                <span class="MarcaPortal-Nombre">Mente Activa</span>
+                <span class="MarcaPortal-Lema">Portal de familias</span>
+            </span>
         </a>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#MenuPortal"
-                aria-controls="MenuPortal" aria-expanded="false" aria-label="Abrir menú">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="MenuPortal">
-            <ul class="navbar-nav ms-auto align-items-xl-center gap-xl-2">
-                @if (estudianteActual is not null)
+        <div class="CabeceraPortal-Acciones">
+            @if (estudianteActual is not null)
+            {
+                @if (datosEstudiante.Estudiantes.Count > 1)
                 {
-                    @if (datosEstudiante.Estudiantes.Count > 1)
-                    {
-                        <li class="nav-item dropdown">
-                            <button class="nav-link dropdown-toggle text-start" type="button"
-                                    id="SelectorEstudiantePortal" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="d-block small TextoSuave">Viendo al estudiante:</span>
-                                <span class="fw-semibold">@estudianteActual.Estudiante</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="SelectorEstudiantePortal">
-                                @foreach (var estudiante in datosEstudiante.Estudiantes)
-                                {
-                                    var estaSeleccionado = estudiante.IdEstudiante == datosEstudiante.IdEstudiante;
-                                    var rutaEstudiante = new RouteValueDictionary
-                                    {
-                                        ["idEstudiante"] = estudiante.IdEstudiante
-                                    };
-
-                                    if (!string.IsNullOrWhiteSpace(filtroActual))
-                                    {
-                                        rutaEstudiante["filtro"] = filtroActual;
-                                    }
-
-                                    if (!string.IsNullOrWhiteSpace(filtroReportesActual))
-                                    {
-                                        rutaEstudiante["filtroReportes"] = filtroReportesActual;
-                                    }
-
-                                    <li>
-                                        <a class="dropdown-item@(estaSeleccionado ? " active" : "")"
-                                           href="@Url.Action(accionPortal, "Portal", rutaEstudiante)"
-                                           data-portal-cambiar-estudiante
-                                           aria-current="@(estaSeleccionado ? "true" : null)">
-                                            @estudiante.Estudiante
-                                        </a>
-                                    </li>
-                                }
-                            </ul>
-                        </li>
-                    }
-                    else
-                    {
-                        <li class="nav-item">
-                            <span class="navbar-text px-xl-2">
-                                <span class="d-block small TextoSuave">Viendo al estudiante:</span>
-                                <span class="fw-semibold">@estudianteActual.Estudiante</span>
+                    <div class="dropdown">
+                        <button class="SelectorEstudiante" type="button"
+                                id="SelectorEstudiantePortal" data-bs-toggle="dropdown" aria-expanded="false"
+                                title="Cambiar de estudiante">
+                            <span class="Iniciales" aria-hidden="true">@Iniciales(estudianteActual.Estudiante)</span>
+                            <span class="SelectorEstudiante-Texto">
+                                <span class="SelectorEstudiante-Etiqueta">Viendo a</span>
+                                <span class="SelectorEstudiante-Nombre">@estudianteActual.Estudiante</span>
                             </span>
-                        </li>
-                    }
-                }
-
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Inicio" ? " active" : "")" asp-controller="Portal" asp-action="Inicio" asp-route-idEstudiante="@idActual"><i class="bi bi-house me-1" aria-hidden="true"></i>Inicio</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Citas" ? " active" : "")" asp-controller="Portal" asp-action="Citas" asp-route-idEstudiante="@idActual"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Citas</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Progreso" ? " active" : "")" asp-controller="Portal" asp-action="Progreso" asp-route-idEstudiante="@idActual"><i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Progreso</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Tareas" ? " active" : "")" asp-controller="Portal" asp-action="Tareas" asp-route-idEstudiante="@idActual"><i class="bi bi-journal-check me-1" aria-hidden="true"></i>Tareas</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Recursos" ? " active" : "")" asp-controller="Portal" asp-action="Recursos" asp-route-idEstudiante="@idActual"><i class="bi bi-book me-1" aria-hidden="true"></i>Recursos</a></li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Pagos" ? " active" : "")" asp-controller="Portal" asp-action="Pagos" asp-route-idEstudiante="@idActual"><i class="bi bi-wallet2 me-1" aria-hidden="true"></i>Pagos</a></li>
-                <li class="nav-item">
-                    <a class="nav-link@(accionPortal == "Mensajes" ? " active" : "")"
-                       asp-controller="Portal" asp-action="Mensajes" asp-route-idEstudiante="@idActual">
-                        <i class="bi bi-chat-dots me-1" aria-hidden="true"></i>Mensajes
-                        <span class="badge badge-estado-nuevo ms-1 d-none" id="ContadorMensajesPortal"
-                              data-contador="/Portal/MensajesSinLeer"
-                              data-contador-campo="sinLeer"
-                              data-contador-nombre="mensajes"
-                              data-contador-singular="mensaje sin leer"
-                              data-contador-plural="mensajes sin leer"></span>
-                    </a>
-                </li>
-                <li class="nav-item"><a class="nav-link@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil"><i class="bi bi-person-circle me-1" aria-hidden="true"></i>Mi perfil</a></li>
-                <li class="nav-item ms-xl-2">
-                    <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="m-0">
-                        <button type="submit" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-box-arrow-left me-1" aria-hidden="true"></i>Salir
+                            <i class="bi bi-chevron-down small TextoSuave" aria-hidden="true"></i>
                         </button>
-                    </form>
-                </li>
-            </ul>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="SelectorEstudiantePortal">
+                            <li><h6 class="dropdown-header">Cambiar de estudiante</h6></li>
+                            @foreach (var estudiante in datosEstudiante.Estudiantes)
+                            {
+                                var estaSeleccionado = estudiante.IdEstudiante == datosEstudiante.IdEstudiante;
+                                var rutaEstudiante = new RouteValueDictionary
+                                {
+                                    ["idEstudiante"] = estudiante.IdEstudiante
+                                };
+
+                                if (!string.IsNullOrWhiteSpace(filtroActual))
+                                {
+                                    rutaEstudiante["filtro"] = filtroActual;
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(filtroReportesActual))
+                                {
+                                    rutaEstudiante["filtroReportes"] = filtroReportesActual;
+                                }
+
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2@(estaSeleccionado ? " active" : "")"
+                                       href="@Url.Action(accionPortal, "Portal", rutaEstudiante)"
+                                       data-portal-cambiar-estudiante
+                                       aria-current="@(estaSeleccionado ? "true" : null)">
+                                        <span class="Iniciales" aria-hidden="true">@Iniciales(estudiante.Estudiante)</span>
+                                        @estudiante.Estudiante
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else
+                {
+                    <div class="SelectorEstudiante">
+                        <span class="Iniciales" aria-hidden="true">@Iniciales(estudianteActual.Estudiante)</span>
+                        <span class="SelectorEstudiante-Texto">
+                            <span class="SelectorEstudiante-Etiqueta">Viendo a</span>
+                            <span class="SelectorEstudiante-Nombre">@estudianteActual.Estudiante</span>
+                        </span>
+                    </div>
+                }
+            }
+
+            <div class="dropdown">
+                <button class="BotonIconoPortal@(accionPortal == "Perfil" ? " active" : "")" type="button"
+                        id="MenuCuentaPortal" data-bs-toggle="dropdown" aria-expanded="false"
+                        aria-label="Menú de la cuenta">
+                    <i class="bi bi-person" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="MenuCuentaPortal">
+                    <li>
+                        <a class="dropdown-item@(accionPortal == "Perfil" ? " active" : "")" asp-controller="Portal" asp-action="Perfil">
+                            <i class="bi bi-person-circle me-2" aria-hidden="true"></i>Mi perfil
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="m-0">
+                            <button type="submit" class="dropdown-item text-danger">
+                                <i class="bi bi-box-arrow-left me-2" aria-hidden="true"></i>Cerrar sesión
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
-</nav>
+
+    <nav class="container NavPortal" aria-label="Secciones del portal">
+        <ul class="PestanasPortal">
+            @foreach (var pestana in pestanas)
+            {
+                var activa = accionPortal == pestana.Accion;
+                <li>
+                    <a class="PestanasPortal-Enlace@(activa ? " active" : "")"
+                       asp-controller="Portal" asp-action="@pestana.Accion" asp-route-idEstudiante="@idActual"
+                       aria-current="@(activa ? "page" : null)">
+                        <i class="bi @pestana.Icono" aria-hidden="true"></i>@pestana.Texto
+                        @if (pestana.Accion == "Mensajes")
+                        {
+                            <span class="badge badge-estado-nuevo d-none" id="ContadorMensajesPortal"
+                                  data-contador="/Portal/MensajesSinLeer"
+                                  data-contador-campo="sinLeer"
+                                  data-contador-nombre="mensajes"
+                                  data-contador-singular="mensaje sin leer"
+                                  data-contador-plural="mensajes sin leer"></span>
+                        }
+                    </a>
+                </li>
+            }
+        </ul>
+    </nav>
+</header>

@@ -1,0 +1,97 @@
+@model PortalDocumentosViewModel
+@{
+    ViewData["Title"] = "Documentos";
+    var error = ViewBag.ErrorCarga as string;
+
+    static (string Icono, string Clase, bool SeVe, string Etiqueta) Visual(string tipo) => tipo switch
+    {
+        "application/pdf" => ("bi-file-earmark-pdf", "DocPortal-Pdf", true, "PDF"),
+        var t when t.StartsWith("image/") => ("bi-file-earmark-image", "DocPortal-Imagen", true, "Imagen"),
+        var t when t.Contains("word") => ("bi-file-earmark-word", "DocPortal-Word", false, "Word"),
+        var t when t.Contains("sheet") || t.Contains("excel") => ("bi-file-earmark-excel", "DocPortal-Excel", false, "Excel"),
+        var t when t.Contains("presentation") || t.Contains("powerpoint") => ("bi-file-earmark-slides", "DocPortal-Ppt", false, "PowerPoint"),
+        _ => ("bi-file-earmark", "", false, "Archivo")
+    };
+
+    static string Tamano(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024} KB",
+        _ => $"{bytes / 1024d / 1024d:0.0} MB"
+    };
+}
+<main class="PrincipalPortal" id="PortalDocumentos" data-portal-estudiante="@Model.IdEstudiante">
+    <div class="container">
+        @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-folder2-open", "Documentos", "Evaluaciones, informes y otros documentos que la profesional comparte con usted."))
+
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        else if (Model.Estudiantes.Count == 0)
+        {
+            <div class="EstadoVacio">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <p class="mb-0">No hay estudiantes disponibles para consultar.</p>
+            </div>
+        }
+        else if (Model.Documentos.Count == 0)
+        {
+            <div class="EstadoVacio">
+                <i class="bi bi-folder2" aria-hidden="true"></i>
+                <p class="mb-0">Todavía no hay documentos compartidos. Cuando la profesional comparta uno, aparecerá aquí.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var documento in Model.Documentos)
+                {
+                    var visual = Visual(documento.TipoArchivo);
+                    var urlVer = Url.Action("DescargarDocumento", "Portal", new { idEstudiante = Model.IdEstudiante, idDocumento = documento.IdDocumento, ver = true });
+                    var urlBajar = Url.Action("DescargarDocumento", "Portal", new { idEstudiante = Model.IdEstudiante, idDocumento = documento.IdDocumento });
+                    var esNuevo = documento.FechaCreacion >= DateTime.Now.AddDays(-7);
+
+                    <div class="col-md-6 col-xl-4">
+                        <article class="Tarjeta ItemPortal DocPortal">
+                            <div class="d-flex align-items-start gap-3 mb-2">
+                                <span class="DocPortal-Icono @visual.Clase" aria-hidden="true"><i class="bi @visual.Icono"></i></span>
+                                <div class="min-w-0 flex-grow-1">
+                                    <h2 class="ItemPortal-Titulo">@documento.Titulo</h2>
+                                    <ul class="DatosPortal mt-1">
+                                        <li><i class="bi bi-calendar3" aria-hidden="true"></i>@documento.FechaCreacion.ToString("dd/MM/yyyy")</li>
+                                        <li>@visual.Etiqueta · @Tamano(documento.TamanoBytes)</li>
+                                    </ul>
+                                </div>
+                                @if (esNuevo)
+                                {
+                                    <span class="badge badge-estado-nuevo">Nuevo</span>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(documento.Descripcion))
+                            {
+                                <p class="ItemPortal-Texto">@documento.Descripcion</p>
+                            }
+
+                            <div class="ItemPortal-Pie justify-content-end">
+                                @if (visual.SeVe)
+                                {
+                                    <a href="@urlVer" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye me-1" aria-hidden="true"></i>Ver
+                                    </a>
+                                }
+                                <a href="@urlBajar" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-download me-1" aria-hidden="true"></i>Descargar
+                                </a>
+                            </div>
+                        </article>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</main>
+@section Scripts {
+    <script>window.PortalComun?.iniciarPantalla("PortalDocumentos");</script>
+}
