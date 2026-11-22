@@ -1022,10 +1022,24 @@ CREATE TABLE IF NOT EXISTS TB_TAREA_ASIGNACION (
   FechaEntrega DATETIME NULL,
   ComentarioEstudiante VARCHAR(500) NULL,
   ComentarioRevision VARCHAR(500) NULL,
+  -- Archivo que adjunta la familia al entregar (foto o PDF). En disco va con
+  -- un nombre GUID en Archivos/EntregasTareas; aqui solo el nombre y el tipo.
+  ArchivoEntrega VARCHAR(100) NULL,
+  TipoArchivoEntrega VARCHAR(50) NULL,
+  NombreArchivoEntrega VARCHAR(255) NULL,
+  IdUsuarioRevisa INT NULL,
+  FechaRevision DATETIME NULL,
   PRIMARY KEY (IdTareaAsignacion),
   UNIQUE KEY UX_TareaAsignacion_Relacion (IdTarea, IdEstudiante),
+  UNIQUE KEY UX_TareaAsignacion_ArchivoEntrega (ArchivoEntrega),
   KEY IX_TareaAsignacion_Estudiante (IdEstudiante),
   KEY IX_TareaAsignacion_EstadoTarea (IdEstadoTarea),
+  KEY IX_TareaAsignacion_UsuarioRevisa (IdUsuarioRevisa),
+  CONSTRAINT FK_TareaAsignacion_UsuarioRevisa FOREIGN KEY (IdUsuarioRevisa)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_TareaAsignacion_ArchivoCompleto CHECK (
+    (ArchivoEntrega IS NULL AND TipoArchivoEntrega IS NULL)
+    OR (ArchivoEntrega IS NOT NULL AND TipoArchivoEntrega IS NOT NULL)),
   CONSTRAINT FK_TareaAsignacion_Tarea FOREIGN KEY (IdTarea)
     REFERENCES TB_TAREA (IdTarea) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT FK_TareaAsignacion_Estudiante FOREIGN KEY (IdEstudiante)

@@ -1953,6 +1953,58 @@ public class AdminController : Controller
         return await ReenviarRespuestaAsync(respuesta, "No se pudo eliminar la tarea.", cancelacion);
     }
 
+    // ---------- entregas de tareas ----------
+
+    [HttpGet]
+    public Task<IActionResult> EntregasTarea(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"tareas/{id}/entregas", cancelacion);
+
+    // La foto o el PDF que adjunto la familia. Se abre por navegacion (una
+    // imagen, un iframe o un enlace), no por fetch.
+    [HttpGet]
+    public async Task<IActionResult> ArchivoEntregaTarea(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return NotFound();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(
+            UrlApi($"tareas/entregas/{id}/archivo"), HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode);
+        }
+
+        var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return File(await respuesta.Content.ReadAsByteArrayAsync(cancelacion), tipo);
+    }
+
+    // aprobada = true la marca revisada; false la devuelve "Por corregir"
+    [HttpPost]
+    public async Task<IActionResult> RevisarEntregaTarea(
+        int id, bool aprobada, string? comentario, CancellationToken cancelacion)
+    {
+        if (!aprobada && string.IsNullOrWhiteSpace(comentario))
+        {
+            return BadRequest(new { mensaje = "Escriba qué debe corregir: la familia lo verá en el portal." });
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"tareas/entregas/{id}/revision"),
+            new { aprobada, comentario = comentario?.Trim() },
+            cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar la revisión.", cancelacion);
+    }
+
     // Un select sin elegir llega como 0 o vacio; el API espera nulo (niveles y material)
     private static int? IdONulo(int? id) => id is > 0 ? id : null;
 

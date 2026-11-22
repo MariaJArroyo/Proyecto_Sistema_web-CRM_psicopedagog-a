@@ -1,4 +1,4 @@
-﻿// Materiales educativos (M11): PDF, guias, tareas, actividades y enlaces.
+// Materiales educativos (M11): PDF, guias, tareas, actividades y enlaces.
 //
 // Todo pasa por /Admin/..., que reenvia al API: el navegador nunca habla con el
 // API directamente. Cada aviso de exito sale solo cuando el API respondio bien;
@@ -23,7 +23,10 @@
         detalleTarea: "/Admin/DetalleTarea",
         crearTarea: "/Admin/CrearTarea",
         editarTarea: "/Admin/EditarTarea",
-        eliminarTarea: "/Admin/EliminarTarea"
+        eliminarTarea: "/Admin/EliminarTarea",
+        entregasTarea: "/Admin/EntregasTarea",
+        archivoEntrega: "/Admin/ArchivoEntregaTarea",
+        revisarEntrega: "/Admin/RevisarEntregaTarea"
     };
 
     // Ids de TB_TIPO_MATERIAL
@@ -47,6 +50,9 @@
 
     let materialEditando = null;   // el material abierto en el modal de edicion
     let idTareaEditando = null;    // null = el modal de tarea esta creando
+    let tareaEntregas = null;      // la tarea abierta en el modal de entregas
+    let entregas = [];             // sus estudiantes con la entrega de cada uno
+    let entregaActual = null;      // la entrega que se esta revisando
 
     // Resultado de "Verificar" por id de enlace. Vive aparte de la lista para que
     // sobreviva a cada repintado.
@@ -258,17 +264,21 @@
                     <i class="bi ${icono}" aria-hidden="true"></i></button>`;
     }
 
-    function botonesMaterial(m, extra) {
-        const publicar = m.publicado
-            ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-accion="publicar" data-id="${m.idMaterial}">Despublicar</button>`
-            : `<button type="button" class="btn btn-sm btn-outline-primary" data-accion="publicar" data-id="${m.idMaterial}">Publicar</button>`;
+    // Mismo orden que el resto de tablas: Editar y Desactivar a la vista; publicar,
+    // descargar o verificar van en el menu de tres puntos (extras = opciones de
+    // MenuAccionesFila)
+    function botonesMaterial(m, extras) {
+        const publicar = {
+            texto: m.publicado ? "Despublicar" : "Publicar",
+            icono: m.publicado ? "bi-eye-slash" : "bi-megaphone",
+            atributos: { "data-accion": "publicar", "data-id": m.idMaterial }
+        };
 
-        return `<div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-            ${insigniaPublicacion(m)}
-            ${extra || ""}
-            ${botonIcono("editar", m.idMaterial, "bi-pencil", "Editar")}
-            ${publicar}
-            ${botonIcono("eliminar", m.idMaterial, "bi-trash", "Eliminar", "btn-outline-danger")}
+        return `<div class="d-flex align-items-center gap-1 flex-wrap justify-content-end TablaAcciones">
+            <span class="me-1">${insigniaPublicacion(m)}</span>
+            ${botonIcono("editar", m.idMaterial, "bi-pencil", "Editar", "btn-outline-secondary border-0")}
+            ${botonIcono("eliminar", m.idMaterial, "bi-slash-circle", "Desactivar", "btn-outline-danger border-0")}
+            ${MenuAccionesFila([...(extras || []), publicar], `Más acciones de ${m.titulo}`)}
         </div>`;
     }
 
@@ -279,8 +289,11 @@
         return lista.map(escaparHtml).join(" · ");
     }
 
-    function filaVacia(mensaje) {
-        return `<div class="list-group-item px-0 TextoSuave">${escaparHtml(mensaje)}</div>`;
+    // Sin icono: mensajes de error o de carga. Con icono: la lista esta vacia.
+    function filaVacia(mensaje, icono, titulo) {
+        return icono
+            ? `<div class="list-group-item px-0 border-0">${EstadoVacioHtml(icono, titulo, mensaje, { compacto: true })}</div>`
+            : `<div class="list-group-item px-0 TextoSuave">${escaparHtml(mensaje)}</div>`;
     }
 
     function filaMaterial(cuerpoIzquierdo, m, extraBotones) {
@@ -294,14 +307,11 @@
         const lista = porTipo(PDF);
 
         $("ListaMaterialesPdf").innerHTML = lista.length === 0
-            ? filaVacia("Todavía no se ha subido ningún PDF.")
+            ? filaVacia("Suba el primero con el formulario de arriba.", "bi-file-earmark-pdf", "Todavía no hay PDF")
             : lista.map(m => {
                 const descargar = m.tieneArchivo
-                    ? `<a class="btn btn-sm btn-outline-secondary"
-                          href="${RUTAS.descargarPdf}?id=${m.idMaterial}"
-                          title="Descargar" aria-label="Descargar">
-                          <i class="bi bi-download" aria-hidden="true"></i></a>`
-                    : "";
+                    ? [{ texto: "Descargar", icono: "bi-download", href: `${RUTAS.descargarPdf}?id=${m.idMaterial}` }]
+                    : [];
 
                 const detalle = lineaNivel(m, [
                     m.descripcion ? recortar(m.descripcion, 80) : "",
@@ -319,7 +329,7 @@
         const lista = porTipo(GUIA);
 
         $("ListaGuias").innerHTML = lista.length === 0
-            ? filaVacia("Todavía no hay guías registradas.")
+            ? filaVacia("Cree la primera con el botón Nueva guía.", "bi-book", "Todavía no hay guías")
             : lista.map(m => filaMaterial(
                 `<div class="fw-semibold">${escaparHtml(m.titulo)}</div>
                  <div class="TextoSuave small">${lineaNivel(m, [m.descripcion ? recortar(m.descripcion, 80) : ""])}</div>`,
@@ -330,7 +340,7 @@
         const lista = porTipo(ACTIVIDAD);
 
         $("ListaActividadesEducativas").innerHTML = lista.length === 0
-            ? filaVacia("Todavía no hay actividades registradas.")
+            ? filaVacia("Registre la primera con el formulario de arriba.", "bi-puzzle", "Todavía no hay actividades")
             : lista.map(m => {
                 const tipo = ETIQUETA_ACTIVIDAD[m.tipoActividad] || m.tipoActividad || "";
                 const insigniaTipo = tipo
@@ -363,15 +373,17 @@
         const lista = porTipo(ENLACE);
 
         $("ListaEnlaces").innerHTML = lista.length === 0
-            ? filaVacia("Todavía no hay enlaces registrados.")
+            ? filaVacia("Agregue el primero con el formulario de arriba.", "bi-link-45deg", "Todavía no hay enlaces")
             : lista.map(m => {
                 // Solo se arma el enlace si de verdad es http o https
                 const nombre = esUrlWeb(m.url)
                     ? `<a href="${escaparHtml(m.url)}" target="_blank" rel="noopener noreferrer">${escaparHtml(m.titulo)}</a>`
                     : `<span>${escaparHtml(m.titulo)}</span>`;
 
-                const verificar = `<button type="button" class="btn btn-sm btn-outline-secondary"
-                    data-accion="verificar" data-id="${m.idMaterial}">Verificar</button>`;
+                const verificar = [{
+                    texto: "Verificar enlace", icono: "bi-link-45deg",
+                    atributos: { "data-accion": "verificar", "data-id": m.idMaterial }
+                }];
 
                 return filaMaterial(
                     `<div class="fw-semibold">${nombre} ${insigniaEnlace(m.idMaterial)}</div>
@@ -423,9 +435,9 @@
 
     async function eliminarMaterial(m) {
         const acepto = await Confirmar({
-            titulo: "Eliminar material",
-            texto: `Se elimina "${m.titulo}" y deja de verse en el portal. ¿Desea continuar?`,
-            textoBoton: "Eliminar",
+            titulo: "Desactivar material",
+            texto: `Se desactiva "${m.titulo}" y deja de verse en el portal. ¿Desea continuar?`,
+            textoBoton: "Desactivar",
             tipo: "peligro"
         });
 
@@ -744,7 +756,8 @@
         const cuerpo = $("CuerpoTablaTareas");
 
         if (tareas.length === 0) {
-            cuerpo.innerHTML = '<tr><td colspan="4" class="TextoSuave text-center py-4">Todavía no hay tareas asignadas.</td></tr>';
+            cuerpo.innerHTML = FilaVaciaTabla(4, "bi-journal-check", "Todavía no hay tareas",
+                "Asigne la primera con el botón Nueva tarea.");
             return;
         }
 
@@ -767,10 +780,17 @@
                     ${material}
                 </td>
                 <td class="text-nowrap">${escaparHtml(formatoFecha(t.fechaLimite))}${insigniaVencida}</td>
-                <td class="text-nowrap">${t.entregaron} de ${t.asignados}</td>
-                <td class="text-end text-nowrap">
-                    ${botonIcono("editar-tarea", t.idTarea, "bi-pencil", "Editar")}
-                    ${botonIcono("eliminar-tarea", t.idTarea, "bi-trash", "Eliminar", "btn-outline-danger")}
+                <td class="text-nowrap">
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                            data-accion="entregas-tarea" data-id="${t.idTarea}">${t.entregaron} de ${t.asignados}</button>
+                    ${t.porRevisar > 0
+                        ? `<span class="badge badge-pago-pendiente ms-1">${t.porRevisar} por revisar</span>`
+                        : ""}
+                </td>
+                <td class="TablaAcciones text-end text-nowrap">
+                    ${botonIcono("entregas-tarea", t.idTarea, "bi-eye", "Ver entregas", "btn-outline-secondary border-0")}
+                    ${botonIcono("editar-tarea", t.idTarea, "bi-pencil", "Editar", "btn-outline-secondary border-0")}
+                    ${botonIcono("eliminar-tarea", t.idTarea, "bi-slash-circle", "Desactivar", "btn-outline-danger border-0")}
                 </td>
             </tr>`;
         }).join("");
@@ -936,9 +956,9 @@
         if (!t) return;
 
         const acepto = await Confirmar({
-            titulo: "Eliminar tarea",
-            texto: `Se elimina "${t.titulo}" y deja de verse para los encargados. ¿Desea continuar?`,
-            textoBoton: "Eliminar",
+            titulo: "Desactivar tarea",
+            texto: `Se desactiva "${t.titulo}" y deja de verse para los encargados. Las entregas quedan guardadas. ¿Desea continuar?`,
+            textoBoton: "Desactivar",
             tipo: "peligro"
         });
 
@@ -953,6 +973,222 @@
 
         notificar(resultado.datos?.mensaje || "Tarea eliminada.", "exito");
         await cargarTareas();
+    }
+
+    // =====================================================
+    // ENTREGAS DE UNA TAREA
+    // =====================================================
+
+    // Ids de TB_ESTADO_TAREA
+    const ESTADO_ENTREGA = {
+        1: { texto: "Sin entregar", clase: "EstadoBadge-Neutro" },
+        2: { texto: "Por revisar", clase: "EstadoBadge-Pendiente" },
+        3: { texto: "Revisada", clase: "EstadoBadge-Completada" },
+        4: { texto: "Vencida", clase: "EstadoBadge-Cancelada" },
+        5: { texto: "Por corregir", clase: "EstadoBadge-Programada" }
+    };
+
+    function formatoFechaHora(iso) {
+        if (!iso) return "";
+        const f = new Date(iso);
+        if (isNaN(f)) return "";
+        return f.toLocaleString("es-CR", {
+            day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit"
+        });
+    }
+
+    function insigniaEntrega(e) {
+        // Sin entregar y con la fecha limite ya pasada: atrasada
+        const atrasada = (e.idEstadoTarea === 1 || e.idEstadoTarea === 5)
+            && tareaEntregas && soloFecha(tareaEntregas.fechaLimite) < fechaLocal();
+        const estado = atrasada && e.idEstadoTarea === 1
+            ? { texto: "Atrasada", clase: "EstadoBadge-Cancelada" }
+            : (ESTADO_ENTREGA[e.idEstadoTarea] || { texto: e.estado, clase: "EstadoBadge-Neutro" });
+
+        return `<span class="EstadoBadge ${estado.clase}">${escaparHtml(estado.texto)}</span>`;
+    }
+
+    function mostrarListaEntregas() {
+        entregaActual = null;
+        $("VistaRevisarEntrega").classList.add("d-none");
+        $("VistaListaEntregas").classList.remove("d-none");
+        ocultarAlerta($("AlertaEntregasTarea"));
+    }
+
+    function pintarEntregas() {
+        const cuerpo = $("CuerpoEntregasTarea");
+        const cuenta = estado => entregas.filter(e => e.idEstadoTarea === estado).length;
+
+        const chips = [
+            [cuenta(2), "por revisar", "badge-pago-pendiente"],
+            [cuenta(3), "revisadas", "badge-pago-pagado"],
+            [cuenta(5), "por corregir", "badge-estado-seguimiento"],
+            [cuenta(1) + cuenta(4), "sin entregar", "badge-estado-inactivo"]
+        ];
+
+        $("ResumenEntregas").innerHTML = chips
+            .map(([n, texto, clase]) => `<span class="badge ${clase}">${n} ${texto}</span>`)
+            .join("");
+
+        if (entregas.length === 0) {
+            cuerpo.innerHTML = FilaVaciaTabla(5, "bi-inbox", "Sin estudiantes asignados",
+                "Edite la tarea para asignarla a uno o más estudiantes.");
+            return;
+        }
+
+        cuerpo.innerHTML = entregas.map(e => {
+            const entregada = e.fechaEntrega
+                ? `${escaparHtml(formatoFechaHora(e.fechaEntrega))}${e.entregaTardia ? ' <span class="badge badge-pago-vencido">Tarde</span>' : ""}`
+                : '<span class="TextoSuave">—</span>';
+
+            const comentario = e.comentarioEstudiante
+                ? `<span title="${escaparHtml(e.comentarioEstudiante)}">${escaparHtml(recortar(e.comentarioEstudiante, 60))}</span>`
+                : '<span class="TextoSuave">—</span>';
+
+            const adjunto = e.tieneArchivo
+                ? ' <i class="bi bi-paperclip TextoSuave" title="Tiene archivo adjunto" aria-label="Tiene archivo adjunto"></i>'
+                : "";
+
+            // Lo que ya se entrego alguna vez se puede abrir: para revisar o
+            // para consultar lo que se reviso
+            const accion = e.idEstadoTarea === 2
+                ? `<button type="button" class="btn btn-sm btn-primary" data-revisar-entrega="${e.idTareaAsignacion}">Revisar</button>`
+                : e.fechaEntrega
+                    ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-revisar-entrega="${e.idTareaAsignacion}">Ver</button>`
+                    : "";
+
+            return `<tr>
+                <td class="fw-semibold">${escaparHtml(e.estudiante)}${adjunto}</td>
+                <td>${insigniaEntrega(e)}</td>
+                <td class="text-nowrap">${entregada}</td>
+                <td class="small">${comentario}</td>
+                <td class="text-end">${accion}</td>
+            </tr>`;
+        }).join("");
+    }
+
+    async function cargarEntregas() {
+        const resultado = await pedir(`${RUTAS.entregasTarea}?id=${tareaEntregas.idTarea}`);
+
+        if (!resultado.ok) {
+            $("CuerpoEntregasTarea").innerHTML =
+                '<tr><td colspan="5" class="TextoSuave text-center py-4">No se pudieron cargar las entregas.</td></tr>';
+            mostrarAlerta($("AlertaEntregasTarea"), resultado.mensaje);
+            return false;
+        }
+
+        entregas = resultado.datos || [];
+        pintarEntregas();
+        return true;
+    }
+
+    async function abrirEntregas(idTarea) {
+        tareaEntregas = tareas.find(t => t.idTarea === idTarea) || null;
+        if (!tareaEntregas) return;
+
+        entregas = [];
+        mostrarListaEntregas();
+        $("SubtituloEntregasTarea").textContent =
+            `${tareaEntregas.titulo} · fecha límite ${formatoFecha(tareaEntregas.fechaLimite)}`;
+        $("ResumenEntregas").innerHTML = "";
+        $("CuerpoEntregasTarea").innerHTML =
+            '<tr><td colspan="5" class="TextoSuave text-center py-4">Cargando…</td></tr>';
+
+        modal("ModalEntregasTarea").show();
+        await cargarEntregas();
+    }
+
+    function pintarVisorEntrega(e) {
+        const visor = $("VisorEntregaTarea");
+
+        if (!e.tieneArchivo) {
+            visor.innerHTML = `
+                <div class="VisorComprobante-Vacio">
+                    <i class="bi bi-journal-check" aria-hidden="true"></i>
+                    <p class="mb-0">La familia marcó la tarea como entregada sin adjuntar archivo.</p>
+                </div>`;
+            return;
+        }
+
+        // El id cambia en cada entrega: con la fecha en la URL el navegador no
+        // muestra una foto vieja guardada en cache
+        const url = `${RUTAS.archivoEntrega}?id=${e.idTareaAsignacion}&v=${encodeURIComponent(e.fechaEntrega || "")}`;
+        const abrir = `<a href="${url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Abrir en otra pestaña</a>`;
+
+        visor.innerHTML = e.tipoArchivo === "application/pdf"
+            ? `<iframe src="${url}" title="Tarea en PDF" class="VisorComprobante-Pdf"></iframe>${abrir}`
+            : `<a href="${url}" target="_blank" rel="noopener" class="VisorComprobante-Imagen">
+                   <img src="${url}" alt="Foto de la tarea de ${escaparHtml(e.estudiante)}">
+               </a>${abrir}`;
+    }
+
+    function abrirRevision(idTareaAsignacion) {
+        const e = entregas.find(x => x.idTareaAsignacion === idTareaAsignacion);
+        if (!e) return;
+
+        entregaActual = e;
+        ocultarAlerta($("AlertaEntregasTarea"));
+        pintarVisorEntrega(e);
+
+        const fila = (titulo, valor) => valor ? `<dt>${titulo}</dt><dd>${valor}</dd>` : "";
+
+        $("DatosEntregaTarea").innerHTML =
+            fila("Estudiante", escaparHtml(e.estudiante))
+            + fila("Estado", insigniaEntrega(e))
+            + fila("Entregada", `${escaparHtml(formatoFechaHora(e.fechaEntrega))}${e.entregaTardia ? ' <span class="badge badge-pago-vencido">Tarde</span>' : ""}`)
+            + fila("Comentario de la familia", e.comentarioEstudiante ? escaparHtml(e.comentarioEstudiante) : "")
+            + fila("Archivo", e.nombreArchivo ? escaparHtml(e.nombreArchivo) : "")
+            + fila("Su comentario", e.comentarioRevision ? escaparHtml(e.comentarioRevision) : "");
+
+        const pendiente = e.idEstadoTarea === 2;
+        const comentario = $("ComentarioRevisionEntrega");
+
+        comentario.value = "";
+        comentario.classList.remove("is-invalid");
+        $("AccionesRevisarEntrega").classList.toggle("d-none", !pendiente);
+
+        const nota = $("NotaEntregaRevisada");
+        nota.classList.toggle("d-none", pendiente);
+        nota.textContent = pendiente ? "" : (e.fechaRevision
+            ? `Revisada el ${formatoFechaHora(e.fechaRevision)}${e.revisadoPor ? ` por ${e.revisadoPor}` : ""}.`
+            : "");
+
+        $("VistaListaEntregas").classList.add("d-none");
+        $("VistaRevisarEntrega").classList.remove("d-none");
+    }
+
+    async function revisarEntrega(aprobada) {
+        if (!entregaActual) return;
+
+        const comentario = $("ComentarioRevisionEntrega");
+        const texto = comentario.value.trim();
+
+        if (!aprobada && !marcar(comentario, texto.length > 0, "Para devolverla, escriba qué debe corregir.")) {
+            comentario.focus();
+            return;
+        }
+
+        comentario.classList.remove("is-invalid");
+
+        const boton = aprobada ? $("BotonAprobarEntrega") : $("BotonDevolverEntrega");
+        const resultado = await conBoton(boton, "Guardando…", () => enviar(RUTAS.revisarEntrega, datosConToken({
+            id: entregaActual.idTareaAsignacion,
+            aprobada: aprobada ? "true" : "false",
+            comentario: texto
+        })));
+
+        if (!resultado.ok) {
+            mostrarAlerta($("AlertaEntregasTarea"), resultado.mensaje);
+            return;
+        }
+
+        notificar(resultado.datos?.mensaje || "Revisión guardada.", "exito");
+        mostrarListaEntregas();
+
+        // La lista del modal y el contador de la tabla de tareas
+        await Promise.all([cargarEntregas(), cargarTareas()]);
+        tareaEntregas = tareas.find(t => t.idTarea === tareaEntregas?.idTarea) || tareaEntregas;
     }
 
     // =====================================================
@@ -1005,9 +1241,21 @@
 
             const id = Number(boton.getAttribute("data-id"));
 
-            if (boton.getAttribute("data-accion") === "editar-tarea") abrirEdicionTarea(id);
-            else eliminarTarea(id);
+            switch (boton.getAttribute("data-accion")) {
+                case "entregas-tarea": abrirEntregas(id); break;
+                case "editar-tarea": abrirEdicionTarea(id); break;
+                case "eliminar-tarea": eliminarTarea(id); break;
+            }
         });
+
+        $("CuerpoEntregasTarea").addEventListener("click", function (evento) {
+            const boton = evento.target.closest("[data-revisar-entrega]");
+            if (boton) abrirRevision(Number(boton.getAttribute("data-revisar-entrega")));
+        });
+
+        $("BotonVolverEntregas").addEventListener("click", mostrarListaEntregas);
+        $("BotonAprobarEntrega").addEventListener("click", () => revisarEntrega(true));
+        $("BotonDevolverEntrega").addEventListener("click", () => revisarEntrega(false));
 
         // Las tareas necesitan la lista de materiales para el selector, asi que
         // se piden juntas pero sin esperarse entre si

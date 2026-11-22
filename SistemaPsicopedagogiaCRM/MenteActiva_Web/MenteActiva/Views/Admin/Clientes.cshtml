@@ -135,7 +135,7 @@
                                     @if (cliente.IdEstadoCliente == 5)
                                     {
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-primary border-0"
+                                                class="btn btn-sm btn-outline-success border-0"
                                                 data-accion="reactivar"
                                                 data-bs-toggle="tooltip"
                                                 title="Reactivar"
@@ -168,13 +168,17 @@
         </div>
  
         <div id="EstadoVacio"
-             class="text-center py-4"
+             class="EstadoVacio"
              style="display:@(Model == null || !Model.Any() ? "block" : "none");">
-            <p class="TextoSuave mt-2 mb-0">No hay encargados registrados.</p>
+            <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Todavía no hay encargados</p>
+            <p>Registre el primero con el botón Nuevo encargado o convierta una solicitud de contacto.</p>
         </div>
  
-        <div id="SinResultados" class="text-center py-4" style="display:none;">
-            <p class="TextoSuave mb-0">No hay encargados que coincidan con la búsqueda.</p>
+        <div id="SinResultados" class="EstadoVacio EstadoVacio-Busqueda" style="display:none;">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Sin resultados</p>
+            <p>No hay encargados que coincidan con la búsqueda o el filtro.</p>
         </div>
  
         <!-- Paginacion: la arma clientes.js sobre las filas que pasan el filtro -->
@@ -307,9 +311,11 @@
                         </table>
                     </div>
  
-                    <p class="TextoSuave text-center py-3 mb-0 d-none" id="SinEstudiantesCliente">
-                        Este cliente no tiene estudiantes registrados.
-                    </p>
+                    <div class="EstadoVacio EstadoVacio-Compacto d-none" id="SinEstudiantesCliente">
+                        <i class="bi bi-mortarboard" aria-hidden="true"></i>
+                        <p class="EstadoVacio-Titulo">Sin estudiantes</p>
+                        <p>Este encargado todavía no tiene estudiantes registrados.</p>
+                    </div>
 
                     <!-- Formulario en linea para agregar / editar un estudiante -->
                     <div class="border rounded-3 p-3 mt-3 d-none" id="PanelEstudianteCliente">

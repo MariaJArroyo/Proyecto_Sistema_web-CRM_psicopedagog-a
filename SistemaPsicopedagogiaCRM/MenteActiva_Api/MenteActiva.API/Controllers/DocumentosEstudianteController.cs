@@ -80,7 +80,7 @@ public sealed class DocumentosEstudianteController : ControllerBase
     {
         await _servicio.EliminarAsync(User.ObtenerIdUsuario(), idDocumento, cancelacion);
 
-        return Ok(new { mensaje = "Documento eliminado." });
+        return Ok(new { mensaje = "Documento desactivado." });
     }
 
     // =====================================================

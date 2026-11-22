@@ -105,10 +105,11 @@ document.addEventListener("DOMContentLoaded", function () {
         const estado = estadoElegido();
 
         if (!reportes.length) {
-            const texto = estado === "Pendiente"
-                ? "No hay pagos por validar. Cuando una familia reporte un SINPE o una transferencia, aparecerá aquí."
-                : "No hay pagos reportados con este filtro.";
-            lista.innerHTML = `<div class="ListaReportesPago-Vacia"><i class="bi bi-inbox" aria-hidden="true"></i>${escapar(texto)}</div>`;
+            lista.innerHTML = estado === "Pendiente"
+                ? EstadoVacioHtml("bi-phone-vibrate", "No hay pagos por validar",
+                    "Cuando una familia reporte un SINPE o una transferencia, aparecerá aquí.", { compacto: true })
+                : EstadoVacioHtml("bi-phone-vibrate", "Sin pagos reportados",
+                    "No hay pagos reportados con este filtro.", { compacto: true, busqueda: true });
             return;
         }
 

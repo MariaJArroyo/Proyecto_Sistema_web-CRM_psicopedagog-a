@@ -94,19 +94,30 @@
                       <form asp-controller="Admin" asp-action="CambiarAccesoPortal" method="post" class="d-inline">
                         <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
                         <input type="hidden" name="suspender" value="false">
-                        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-check-circle me-1"></i>Reactivar</button>
+                        <button type="submit" class="btn btn-sm btn-outline-success border-0" data-bs-toggle="tooltip"
+                          title="Reactivar" aria-label="Reactivar el acceso"><i class="bi bi-check-circle"></i></button>
                       </form>
                     }
                     else
                     {
-                      <form asp-controller="Admin" asp-action="ReenviarInvitacionPortal" method="post" class="d-inline">
-                        <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                          @(acceso.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Restablecer contraseña")
-                        </button>
-                      </form>
-                      <button type="button" class="btn btn-sm btn-outline-danger"
-                        data-accion="suspender"><i class="bi bi-slash-circle me-1"></i>Suspender</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger border-0" data-bs-toggle="tooltip"
+                        title="Suspender" aria-label="Suspender el acceso" data-accion="suspender"><i class="bi bi-slash-circle"></i></button>
+
+                      <div class="dropdown d-inline-block MenuAccionesFila">
+                        <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown"
+                          data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                          title="Más acciones" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <form asp-controller="Admin" asp-action="ReenviarInvitacionPortal" method="post">
+                              <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
+                              <button type="submit" class="dropdown-item">
+                                <i class="bi bi-envelope me-2" aria-hidden="true"></i>@(acceso.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Restablecer contraseña")
+                              </button>
+                            </form>
+                          </li>
+                        </ul>
+                      </div>
                     }
                   </td>
                 </tr>
@@ -116,10 +127,20 @@
           </div>
           <!-- /Razor -->
 
+          @if (!Model.Any())
+          {
+            <div class="EstadoVacio">
+              <i class="bi bi-person-badge" aria-hidden="true"></i>
+              <p class="EstadoVacio-Titulo">Todavía no hay accesos al portal</p>
+              <p>Cuando registre encargados con correo, aparecerán aquí para invitarlos al portal.</p>
+            </div>
+          }
+
           <!-- Estado vacío: sin resultados de búsqueda -->
-          <div class="EstadoVacio d-none" data-tabla-vacio="TablaUsuariosExternos">
-            <i class="bi bi-person-badge"></i>
-            <p class="mb-3">No se encontraron usuarios con ese criterio de búsqueda.</p>
+          <div class="EstadoVacio EstadoVacio-Busqueda d-none" data-tabla-vacio="TablaUsuariosExternos">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Sin resultados</p>
+            <p>No se encontraron usuarios con ese criterio de búsqueda.</p>
           </div>
         </div>
       </main>

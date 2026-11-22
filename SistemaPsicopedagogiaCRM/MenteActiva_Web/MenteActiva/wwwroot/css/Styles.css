@@ -304,6 +304,33 @@ a:hover {
   padding: 0.25rem 0.5rem;
 }
 
+/* Menu de tres puntos de una fila: acciones secundarias y Eliminar al final */
+.MenuAccionesFila .dropdown-menu {
+  min-width: 12rem;
+  padding: 0.35rem;
+  border: none;
+  border-radius: 12px;
+  box-shadow: var(--sombra-media);
+  font-size: 0.9rem;
+}
+
+.MenuAccionesFila .dropdown-item {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+}
+
+.MenuAccionesFila .dropdown-item.text-danger:hover,
+.MenuAccionesFila .dropdown-item.text-danger:focus {
+  background-color: #FBE7E6;
+  color: #B4433E !important;
+}
+
+.MenuAccionesFila form {
+  margin: 0;
+}
+
 
 .modal-content {
   border-radius: var(--radio-tarjeta);
@@ -354,6 +381,69 @@ a:hover {
   color: var(--color-borde);
   display: block;
   margin-bottom: 0.75rem;
+}
+
+/* ---------- Estado vacio del panel ----------
+   Icono del modulo en un circulo, un titulo corto y una linea de ayuda.
+   Solo en el panel (body.CuerpoAdmin): el portal tiene su propio estilo. */
+.CuerpoAdmin .EstadoVacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.75rem 1.5rem;
+  text-align: center;
+  color: var(--color-texto-suave);
+}
+
+.CuerpoAdmin .EstadoVacio > .bi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 0 0.9rem;
+  border-radius: 50%;
+  background-color: #EEF2FA;
+  color: var(--color-primario);
+  font-size: 1.7rem;
+}
+
+.CuerpoAdmin .EstadoVacio-Titulo {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+.CuerpoAdmin .EstadoVacio p {
+  max-width: 420px;
+  margin-bottom: 0;
+}
+
+/* Dentro de una tabla o de una lista corta */
+.CuerpoAdmin .EstadoVacio-Compacto {
+  padding: 1.6rem 1rem;
+}
+
+.CuerpoAdmin .EstadoVacio-Compacto > .bi {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.6rem;
+  font-size: 1.3rem;
+}
+
+/* La busqueda o el filtro no encontraron nada: tono gris, no del modulo */
+.CuerpoAdmin .EstadoVacio-Busqueda > .bi {
+  background-color: #F1F3F7;
+  color: #8A97AD;
+}
+
+.CuerpoAdmin tr.FilaVacia > td {
+  padding: 0;
+  border-bottom: 0;
+  background-color: transparent;
+  --bs-table-bg-state: transparent;
 }
 
 

@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Api.Models;
+namespace MenteActiva.Api.Models;
 
 // Una fila de la tabla administrativa (SP_Tarea_Listar)
 public sealed class TareaResponse
@@ -20,6 +20,9 @@ public sealed class TareaResponse
     public int Asignados { get; set; }
 
     public int Entregaron { get; set; }
+
+    // Entregadas que todavia esperan la revision de la profesional
+    public int PorRevisar { get; set; }
 }
 
 // Un estudiante asignado a la tarea (segundo resultado de SP_Tarea_Obtener)
