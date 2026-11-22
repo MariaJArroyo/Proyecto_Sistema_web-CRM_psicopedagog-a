@@ -334,6 +334,7 @@
 
         $("AsuntoCorreo").value = plantilla.asunto || "";
         $("CuerpoCorreo").value = plantilla.cuerpo || "";
+        if ($("TipoCorreo")) $("TipoCorreo").value = tipoDePlantilla(plantilla);
 
         actualizarContadorCorreo();
         pintarMarcadoresCorreo();
@@ -392,8 +393,52 @@
             IdEstudiante: $("EstudianteCorreo").value || null,
             IdCita: $("CitaCorreo")?.value || null,
             Asunto: $("AsuntoCorreo").value.trim(),
-            Cuerpo: $("CuerpoCorreo").value.trim()
+            Cuerpo: $("CuerpoCorreo").value.trim(),
+            Tipo: $("TipoCorreo")?.value || "Mensaje"
         };
+    }
+
+    // Igual que TiposCorreo en el API: icono, etiqueta y colores del distintivo
+    const TIPOS_CORREO = {
+        Mensaje: ["✉️", "Mensaje del consultorio", "#E8EEF8", "#3A5488"],
+        Informacion: ["ℹ️", "Información", "#E8EEF8", "#3A5488"],
+        Recordatorio: ["⏰", "Recordatorio", "#E8EEF8", "#3A5488"],
+        Confirmacion: ["✅", "Confirmado", "#E6F4EE", "#2C7A52"],
+        Actualizacion: ["🔄", "Hubo un cambio", "#F1ECFB", "#5B3FA0"],
+        Aprobacion: ["👍", "Aprobado", "#E6F4EE", "#2C7A52"],
+        Alerta: ["⚠️", "Atención", "#FDF1E1", "#8A5A12"],
+        Rechazo: ["⛔", "No aprobado", "#FBE7E6", "#B4433E"],
+        Cancelacion: ["❌", "Cancelado", "#FBE7E6", "#B4433E"]
+    };
+
+    function pintarDistintivoCorreo(tipo) {
+        const [emoji, etiqueta, fondo, color] = TIPOS_CORREO[tipo] || TIPOS_CORREO.Mensaje;
+        const contenedor = $("VistaPreviaTipo");
+        if (!contenedor) return;
+
+        contenedor.innerHTML = `
+            <span class="DistintivoCorreo-Icono" style="background-color:${fondo}">${emoji}</span>
+            <span class="DistintivoCorreo-Etiqueta" style="background-color:${fondo}; color:${color}">${escaparHtml(etiqueta)}</span>`;
+    }
+
+    // Al partir de una plantilla se propone el tipo; la profesional lo puede cambiar
+    function tipoDePlantilla(plantilla) {
+        const porClave = {
+            RecordatorioCita: "Recordatorio",
+            ConfirmacionCita: "Confirmacion",
+            ActualizacionCita: "Actualizacion",
+            CancelacionCita: "Cancelacion"
+        };
+
+        if (plantilla.clave && porClave[plantilla.clave]) return porClave[plantilla.clave];
+
+        const texto = `${plantilla.nombre || ""} ${plantilla.asunto || ""}`.toLowerCase();
+
+        if (/pago|pendiente|vencid|saldo/.test(texto)) return "Alerta";
+        if (/cancel/.test(texto)) return "Cancelacion";
+        if (/recordatorio|recuerd/.test(texto)) return "Recordatorio";
+        if (/aprob/.test(texto)) return "Aprobacion";
+        return "Mensaje";
     }
 
     function validarCorreo() {
@@ -435,6 +480,7 @@
             : "";
         $("VistaPreviaAsunto").textContent = vista.asunto || "";
         $("VistaPreviaCuerpo").textContent = vista.cuerpo || "";
+        pintarDistintivoCorreo($("TipoCorreo")?.value);
 
         const alertaVista = $("AlertaVistaPreviaCorreo");
         const botonEnviar = $("BotonEnviarDesdeVistaPrevia");

@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Api.Models;
+namespace MenteActiva.Api.Models;
 
 // Las propiedades tienen que llamarse igual que las columnas que devuelve el
 // procedimiento: Dapper mapea por nombre y no avisa si una no calza, la deja
@@ -66,6 +66,21 @@ public sealed class CitaDisponibleSesionResponse
     public int IdTipoSesion { get; set; }
     public string TipoSesion { get; set; } = string.Empty;
     public int DuracionMinutos { get; set; }
+    public string EstadoCita { get; set; } = string.Empty;
+}
+
+// Una cita atendida que todavia no tiene sesion (SP_Sesion_ListarCitasSinSesion)
+public sealed class CitaSinSesionResponse
+{
+    public int IdCita { get; set; }
+    public int IdEstudiante { get; set; }
+    public string Estudiante { get; set; } = string.Empty;
+    public string? NivelEducativo { get; set; }
+    public string? Encargado { get; set; }
+    public DateTime FechaHoraInicio { get; set; }
+    public int DuracionMinutos { get; set; }
+    public int IdTipoSesion { get; set; }
+    public string TipoSesion { get; set; } = string.Empty;
     public string EstadoCita { get; set; } = string.Empty;
 }
 

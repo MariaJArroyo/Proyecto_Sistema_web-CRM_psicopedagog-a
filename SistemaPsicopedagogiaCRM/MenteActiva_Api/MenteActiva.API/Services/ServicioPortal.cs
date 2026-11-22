@@ -1,4 +1,4 @@
-﻿using MenteActiva.Api.Infraestructura;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Repositories;
 
@@ -55,8 +55,11 @@ public class ServicioPortal : IServicioPortal
             ? "todas"
             : filtro.Trim().ToLowerInvariant();
 
+        // Los mismos que acepta SP_Portal_ListarCitas. "proximas" (futuras y aun
+        // programadas o confirmadas) es la que usa el boton "Ver citas" del inicio.
         var filtrosPermitidos = new[]
         {
+            "proximas",
             "futuras",
             "pasadas",
             "canceladas",

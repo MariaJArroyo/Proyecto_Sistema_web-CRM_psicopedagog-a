@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace MenteActiva.Api.Models;
 
@@ -28,4 +28,9 @@ public sealed record EnviarCorreoRequest
     [Required(ErrorMessage = "Indique el mensaje del correo.")]
     [StringLength(1000, ErrorMessage = "El mensaje no puede pasar de 1000 caracteres.")]
     public string Cuerpo { get; init; } = string.Empty;
+
+    // De que se trata (Recordatorio, Alerta, Aprobacion...): pone el icono y la
+    // etiqueta de arriba del correo. Vacio o desconocido = mensaje comun.
+    [StringLength(30)]
+    public string? Tipo { get; init; }
 }

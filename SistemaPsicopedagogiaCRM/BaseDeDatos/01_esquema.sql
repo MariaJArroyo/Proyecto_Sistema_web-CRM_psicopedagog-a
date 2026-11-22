@@ -456,6 +456,24 @@ CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_AREA (
   CONSTRAINT CK_NecesidadApoyo_NombreNoVacio CHECK (TRIM(Nombre) <> '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Informacion academica de la ficha (titulo y detalle libres: tutor de la
+-- escuela, adecuaciones, rendimiento...). Baja logica con Activo.
+-- La usan SP_Estudiante_ListarInfoAcademica, Agregar, Editar y Quitar.
+CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_INFO_ACADEMICA (
+  IdInfoAcademica INT NOT NULL AUTO_INCREMENT,
+  IdEstudiante INT NOT NULL,
+  Titulo VARCHAR(100) NOT NULL,
+  Detalle VARCHAR(1000) NOT NULL,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
+  FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FechaModificacion DATETIME NULL,
+  PRIMARY KEY (IdInfoAcademica),
+  KEY IX_EstudianteInfoAcademica_Estudiante (IdEstudiante, Activo),
+  CONSTRAINT FK_EstudianteInfoAcademica_Estudiante FOREIGN KEY (IdEstudiante)
+    REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT CK_EstudianteInfoAcademica_TituloNoVacio CHECK (TRIM(Titulo) <> '')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_NECESIDAD (
   IdEstudianteNecesidad INT NOT NULL AUTO_INCREMENT,
   IdEstudiante INT NOT NULL,
@@ -1158,6 +1176,33 @@ CREATE TABLE IF NOT EXISTS TB_BITACORA (
   CONSTRAINT CK_Bitacora_EntidadNoVacio CHECK (TRIM(Entidad) <> ''),
   CONSTRAINT CK_Bitacora_Accion CHECK (Accion IN ('Crear', 'Editar', 'Eliminar', 'CambiarEstado'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Bitacora de inicios de sesion: un renglon por intento, salga bien o mal.
+-- IdUsuario va nulo cuando el correo no existe (se guarda el que se escribio).
+-- Origen se deduce de la cuenta: con IdEncargado es el portal, sin el es el
+-- panel. Ip y Navegador los manda la Web, que es la que ve al cliente real.
+-- Se guardan 90 dias: SP_Acceso_Registrar va borrando lo mas viejo.
+CREATE TABLE IF NOT EXISTS TB_ACCESO_USUARIO (
+  IdAcceso BIGINT NOT NULL AUTO_INCREMENT,
+  IdUsuario INT NULL,
+  CorreoIntentado VARCHAR(150) NOT NULL,
+  Resultado VARCHAR(30) NOT NULL,
+  Origen VARCHAR(10) NULL,
+  Ip VARCHAR(45) NULL,
+  Navegador VARCHAR(300) NULL,
+  FechaHora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (IdAcceso),
+  KEY IX_AccesoUsuario_UsuarioFecha (IdUsuario, FechaHora),
+  KEY IX_AccesoUsuario_Fecha (FechaHora),
+  KEY IX_AccesoUsuario_ResultadoFecha (Resultado, FechaHora),
+  CONSTRAINT FK_AccesoUsuario_Usuario FOREIGN KEY (IdUsuario)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT CK_AccesoUsuario_Resultado CHECK (Resultado IN (
+    'Exitoso', 'ContrasenaIncorrecta', 'CorreoNoRegistrado', 'CuentaBloqueada',
+    'CuentaInactiva', 'PendienteActivacion', 'SinRol')),
+  CONSTRAINT CK_AccesoUsuario_Origen CHECK (Origen IS NULL OR Origen IN ('Panel', 'Portal'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 
 
 

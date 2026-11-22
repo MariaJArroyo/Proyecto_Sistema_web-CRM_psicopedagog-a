@@ -44,10 +44,16 @@ public class CuentaController : Controller
 
         var url = _config.GetValue<string>("Valores:UrlAPI") + "autenticacion/login";
 
+        // IP y navegador de la persona, para la bitacora de accesos: el API solo
+        // ve la conexion de este servidor, no la del navegador
+        var navegador = Request.Headers.UserAgent.ToString();
+
         var respuesta = await cliente.PostAsJsonAsync(url, new
         {
             correo = modelo.CorreoElectronico,
-            contrasena = modelo.Contrasena
+            contrasena = modelo.Contrasena,
+            ipCliente = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            navegador = navegador.Length > 300 ? navegador[..300] : navegador
         });
 
         if (respuesta.StatusCode == HttpStatusCode.Unauthorized)

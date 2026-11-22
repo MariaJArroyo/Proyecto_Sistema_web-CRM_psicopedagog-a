@@ -278,7 +278,7 @@ public class PlanesController : ControllerBase
         {
             return BadRequest(new
             {
-                mensaje = "Solo se permite activar o inactivar planes."
+                mensaje = "Solo se permite activar o desactivar planes."
             });
         }
 
@@ -311,7 +311,7 @@ public class PlanesController : ControllerBase
 
             return Ok(new
             {
-                mensaje = "Plan de intervención inactivado correctamente."
+                mensaje = "Plan de intervención desactivado correctamente."
             });
         }
         catch (MySqlException ex) when (ex.SqlState == "45000")

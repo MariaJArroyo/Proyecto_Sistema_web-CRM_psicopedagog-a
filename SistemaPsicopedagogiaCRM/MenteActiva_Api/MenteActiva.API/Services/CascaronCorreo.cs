@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 
 namespace MenteActiva.Api.Services;
 
@@ -30,13 +30,22 @@ public static class CascaronCorreo
 
     // subEncabezado es la segunda linea chica de la banda. Va nula cuando el
     // encabezado ya trae el nombre completo del consultorio.
+    //
+    // tipo pone arriba del cuerpo el distintivo del tema del correo (icono y
+    // etiqueta de color): recordatorio, cancelacion, alerta, etc.
     public static string Armar(
         string titulo,
         string encabezado,
         string? subEncabezado,
         string contenido,
-        string pie)
+        string pie,
+        TipoCorreo? tipo = null)
     {
+        if (tipo is not null)
+        {
+            contenido = Distintivo(tipo.Value) + contenido;
+        }
+
         var textoMarca =
             $"""<p style="margin:0; font-family:{Fuente}; font-size:20px; font-weight:bold; color:#FFFFFF;">{encabezado}</p>""";
 
@@ -105,6 +114,27 @@ public static class CascaronCorreo
             </table>
             </body>
             </html>
+            """;
+    }
+
+    // El distintivo de arriba del cuerpo: el icono en un circulo de color y la
+    // etiqueta al lado. Con tablas y estilos en linea, como todo lo demas; en
+    // Outlook de escritorio el circulo sale cuadrado (no entiende border-radius)
+    // y se sigue viendo bien.
+    public static string Distintivo(TipoCorreo tipo)
+    {
+        var e = TiposCorreo.De(tipo);
+
+        return $"""
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+              <tr>
+                <td width="56" height="56" align="center" valign="middle" role="img" aria-label="{e.Etiqueta}"
+                    style="width:56px; height:56px; background-color:{e.Fondo}; border-radius:28px; font-size:28px; line-height:56px; text-align:center;">{e.Emoji}</td>
+                <td style="padding-left:14px; vertical-align:middle;">
+                  <span style="display:inline-block; padding:5px 12px; background-color:{e.Fondo}; border-radius:999px; font-family:{Fuente}; font-size:12px; font-weight:bold; letter-spacing:0.5px; text-transform:uppercase; color:{e.Color};">{e.Etiqueta}</span>
+                </td>
+              </tr>
+            </table>
             """;
     }
 

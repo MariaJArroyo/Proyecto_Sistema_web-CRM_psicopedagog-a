@@ -27,6 +27,10 @@ public class AutenticacionController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest peticion)
     {
+        // Para la bitacora: lo que mande la Web y, si no vino, lo de la conexion
+        peticion.IpCliente ??= HttpContext.Connection.RemoteIpAddress?.ToString();
+        peticion.Navegador ??= Request.Headers.UserAgent.ToString();
+
         var resultado = await _servicio.IniciarSesionAsync(peticion);
 
         if (!resultado.Exito)

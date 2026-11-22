@@ -307,7 +307,7 @@ function iniciarFormularioNuevoEstudiante(formulario) {
 }
 
 
-// ---------- acciones de la tabla: editar, inactivar y reactivar ----------
+// ---------- acciones de la tabla: editar, desactivar y reactivar ----------
 
 function iniciarAccionesTabla() {
     const tabla = document.getElementById("TablaEstudiantes");
@@ -682,13 +682,13 @@ function iniciarAccionesTabla() {
             await enviar(
                 formDesactivar.dataset.url,
                 new FormData(formDesactivar),
-                "No se pudo inactivar al estudiante."
+                "No se pudo desactivar al estudiante."
             );
 
-            sessionStorage.setItem("EstudiantesMensaje", "Estudiante inactivado correctamente.");
+            sessionStorage.setItem("EstudiantesMensaje", "Estudiante desactivado correctamente.");
             window.location.reload();
         } catch (error) {
-            mostrarAviso(avisoDesactivar, error.message || "No se pudo inactivar al estudiante.");
+            mostrarAviso(avisoDesactivar, error.message || "No se pudo desactivar al estudiante.");
             botonDesactivar.disabled = false;
         } finally {
             ocupado = false;

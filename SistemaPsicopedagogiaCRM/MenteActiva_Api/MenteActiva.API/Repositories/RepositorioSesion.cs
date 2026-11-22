@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using MenteActiva.Api.Models;
 
 namespace MenteActiva.Api.Repositories;
@@ -35,6 +35,16 @@ public sealed class RepositorioSesion : RepositorioBase, IRepositorioSesion
             "SP_Sesion_ObtenerDetalle", parametros, cancelacion);
 
         return filas.Count > 0 ? filas[0] : null;
+    }
+
+    public Task<IReadOnlyList<CitaSinSesionResponse>> ListarCitasSinSesionAsync(
+        DateTime ahora, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+        parametros.Add("p_Ahora", ahora);
+
+        return ConsultarAsync<CitaSinSesionResponse>(
+            "SP_Sesion_ListarCitasSinSesion", parametros, cancelacion);
     }
 
     public Task<IReadOnlyList<CitaDisponibleSesionResponse>> ListarCitasDisponiblesAsync(

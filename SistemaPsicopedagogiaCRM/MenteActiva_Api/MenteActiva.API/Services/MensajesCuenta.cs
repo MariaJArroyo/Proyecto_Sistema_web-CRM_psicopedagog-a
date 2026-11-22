@@ -17,7 +17,8 @@ public static class MensajesCuenta
             textoBoton: "Definir mi contraseña",
             enlace: Enlace(urlBaseWeb, token),
             horasVigencia: horasVigencia,
-            cierre: "Si usted no esperaba este correo, puede ignorarlo.");
+            cierre: "Si usted no esperaba este correo, puede ignorarlo.",
+            tipo: TipoCorreo.Bienvenida);
 
     public static string Recuperacion(string urlBaseWeb, string nombre, string token, int horasVigencia)
         => Plantilla(
@@ -28,7 +29,8 @@ public static class MensajesCuenta
             textoBoton: "Restablecer mi contraseña",
             enlace: Enlace(urlBaseWeb, token),
             horasVigencia: horasVigencia,
-            cierre: "Si usted no lo solicitó, ignore este correo: su contraseña actual sigue funcionando.");
+            cierre: "Si usted no lo solicitó, ignore este correo: su contraseña actual sigue funcionando.",
+            tipo: TipoCorreo.Seguridad);
 
     private static string Plantilla(
         string titulo,
@@ -37,7 +39,8 @@ public static class MensajesCuenta
         string textoBoton,
         string enlace,
         int horasVigencia,
-        string cierre)
+        string cierre,
+        TipoCorreo tipo)
     {
         var vencimiento = horasVigencia == 1 ? "1 hora" : $"{horasVigencia} horas";
 
@@ -57,7 +60,8 @@ public static class MensajesCuenta
             encabezado: "Mente Activa",
             subEncabezado: "Psicopedagogía",
             contenido: contenido,
-            pie: "Mente Activa Psicopedagogía &middot; Correo automático, por favor no responda a esta dirección.");
+            pie: "Mente Activa Psicopedagogía &middot; Correo automático, por favor no responda a esta dirección.",
+            tipo: tipo);
     }
 
     private static string Enlace(string urlBaseWeb, string token)

@@ -129,6 +129,25 @@
                                 </div>
 
                                 <div class="col-12">
+                                    <label for="TipoCorreo" class="form-label">Tipo de mensaje</label>
+                                    <select class="form-select" id="TipoCorreo">
+                                        <option value="Mensaje">✉️ Mensaje del consultorio</option>
+                                        <option value="Informacion">ℹ️ Información</option>
+                                        <option value="Recordatorio">⏰ Recordatorio</option>
+                                        <option value="Confirmacion">✅ Confirmación</option>
+                                        <option value="Actualizacion">🔄 Cambio o actualización</option>
+                                        <option value="Aprobacion">👍 Aprobación</option>
+                                        <option value="Alerta">⚠️ Alerta o pendiente</option>
+                                        <option value="Rechazo">⛔ Rechazo</option>
+                                        <option value="Cancelacion">❌ Cancelación</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Arriba del correo se ve un icono con esta etiqueta, para que la
+                                        familia sepa de qué se trata con solo abrirlo.
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
                                     <label for="AsuntoCorreo" class="form-label CampoObligatorio">Asunto</label>
                                     <input type="text" class="form-control" id="AsuntoCorreo" maxlength="200">
                                     <div class="invalid-feedback"></div>
@@ -383,6 +402,7 @@
                         </dl>
 
                         <div class="border rounded-3 p-3 bg-body-tertiary">
+                            <div class="DistintivoCorreo mb-3" id="VistaPreviaTipo"></div>
                             <p class="mb-0" id="VistaPreviaCuerpo" style="white-space: pre-wrap;"></p>
                         </div>
                     </div>

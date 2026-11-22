@@ -16,6 +16,7 @@
                     <input type="hidden" name="idEstudiante" value="@Model.IdEstudiante" />
                     <label asp-for="Filtro" class="visually-hidden">Mostrar</label>
                     <select asp-for="Filtro" class="form-select FiltroPortal">
+                        <option value="proximas">Próximas citas</option>
                         <option value="futuras">Citas futuras</option>
                         <option value="pasadas">Citas pasadas</option>
                         <option value="canceladas">Citas canceladas</option>
