@@ -93,7 +93,8 @@
     </div>
 
     <div class="EstadoVacio d-none" id="VacioSesiones">
-      <i class="bi bi-journal-text"></i>
+      <i class="bi bi-journal-text" aria-hidden="true"></i>
+      <p class="EstadoVacio-Titulo">No hay sesiones para mostrar</p>
       <p class="mb-0" id="TextoVacioSesiones">No hay sesiones registradas.</p>
     </div>
 
@@ -434,7 +435,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion"><i class="bi bi-trash me-1"></i>Eliminar</button>
+        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion"><i class="bi bi-slash-circle me-1"></i>Eliminar</button>
       </div>
     </div>
   </div>

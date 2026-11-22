@@ -107,6 +107,12 @@ builder.Services.AddSingleton<IAlmacenComprobantes>(sp => sp.GetRequiredService<
 builder.Services.AddScoped<IRepositorioReportePago, RepositorioReportePago>();
 builder.Services.AddScoped<IServicioReportesPago, ServicioReportesPago>();
 
+// Tareas que entregan las familias (archivos en Archivos/EntregasTareas)
+builder.Services.AddSingleton<AlmacenEntregasTarea>();
+builder.Services.AddSingleton<IAlmacenEntregasTarea>(sp => sp.GetRequiredService<AlmacenEntregasTarea>());
+builder.Services.AddScoped<IRepositorioEntregaTarea, RepositorioEntregaTarea>();
+builder.Services.AddScoped<IServicioEntregasTarea, ServicioEntregasTarea>();
+
 // Documentos del estudiante (Archivos/Documentos): la ficha los sube, el portal ve los visibles
 builder.Services.AddSingleton<AlmacenDocumentos>();
 builder.Services.AddSingleton<IAlmacenDocumentos>(sp => sp.GetRequiredService<AlmacenDocumentos>());
@@ -197,6 +203,7 @@ var app = builder.Build();
 // La carpeta de los PDF no va en git; se crea aqui si falta
 app.Services.GetRequiredService<AlmacenMateriales>().CrearCarpeta();
 app.Services.GetRequiredService<AlmacenComprobantes>().CrearCarpeta();
+app.Services.GetRequiredService<AlmacenEntregasTarea>().CrearCarpeta();
 app.Services.GetRequiredService<AlmacenDocumentos>().CrearCarpeta();
 
 app.UseExceptionHandler();

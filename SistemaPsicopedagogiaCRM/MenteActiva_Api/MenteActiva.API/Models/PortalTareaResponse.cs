@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Api.Models;
+namespace MenteActiva.Api.Models;
 
 public class PortalTareaResponse
 {
@@ -19,6 +19,13 @@ public class PortalTareaResponse
     public string? ComentarioEstudiante { get; set; }
 
     public string? ComentarioRevision { get; set; }
+
+    public DateTime? FechaRevision { get; set; }
+
+    // Lo que adjunto la familia al entregar (foto o PDF)
+    public bool TieneArchivoEntrega { get; set; }
+
+    public string? NombreArchivoEntrega { get; set; }
 
     public string? Material { get; set; }
 

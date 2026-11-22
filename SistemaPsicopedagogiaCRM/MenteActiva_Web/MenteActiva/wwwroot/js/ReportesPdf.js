@@ -233,13 +233,16 @@
                             <i class="bi bi-eye" aria-hidden="true"></i>
                         </button>
 
-                        <button type="button" class="btn btn-sm text-danger border-0" data-accion="pdf" data-id="${escaparHtml(reporte.idReporte)}" title="Descargar PDF" aria-label="Descargar reporte en PDF" ${activo ? "" : "disabled"}>
-                            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
-                        </button>
-
-                        <button type="button" class="btn btn-sm border-0 ${activo ? "text-primary" : "text-secondary"}" data-accion="estado" data-id="${escaparHtml(reporte.idReporte)}" role="switch" aria-checked="${activo}" title="${activo ? "Desactivar reporte" : "Reactivar reporte"}" aria-label="${activo ? "Desactivar reporte" : "Reactivar reporte"}">
+                        <button type="button" class="btn btn-sm border-0 ${activo ? "btn-outline-danger" : "btn-outline-success"}" data-accion="estado" data-id="${escaparHtml(reporte.idReporte)}" role="switch" aria-checked="${activo}" title="${activo ? "Desactivar reporte" : "Reactivar reporte"}" aria-label="${activo ? "Desactivar reporte" : "Reactivar reporte"}">
                             <i class="bi ${activo ? "bi-slash-circle" : "bi-check-circle"}" aria-hidden="true"></i>
                         </button>
+
+                        ${activo
+                            ? MenuAccionesFila([{
+                                texto: "Descargar PDF", icono: "bi-file-earmark-pdf",
+                                atributos: { "data-accion": "pdf", "data-id": reporte.idReporte }
+                            }], "Más acciones del reporte")
+                            : ""}
                     </td>
                 </tr>`;
         }).join("");

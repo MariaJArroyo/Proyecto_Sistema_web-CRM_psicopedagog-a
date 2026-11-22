@@ -359,6 +359,93 @@ function PaginarTabla(tablaId, opciones) {
 }
 
 
+// =====================================================
+// ACCIONES DE UNA FILA DE TABLA (panel)
+// =====================================================
+// Todas las tablas siguen el mismo orden: Ver, Editar y Desactivar a la vista,
+// y despues el boton de tres puntos con el resto. Eliminar (borrar de verdad)
+// va siempre de ultimo dentro de ese menu, separado por una linea.
+//
+// opciones: [{ texto, icono, atributos: { "data-accion": "x", "data-id": 1 },
+//              peligro: true (Eliminar), href, nuevaPestana }]
+// Los nulos se ignoran, asi se puede escribir `condicion && {...}`.
+function MenuAccionesFila(opciones, etiqueta) {
+  var lista = (opciones || []).filter(Boolean);
+
+  if (lista.length === 0) {
+    return "";
+  }
+
+  function escapar(texto) {
+    var div = document.createElement("div");
+    div.textContent = texto === null || texto === undefined ? "" : String(texto);
+    return div.innerHTML.replace(/"/g, "&quot;");
+  }
+
+  function item(opcion) {
+    var atributos = Object.keys(opcion.atributos || {}).map(function (clave) {
+      return " " + clave + '="' + escapar(opcion.atributos[clave]) + '"';
+    }).join("");
+    var clase = "dropdown-item" + (opcion.peligro ? " text-danger" : "");
+    var icono = opcion.icono ? '<i class="bi ' + opcion.icono + ' me-2" aria-hidden="true"></i>' : "";
+
+    if (opcion.href) {
+      return '<li><a class="' + clase + '" href="' + escapar(opcion.href) + '"'
+        + (opcion.nuevaPestana ? ' target="_blank" rel="noopener"' : "")
+        + atributos + ">" + icono + escapar(opcion.texto) + "</a></li>";
+    }
+
+    return '<li><button type="button" class="' + clase + '"' + atributos + ">"
+      + icono + escapar(opcion.texto) + "</button></li>";
+  }
+
+  var normales = lista.filter(function (o) { return !o.peligro; }).map(item).join("");
+  var peligrosas = lista.filter(function (o) { return o.peligro; }).map(item).join("");
+  var divisor = normales && peligrosas ? '<li><hr class="dropdown-divider"></li>' : "";
+
+  // strategy fixed: el menu se dibuja sobre la pagina y no lo corta el
+  // scroll horizontal de .table-responsive
+  return '<div class="dropdown d-inline-block MenuAccionesFila">'
+    + '<button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown"'
+    + " data-bs-popper-config='{\"strategy\":\"fixed\"}' aria-expanded=\"false\""
+    + ' title="Más acciones" aria-label="' + escapar(etiqueta || "Más acciones") + '">'
+    + '<i class="bi bi-three-dots"></i></button>'
+    + '<ul class="dropdown-menu dropdown-menu-end">' + normales + divisor + peligrosas + "</ul>"
+    + "</div>";
+}
+
+// =====================================================
+// ESTADO VACIO (panel)
+// =====================================================
+// Lo que se ve cuando una tabla o lista no tiene datos: el icono del modulo,
+// un titulo y una linea. busqueda = true cuando lo vacio es por un filtro.
+function EstadoVacioHtml(icono, titulo, texto, opciones) {
+  var o = opciones || {};
+  var div = document.createElement("div");
+
+  function escapar(valor) {
+    div.textContent = valor === null || valor === undefined ? "" : String(valor);
+    return div.innerHTML;
+  }
+
+  var clases = "EstadoVacio"
+    + (o.compacto ? " EstadoVacio-Compacto" : "")
+    + (o.busqueda ? " EstadoVacio-Busqueda" : "");
+
+  return '<div class="' + clases + '">'
+    + '<i class="bi ' + (o.busqueda ? "bi-search" : icono) + '" aria-hidden="true"></i>'
+    + (titulo ? '<p class="EstadoVacio-Titulo">' + escapar(titulo) + "</p>" : "")
+    + (texto ? "<p>" + escapar(texto) + "</p>" : "")
+    + "</div>";
+}
+
+// La misma idea como fila de una tabla (ocupa todas las columnas)
+function FilaVaciaTabla(columnas, icono, titulo, texto, opciones) {
+  var o = Object.assign({ compacto: true }, opciones || {});
+  return '<tr class="FilaVacia"><td colspan="' + columnas + '">'
+    + EstadoVacioHtml(icono, titulo, texto, o) + "</td></tr>";
+}
+
 function InicializarTooltips() {
   var disparadores = document.querySelectorAll('[data-bs-toggle="tooltip"]');
   disparadores.forEach(function (disparador) {

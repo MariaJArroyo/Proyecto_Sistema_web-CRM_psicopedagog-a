@@ -1,4 +1,4 @@
-﻿document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
  
     // =====================================================
     // REFERENCIAS Y CONSTANTES
@@ -341,10 +341,10 @@
                     <td>${escaparHtml(valorTexto(est.nivelEducativo))}</td>
                     <td>${est.edad != null ? est.edad + " años" : "-"}</td>
                     <td>${estado}</td>
-                    <td class="text-nowrap">
+                    <td class="TablaAcciones text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary border-0"
                            href="/Admin/EstudianteFicha/${est.idEstudiante}" title="Ver ficha" aria-label="Ver ficha">
-                            <i class="bi bi-file-earmark-person"></i>
+                            <i class="bi bi-eye"></i>
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-secondary border-0"
                                 data-accion-estudiante="editar" data-id="${est.idEstudiante}" title="Editar" aria-label="Editar">
@@ -495,7 +495,8 @@
             `Saldo <strong class="${saldo > 0 ? "ValorSaldoCliente" : ""}">${dinero(saldo)}</strong>`;
 
         if (lista.length === 0) {
-            mensajeTablaPagos(idEstudiante ? "Este estudiante no tiene pagos registrados." : "No hay pagos registrados.");
+            cuerpoPagosCliente.innerHTML = FilaVaciaTabla(7, "bi-cash-coin", "Sin pagos registrados",
+                idEstudiante ? "Este estudiante no tiene cobros ni pagos." : "Este encargado no tiene cobros ni pagos.");
             return;
         }
 

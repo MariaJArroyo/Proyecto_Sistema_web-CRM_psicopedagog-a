@@ -1,4 +1,4 @@
-﻿document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
     // =====================================================
@@ -360,8 +360,8 @@
 
     function dibujarDias(lista) {
         if (lista.length === 0) {
-            tablaDias.innerHTML =
-                '<tr><td colspan="4" class="text-center TextoSuave py-4">No hay días no laborales próximos.</td></tr>';
+            tablaDias.innerHTML = FilaVaciaTabla(4, "bi-calendar-x", "Sin días no laborales próximos",
+                "Agregue feriados o días libres para que la agenda no ofrezca citas esos días.");
             return;
         }
 
@@ -374,12 +374,11 @@
                         ${dia.esFeriado ? "Feriado" : "No laboral"}
                     </span>
                 </td>
-                <td class="text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger"
-                            data-eliminar-dia="${dia.idDiaNoLaboral}" data-fecha="${dia.fecha}"
-                            aria-label="Quitar ${escaparHtml(formatoFechaLarga(dia.fecha))}">
-                        <i class="bi bi-trash" aria-hidden="true"></i>
-                    </button>
+                <td class="TablaAcciones text-end">
+                    ${MenuAccionesFila([{
+                        texto: "Eliminar", icono: "bi-trash", peligro: true,
+                        atributos: { "data-eliminar-dia": dia.idDiaNoLaboral, "data-fecha": dia.fecha }
+                    }], `Más acciones del ${formatoFechaLarga(dia.fecha)}`)}
                 </td>
             </tr>`).join("");
     }
@@ -462,8 +461,8 @@
 
     function dibujarTipos(lista) {
         if (lista.length === 0) {
-            tablaTipos.innerHTML =
-                '<tr><td colspan="4" class="text-center TextoSuave py-4">No hay tipos de sesión.</td></tr>';
+            tablaTipos.innerHTML = FilaVaciaTabla(4, "bi-tags", "Todavía no hay tipos de sesión",
+                "Agregue uno con su duración y precio para poder agendar citas.");
             return;
         }
 

@@ -75,7 +75,9 @@ INSERT INTO TB_ESTADO_TAREA (IdEstadoTarea, Nombre) VALUES
   (1, 'Asignada'),
   (2, 'Entregada'),
   (3, 'Revisada'),
-  (4, 'Vencida')
+  (4, 'Vencida'),
+  -- La profesional la devolvio con un comentario: la familia la vuelve a entregar
+  (5, 'Por corregir')
 ON DUPLICATE KEY UPDATE IdEstadoTarea = IdEstadoTarea;
 
 -- GENERICO: duraciones por defecto en minutos

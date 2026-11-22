@@ -1,4 +1,4 @@
-﻿@model List<MenteActiva.Models.SolicitudViewModel>
+@model List<MenteActiva.Models.SolicitudViewModel>
 
 @{
     ViewData["Title"] = "Solicitudes";
@@ -95,14 +95,20 @@
 
                                 @if (s.IdEstadoSolicitud != 3)
                                 {
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-success border-0"
-                                            data-accion="convertir"
-                                            data-id="@s.IdSolicitud"
-                                            data-bs-toggle="tooltip"
-                                            title="Convertir a cliente">
-                                        <i class="bi bi-person-plus"></i>
-                                    </button>
+                                    <div class="dropdown d-inline-block MenuAccionesFila">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary border-0"
+                                                data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                                                title="Más acciones" aria-label="Más acciones de la solicitud">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button type="button" class="dropdown-item" data-accion="convertir" data-id="@s.IdSolicitud">
+                                                    <i class="bi bi-person-plus me-2" aria-hidden="true"></i>Convertir a cliente
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 }
 
                             </td>
@@ -115,13 +121,16 @@
 
         </div>
 
-        <div id="EstadoVacio" class="text-center py-4" style="display:@(Model.Any() ? "none" : "block");">
-            <i class="bi bi-inbox fs-2 TextoSuave"></i>
-            <p class="TextoSuave mt-2 mb-0">Todavía no han llegado solicitudes.</p>
+        <div id="EstadoVacio" class="EstadoVacio" style="display:@(Model.Any() ? "none" : "block");">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Bandeja vacía</p>
+            <p>Todavía no han llegado solicitudes desde el formulario de contacto.</p>
         </div>
 
-        <div id="SinResultados" class="text-center py-4" style="display:none;">
-            <p class="TextoSuave mb-0">No hay solicitudes que coincidan con el filtro.</p>
+        <div id="SinResultados" class="EstadoVacio EstadoVacio-Busqueda" style="display:none;">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Sin resultados</p>
+            <p>No hay solicitudes que coincidan con el filtro.</p>
         </div>
 
     </div>

@@ -1,4 +1,4 @@
-﻿// Seguimiento de sesiones (M5).
+// Seguimiento de sesiones (M5).
 //
 // Todo pasa por /Admin/..., que reenvia al API: el navegador nunca habla con el
 // API directamente. El historial y el historial de avances salen de la MISMA
@@ -204,8 +204,8 @@
                             data-accion="editar" data-id="${s.idSesion}" title="Editar" aria-label="Editar">
                       <i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                            data-accion="inactivar" data-id="${s.idSesion}" title="Eliminar registro" aria-label="Eliminar registro">
-                      <i class="bi bi-trash"></i></button>
+                            data-accion="inactivar" data-id="${s.idSesion}" title="Inactivar" aria-label="Inactivar registro">
+                      <i class="bi bi-slash-circle"></i></button>
                   </td>
                 </tr>`;
         }).join("");

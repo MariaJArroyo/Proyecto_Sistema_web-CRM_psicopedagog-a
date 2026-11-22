@@ -146,13 +146,13 @@ document.addEventListener("DOMContentLoaded", function () {
                         </label>
                     </div>
                 </td>
-                <td class="text-end text-nowrap">
+                <td class="TablaAcciones text-end text-nowrap">
                     ${visual.previa
                         ? `<a href="${urlVer}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary border-0" title="Ver" aria-label="Ver ${escapar(d.titulo)}"><i class="bi bi-eye"></i></a>`
                         : ""}
-                    <a href="${urlBajar}" class="btn btn-sm btn-outline-secondary border-0" title="Descargar" aria-label="Descargar ${escapar(d.titulo)}"><i class="bi bi-download"></i></a>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0" data-eliminar="${d.idDocumento}"
-                            title="Eliminar" aria-label="Eliminar ${escapar(d.titulo)}"><i class="bi bi-trash"></i></button>
+                            title="Desactivar" aria-label="Desactivar ${escapar(d.titulo)}"><i class="bi bi-slash-circle"></i></button>
+                    ${MenuAccionesFila([{ texto: "Descargar", icono: "bi-download", href: urlBajar }], `Más acciones de ${d.titulo}`)}
                 </td>
             </tr>`;
     }
@@ -316,7 +316,7 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             const json = await enviar(`${rutas.eliminar}?id=${idPorEliminar}`, {});
             bootstrap.Modal.getOrCreateInstance(modalEliminar).hide();
-            notificar(json?.mensaje || "Documento eliminado.");
+            notificar(json?.mensaje || "Documento desactivado.");
             idPorEliminar = null;
             await cargar();
         } catch (error) {

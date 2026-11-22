@@ -33,6 +33,7 @@ MenteActiva_Api/MenteActiva.API/Archivos/Materiales/
 # Comprobantes de pago que suben las familias: datos personales, no codigo.
 # El API crea la carpeta al arrancar.
 MenteActiva_Api/MenteActiva.API/Archivos/Comprobantes/
+MenteActiva_Api/MenteActiva.API/Archivos/EntregasTareas/
 
 # Documentos de los estudiantes (evaluaciones, informes): datos personales.
 MenteActiva_Api/MenteActiva.API/Archivos/Documentos/

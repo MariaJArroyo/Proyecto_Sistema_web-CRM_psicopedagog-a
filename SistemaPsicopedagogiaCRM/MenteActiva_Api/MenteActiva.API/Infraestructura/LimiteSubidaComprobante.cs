@@ -5,25 +5,31 @@ using MenteActiva.Api.Services;
 
 namespace MenteActiva.Api.Infraestructura;
 
-// Lo mismo que LimiteSubidaPdf, para el comprobante de pago que sube la
-// familia: corta antes de leer el formulario si la peticion ya declara que
-// es mas grande que el maximo, y le pone ese tope al lector del multipart.
-// El tamanio exacto del archivo lo revisa ServicioReportesPago.
-public sealed class LimiteSubidaComprobante : IResourceFilter
+// Lo mismo que LimiteSubidaPdf, para los archivos que suben las familias:
+// corta antes de leer el formulario si la peticion ya declara que es mas
+// grande que el maximo, y le pone ese tope al lector del multipart. El tamanio
+// exacto del archivo lo revisa cada servicio.
+public abstract class LimiteSubidaArchivo : IResourceFilter
 {
     private const long MargenFormulario = 64 * 1024;
+
+    private readonly long _maximoBytes;
+    private readonly string _mensaje;
+
+    protected LimiteSubidaArchivo(long maximoBytes, string mensaje)
+    {
+        _maximoBytes = maximoBytes;
+        _mensaje = mensaje;
+    }
 
     public void OnResourceExecuting(ResourceExecutingContext contexto)
     {
         var http = contexto.HttpContext;
-        var tope = AlmacenComprobantes.TamanoMaximoBytes + MargenFormulario;
+        var tope = _maximoBytes + MargenFormulario;
 
         if (http.Request.ContentLength > tope)
         {
-            contexto.Result = new BadRequestObjectResult(new
-            {
-                mensaje = $"El comprobante no puede pasar de {AlmacenComprobantes.TamanoMaximoMb} MB."
-            });
+            contexto.Result = new BadRequestObjectResult(new { mensaje = _mensaje });
             return;
         }
 
@@ -44,6 +50,26 @@ public sealed class LimiteSubidaComprobante : IResourceFilter
     }
 
     public void OnResourceExecuted(ResourceExecutedContext contexto)
+    {
+    }
+}
+
+// Comprobante de pago (ServicioReportesPago)
+public sealed class LimiteSubidaComprobante : LimiteSubidaArchivo
+{
+    public LimiteSubidaComprobante()
+        : base(AlmacenComprobantes.TamanoMaximoBytes,
+               $"El comprobante no puede pasar de {AlmacenComprobantes.TamanoMaximoMb} MB.")
+    {
+    }
+}
+
+// Archivo de una tarea entregada (ServicioEntregasTarea)
+public sealed class LimiteSubidaEntregaTarea : LimiteSubidaArchivo
+{
+    public LimiteSubidaEntregaTarea()
+        : base(AlmacenEntregasTarea.TamanoMaximoBytes,
+               $"El archivo no puede pasar de {AlmacenEntregasTarea.TamanoMaximoMb} MB.")
     {
     }
 }

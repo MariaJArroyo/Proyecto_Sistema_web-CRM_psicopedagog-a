@@ -2510,6 +2510,10 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Faltaban el DROP y el DELIMITER $$: sin ellos este procedimiento rompia la
+-- corrida completa del archivo (el ; de adentro cortaba la sentencia)
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarFicha;
+DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_EditarFicha(
     IN p_IdUsuarioAccion INT,
     IN p_IdEstudiante INT,
@@ -5362,7 +5366,9 @@ BEGIN
          m.Titulo AS Material,
          t.FechaCreacion,
          COUNT(ta.IdTareaAsignacion) AS Asignados,
-         CAST(COALESCE(SUM(ta.IdEstadoTarea IN (2, 3)), 0) AS SIGNED) AS Entregaron
+         CAST(COALESCE(SUM(ta.IdEstadoTarea IN (2, 3)), 0) AS SIGNED) AS Entregaron,
+         -- Entregadas que la profesional todavia no ha revisado
+         CAST(COALESCE(SUM(ta.IdEstadoTarea = 2), 0) AS SIGNED) AS PorRevisar
   FROM TB_TAREA t
   LEFT JOIN TB_MATERIAL m ON m.IdMaterial = t.IdMaterial
   LEFT JOIN TB_TAREA_ASIGNACION ta ON ta.IdTarea = t.IdTarea
@@ -5462,31 +5468,84 @@ DROP PROCEDURE IF EXISTS SP_TareaAsignacion_Entregar;
 DELIMITER $$
 CREATE PROCEDURE SP_TareaAsignacion_Entregar(
   IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
   IN p_IdTareaAsignacion INT,
-  IN p_Comentario VARCHAR(500)
+  IN p_Comentario VARCHAR(500),
+  IN p_Archivo VARCHAR(100),
+  IN p_TipoArchivo VARCHAR(50),
+  IN p_NombreArchivo VARCHAR(255)
 )
 BEGIN
-  DECLARE v_IdEstudiante INT DEFAULT NULL;
+  DECLARE v_Estado INT DEFAULT NULL;
+  DECLARE v_ArchivoAnterior VARCHAR(100) DEFAULT NULL;
+  DECLARE v_Comentario VARCHAR(500) DEFAULT NULLIF(TRIM(p_Comentario), '');
+  DECLARE v_Archivo VARCHAR(100) DEFAULT NULLIF(TRIM(p_Archivo), '');
+  DECLARE v_Tipo VARCHAR(50) DEFAULT NULLIF(TRIM(p_TipoArchivo), '');
 
-  SELECT ta.IdEstudiante INTO v_IdEstudiante
-  FROM TB_TAREA_ASIGNACION ta
-  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ta.IdEstudiante AND e.Activo = 1
-  JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = ta.IdEstudiante
-  JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
-    AND u.IdUsuario = p_IdUsuario
-  LIMIT 1;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
 
-  IF v_IdEstudiante IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea no existe o no corresponde a un estudiante a su cargo.';
+  IF NOT EXISTS (
+    SELECT 1
+    FROM TB_ESTUDIANTE_ENCARGADO ee
+    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
+    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
+    WHERE u.IdUsuario = p_IdUsuario
+      AND ee.IdEstudiante = p_IdEstudiante
+      AND en.Activo = 1
+      AND e.Activo = 1
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
   END IF;
 
+  IF v_Archivo IS NOT NULL AND v_Tipo IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Falta el tipo del archivo adjunto.';
+  END IF;
+
+  START TRANSACTION;
+
+  -- FOR UPDATE: dos clics seguidos no pisan la entrega a medias
+  SELECT ta.IdEstadoTarea, ta.ArchivoEntrega
+  INTO v_Estado, v_ArchivoAnterior
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+    AND ta.IdEstudiante = p_IdEstudiante
+  FOR UPDATE;
+
+  IF v_Estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea no está asignada al estudiante indicado.';
+  END IF;
+
+  IF v_Estado = 3 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Esta tarea ya fue revisada; no se puede volver a entregar.';
+  END IF;
+
+  -- Cada entrega reemplaza a la anterior (por ejemplo, despues de "Por
+  -- corregir"): queda la ultima, con su comentario y su archivo
   UPDATE TB_TAREA_ASIGNACION
   SET IdEstadoTarea = 2,
       FechaEntrega = NOW(),
-      ComentarioEstudiante = p_Comentario
+      ComentarioEstudiante = v_Comentario,
+      ArchivoEntrega = v_Archivo,
+      TipoArchivoEntrega = IF(v_Archivo IS NULL, NULL, v_Tipo),
+      NombreArchivoEntrega = IF(v_Archivo IS NULL, NULL, LEFT(NULLIF(TRIM(p_NombreArchivo), ''), 255))
   WHERE IdTareaAsignacion = p_IdTareaAsignacion;
+
+  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+  VALUES (p_IdUsuario, 'TB_TAREA_ASIGNACION', p_IdTareaAsignacion, 'CambiarEstado',
+          JSON_OBJECT('IdEstadoTarea', v_Estado),
+          JSON_OBJECT('IdEstadoTarea', 2, 'ConArchivo', v_Archivo IS NOT NULL));
+
+  COMMIT;
+
+  -- El API borra del disco el archivo que quedo reemplazado
+  SELECT IF(v_ArchivoAnterior <=> v_Archivo, NULL, v_ArchivoAnterior) AS ArchivoAnterior;
 END$$
 DELIMITER ;
 
@@ -5498,10 +5557,13 @@ DELIMITER $$
 CREATE PROCEDURE SP_TareaAsignacion_Revisar(
   IN p_IdUsuarioAccion INT,
   IN p_IdTareaAsignacion INT,
+  IN p_Aprobada BOOLEAN,
   IN p_Comentario VARCHAR(500)
 )
 BEGIN
   DECLARE v_Estado INT DEFAULT NULL;
+  DECLARE v_Nuevo INT DEFAULT NULL;
+  DECLARE v_Comentario VARCHAR(500) DEFAULT NULLIF(TRIM(p_Comentario), '');
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -5509,10 +5571,20 @@ BEGIN
     RESIGNAL;
   END;
 
+  SET v_Nuevo = IF(IFNULL(p_Aprobada, 1) = 1, 3, 5);
+
+  IF v_Nuevo = 5 AND v_Comentario IS NULL THEN
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Escriba qué debe corregir: la familia lo verá en el portal.';
+  END IF;
+
+  START TRANSACTION;
+
   SELECT ta.IdEstadoTarea INTO v_Estado
   FROM TB_TAREA_ASIGNACION ta
   JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
-  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion;
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+  FOR UPDATE;
 
   IF v_Estado IS NULL THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La asignación indicada no existe.';
@@ -5522,17 +5594,17 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se puede revisar una tarea entregada.';
   END IF;
 
-  START TRANSACTION;
-
   UPDATE TB_TAREA_ASIGNACION
-  SET IdEstadoTarea = 3,
-      ComentarioRevision = p_Comentario
+  SET IdEstadoTarea = v_Nuevo,
+      ComentarioRevision = v_Comentario,
+      IdUsuarioRevisa = p_IdUsuarioAccion,
+      FechaRevision = NOW()
   WHERE IdTareaAsignacion = p_IdTareaAsignacion;
 
   INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
   VALUES (p_IdUsuarioAccion, 'TB_TAREA_ASIGNACION', p_IdTareaAsignacion, 'CambiarEstado',
           JSON_OBJECT('IdEstadoTarea', v_Estado),
-          JSON_OBJECT('IdEstadoTarea', 3, 'ComentarioRevision', p_Comentario));
+          JSON_OBJECT('IdEstadoTarea', v_Nuevo, 'ComentarioRevision', v_Comentario));
 
   COMMIT;
 END$$
@@ -6924,6 +6996,9 @@ BEGIN
          ta.FechaEntrega,
          ta.ComentarioEstudiante,
          ta.ComentarioRevision,
+         ta.FechaRevision,
+         ta.NombreArchivoEntrega,
+         ta.ArchivoEntrega IS NOT NULL AS TieneArchivoEntrega,
          m.Titulo AS Material,
          m.Url AS MaterialUrl,
          CASE
@@ -6941,18 +7016,19 @@ BEGIN
     AND (
       v_Filtro = 'todas'
 
+      -- Pendiente = falta entregarla, incluida la que se devolvio para corregir
       OR (v_Filtro = 'pendientes'
-          AND ta.IdEstadoTarea IN (1, 4))
+          AND ta.IdEstadoTarea IN (1, 4, 5))
 
       OR (v_Filtro = 'asignadas'
           AND ta.IdEstadoTarea = 1)
 
       OR (v_Filtro = 'entregadas'
-          AND ta.IdEstadoTarea = 2)
+          AND ta.IdEstadoTarea IN (2, 3))
     )
   ORDER BY
     CASE
-      WHEN ta.IdEstadoTarea IN (1, 4) THEN 0
+      WHEN ta.IdEstadoTarea IN (1, 4, 5) THEN 0
       ELSE 1
     END ASC,
     t.FechaLimite ASC,
@@ -10100,6 +10176,95 @@ BEGIN
     AND d.Activo = 1
     AND d.VisibleEnPortal = 1
     AND u.IdUsuario = p_IdUsuario
+  LIMIT 1;
+END$$
+DELIMITER ;
+
+
+-- ============================================================
+-- Entregas de tareas: revision en el panel y archivo adjunto
+-- ============================================================
+
+-- Una fila por estudiante asignado a la tarea, con su entrega. Primero lo que
+-- espera revision, despues lo que falta entregar y al final lo revisado.
+DROP PROCEDURE IF EXISTS SP_Tarea_ListarEntregas;
+DELIMITER $$
+CREATE PROCEDURE SP_Tarea_ListarEntregas(
+  IN p_IdTarea INT
+)
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM TB_TAREA WHERE IdTarea = p_IdTarea AND Activo = 1) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tarea indicada no existe.';
+  END IF;
+
+  SELECT ta.IdTareaAsignacion,
+         ta.IdEstudiante,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido,
+              NULLIF(e.SegundoApellido, ''))) AS Estudiante,
+         ta.IdEstadoTarea,
+         et.Nombre AS Estado,
+         ta.FechaEntrega,
+         -- Tarde = se entrego despues del dia limite
+         (ta.FechaEntrega IS NOT NULL AND DATE(ta.FechaEntrega) > t.FechaLimite) AS EntregaTardia,
+         ta.ComentarioEstudiante,
+         ta.ComentarioRevision,
+         ta.FechaRevision,
+         ur.NombreCompleto AS RevisadoPor,
+         ta.ArchivoEntrega IS NOT NULL AS TieneArchivo,
+         ta.TipoArchivoEntrega AS TipoArchivo,
+         ta.NombreArchivoEntrega AS NombreArchivo
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ta.IdEstudiante
+  JOIN TB_ESTADO_TAREA et ON et.IdEstadoTarea = ta.IdEstadoTarea
+  LEFT JOIN TB_USUARIO ur ON ur.IdUsuario = ta.IdUsuarioRevisa
+  WHERE ta.IdTarea = p_IdTarea
+  ORDER BY CASE ta.IdEstadoTarea WHEN 2 THEN 0 WHEN 5 THEN 1 WHEN 1 THEN 2 WHEN 4 THEN 2 ELSE 3 END,
+           e.Nombre, e.PrimerApellido, ta.IdTareaAsignacion;
+END$$
+DELIMITER ;
+
+
+-- Datos del archivo entregado, para que el API lo lea del disco (panel)
+DROP PROCEDURE IF EXISTS SP_TareaAsignacion_ObtenerArchivoEntrega;
+DELIMITER $$
+CREATE PROCEDURE SP_TareaAsignacion_ObtenerArchivoEntrega(
+  IN p_IdTareaAsignacion INT
+)
+BEGIN
+  SELECT ta.ArchivoEntrega,
+         ta.TipoArchivoEntrega AS TipoArchivo,
+         ta.NombreArchivoEntrega AS NombreArchivo
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+    AND ta.ArchivoEntrega IS NOT NULL;
+END$$
+DELIMITER ;
+
+
+-- Lo mismo desde el portal: solo si el estudiante esta a cargo de quien pide
+DROP PROCEDURE IF EXISTS SP_Portal_ObtenerArchivoEntrega;
+DELIMITER $$
+CREATE PROCEDURE SP_Portal_ObtenerArchivoEntrega(
+  IN p_IdUsuario INT,
+  IN p_IdEstudiante INT,
+  IN p_IdTareaAsignacion INT
+)
+BEGIN
+  SELECT ta.ArchivoEntrega,
+         ta.TipoArchivoEntrega AS TipoArchivo,
+         ta.NombreArchivoEntrega AS NombreArchivo
+  FROM TB_TAREA_ASIGNACION ta
+  JOIN TB_TAREA t ON t.IdTarea = ta.IdTarea AND t.Activo = 1
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ta.IdEstudiante AND e.Activo = 1
+  JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEstudiante = ta.IdEstudiante
+  JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado AND en.Activo = 1
+  JOIN TB_USUARIO u ON u.IdEncargado = en.IdEncargado
+  WHERE ta.IdTareaAsignacion = p_IdTareaAsignacion
+    AND ta.IdEstudiante = p_IdEstudiante
+    AND u.IdUsuario = p_IdUsuario
+    AND ta.ArchivoEntrega IS NOT NULL
   LIMIT 1;
 END$$
 DELIMITER ;

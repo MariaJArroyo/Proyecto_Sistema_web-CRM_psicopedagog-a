@@ -258,11 +258,12 @@ document.addEventListener("DOMContentLoaded", function () {
             ? `Vence ${formatoFecha(p.fechaVencimiento)}`
             : "Sin vencimiento";
 
-        const botonAbonar = puedeAbonar(p)
-            ? `<button type="button" class="btn btn-sm btn-outline-primary border-0" data-accion="abonar"
-                       data-id="${p.idPago}" title="Registrar pago" aria-label="Registrar pago de ${escaparHtml(p.estudiante)}">
-                   <i class="bi bi-cash-coin"></i></button>`
-            : "";
+        const menu = MenuAccionesFila([
+            puedeAbonar(p) && {
+                texto: "Registrar pago", icono: "bi-cash-coin",
+                atributos: { "data-accion": "abonar", "data-id": p.idPago }
+            }
+        ], `Más acciones del cobro de ${p.estudiante}`);
 
         return `
             <tr class="${p.idEstadoPago === ANULADO ? "FilaAnulada" : ""}">
@@ -288,7 +289,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="ver"
                             data-id="${p.idPago}" title="Ver detalle" aria-label="Ver detalle del cobro de ${escaparHtml(p.estudiante)}">
                         <i class="bi bi-eye"></i></button>
-                    ${botonAbonar}
+                    ${menu}
                 </td>
             </tr>`;
     }
@@ -596,7 +597,7 @@ document.addEventListener("DOMContentLoaded", function () {
             : `${chipOrigen(pago)} <span class="ms-1">Registrado a mano</span>`;
 
         const filasAbonos = abonos.length === 0
-            ? '<tr><td colspan="6" class="text-center TextoSuave py-3">Todavía no hay pagos registrados.</td></tr>'
+            ? FilaVaciaTabla(6, "bi-cash-coin", "Sin pagos registrados", "Los abonos a este cobro aparecerán aquí.")
             : abonos.map(a => `
                 <tr class="${a.activo ? "" : "FilaAnulada"}">
                     <td class="text-nowrap">${escaparHtml(formatoFecha(a.fechaAbono))}</td>

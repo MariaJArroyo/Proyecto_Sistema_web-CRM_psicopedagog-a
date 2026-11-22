@@ -393,6 +393,113 @@ public class PortalController : Controller
             });
         }
     }
+
+    // Entrega de una tarea: comentario y, si quiere, una foto o PDF del trabajo.
+    // Llega por fetch con el token antifalsificacion en el FormData (filtro
+    // global) y se reenvia al API como multipart, con el archivo tal cual.
+    [HttpPost]
+    public async Task<IActionResult> EntregarTarea(
+        int idEstudiante, int idTareaAsignacion, string? comentario, IFormFile? archivo,
+        CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0 || idTareaAsignacion <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione una tarea válida." });
+        }
+
+        using var cuerpo = new MultipartFormDataContent();
+
+        cuerpo.Add(new StringContent(idEstudiante.ToString(System.Globalization.CultureInfo.InvariantCulture)), "idEstudiante");
+
+        if (!string.IsNullOrWhiteSpace(comentario))
+        {
+            cuerpo.Add(new StringContent(comentario.Trim()), "comentario");
+        }
+
+        Stream? flujo = null;
+
+        try
+        {
+            if (archivo is { Length: > 0 })
+            {
+                flujo = archivo.OpenReadStream();
+                var parte = new StreamContent(flujo);
+
+                if (System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(archivo.ContentType, out var tipo))
+                {
+                    parte.Headers.ContentType = tipo;
+                }
+
+                cuerpo.Add(parte, "archivo", archivo.FileName);
+            }
+
+            using var client = _http.CreateClient();
+            using var respuesta = await client.PostAsync(
+                UrlApi($"portal/tareas/{idTareaAsignacion}/entrega"), cuerpo, cancelacion);
+
+            var contenido = await respuesta.Content.ReadAsStringAsync(cancelacion);
+
+            if (string.IsNullOrWhiteSpace(contenido))
+            {
+                contenido = respuesta.IsSuccessStatusCode
+                    ? "{}"
+                    : "{\"mensaje\":\"No se pudo entregar la tarea.\"}";
+            }
+
+            return new ContentResult
+            {
+                Content = contenido,
+                ContentType = "application/json",
+                StatusCode = (int)respuesta.StatusCode
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503, new { mensaje = "No se pudo conectar con el servicio de tareas." });
+        }
+        catch (TaskCanceledException) when (!cancelacion.IsCancellationRequested)
+        {
+            return StatusCode(504, new { mensaje = "El servicio tardó demasiado en responder." });
+        }
+        finally
+        {
+            flujo?.Dispose();
+        }
+    }
+
+    // Abre en otra pestania el archivo que la familia adjunto a su entrega
+    [HttpGet]
+    public async Task<IActionResult> VerEntregaTarea(int idEstudiante, int idTareaAsignacion, CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0 || idTareaAsignacion <= 0)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            using var client = _http.CreateClient();
+            using var respuesta = await client.GetAsync(
+                UrlApi($"portal/tareas/{idTareaAsignacion}/entrega/archivo?idEstudiante={idEstudiante}"),
+                HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                return StatusCode((int)respuesta.StatusCode);
+            }
+
+            var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+
+            Response.Headers.CacheControl = "no-store";
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+            return File(await respuesta.Content.ReadAsByteArrayAsync(cancelacion), tipo);
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503);
+        }
+    }
     #endregion
 
 

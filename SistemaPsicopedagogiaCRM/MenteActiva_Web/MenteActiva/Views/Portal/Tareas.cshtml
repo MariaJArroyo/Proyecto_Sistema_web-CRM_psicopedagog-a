@@ -4,6 +4,7 @@
     var error = ViewBag.ErrorCarga as string;
 }
 <main class="PrincipalPortal" id="PortalTareas" data-portal-estudiante="@Model.IdEstudiante">
+    @Html.AntiForgeryToken()
     <div class="container">
         <div class="BarraTituloPortal">
             @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-journal-check", "Tareas", "Las actividades asignadas y sus materiales."))
@@ -50,27 +51,37 @@
                 <div class="row g-3">
                     @foreach (var tarea in Model.Tareas)
                     {
-                        var claseEstado = tarea.Estado.ToLowerInvariant() switch
+                        var estado = tarea.Estado.ToLowerInvariant();
+                        var claseEstado = estado switch
                         {
-                            "pendiente" => "EstadoBadge EstadoBadge-Pendiente",
                             "asignada" => "EstadoBadge EstadoBadge-Programada",
-                            "entregada" => "EstadoBadge EstadoBadge-Completada",
-                            "completada" => "EstadoBadge EstadoBadge-Completada",
+                            "entregada" => "EstadoBadge EstadoBadge-Revision",
+                            "revisada" => "EstadoBadge EstadoBadge-Completada",
+                            "por corregir" => "EstadoBadge EstadoBadge-Pendiente",
                             "vencida" => "EstadoBadge EstadoBadge-Cancelada",
                             _ => "EstadoBadge EstadoBadge-Neutro"
                         };
-                        var tieneComentarios = !string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante)
-                            || !string.IsNullOrWhiteSpace(tarea.ComentarioRevision)
+                        var textoEstado = estado == "entregada" ? "En revisión" : tarea.Estado;
+                        var porCorregir = estado == "por corregir";
+                        var revisada = estado == "revisada";
+                        var tieneDetalles = !string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante)
                             || !string.IsNullOrWhiteSpace(tarea.Material)
-                            || tarea.FechaEntrega.HasValue;
+                            || tarea.FechaEntrega.HasValue
+                            || tarea.TieneArchivoEntrega;
                         var tieneEnlace = Uri.TryCreate(tarea.MaterialUrl, UriKind.Absolute, out var enlaceMaterial)
                             && (enlaceMaterial.Scheme == Uri.UriSchemeHttps || enlaceMaterial.Scheme == Uri.UriSchemeHttp);
+                        var textoBoton = estado switch
+                        {
+                            "entregada" => "Cambiar entrega",
+                            "por corregir" => "Entregar corrección",
+                            _ => "Entregar"
+                        };
 
                         <div class="col-md-6 col-xl-4">
-                            <article class="Tarjeta ItemPortal">
+                            <article class="Tarjeta ItemPortal @(porCorregir ? "ItemPortal-PorCorregir" : "")">
                                 <div class="ItemPortal-Cabecera">
                                     <h2 class="ItemPortal-Titulo">@tarea.Titulo</h2>
-                                    <span class="@claseEstado">@tarea.Estado</span>
+                                    <span class="@claseEstado">@textoEstado</span>
                                 </div>
 
                                 @if (!string.IsNullOrWhiteSpace(tarea.Descripcion))
@@ -78,10 +89,21 @@
                                     <p class="ItemPortal-Texto">@tarea.Descripcion</p>
                                 }
 
-                                @if (tieneComentarios)
+                                @if ((porCorregir || revisada) && !string.IsNullOrWhiteSpace(tarea.ComentarioRevision))
+                                {
+                                    <div class="NotaProfesional @(porCorregir ? "NotaProfesional-Corregir" : "")">
+                                        <i class="bi @(porCorregir ? "bi-arrow-counterclockwise" : "bi-chat-heart") NotaProfesional-Icono" aria-hidden="true"></i>
+                                        <div>
+                                            <span class="NotaProfesional-Titulo">@(porCorregir ? "La profesional pide corregir" : "Comentario de la profesional")</span>
+                                            <p class="mb-0">@tarea.ComentarioRevision</p>
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (tieneDetalles)
                                 {
                                     <details class="DetallePortal">
-                                        <summary>Más detalles</summary>
+                                        <summary>@(tarea.FechaEntrega.HasValue ? "Su entrega y detalles" : "Más detalles")</summary>
                                         <dl>
                                             @if (tarea.FechaEntrega.HasValue)
                                             {
@@ -90,13 +112,18 @@
                                             }
                                             @if (!string.IsNullOrWhiteSpace(tarea.ComentarioEstudiante))
                                             {
-                                                <dt>Comentario del estudiante</dt>
+                                                <dt>Su comentario</dt>
                                                 <dd>@tarea.ComentarioEstudiante</dd>
                                             }
-                                            @if (!string.IsNullOrWhiteSpace(tarea.ComentarioRevision))
+                                            @if (tarea.TieneArchivoEntrega)
                                             {
-                                                <dt>Comentario de revisión</dt>
-                                                <dd>@tarea.ComentarioRevision</dd>
+                                                <dt>Archivo enviado</dt>
+                                                <dd>
+                                                    <a href="@Url.Action("VerEntregaTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })"
+                                                       target="_blank" rel="noopener">
+                                                        <i class="bi bi-paperclip me-1" aria-hidden="true"></i>@(tarea.NombreArchivoEntrega ?? "Ver archivo")
+                                                    </a>
+                                                </dd>
                                             }
                                             @if (!string.IsNullOrWhiteSpace(tarea.Material))
                                             {
@@ -112,29 +139,38 @@
                                         <i class="bi bi-flag" aria-hidden="true"></i>Entrega: @tarea.FechaLimite.ToString("dd/MM/yyyy")
                                     </span>
 
-                                    @if (tarea.TieneArchivo || tieneEnlace)
-                                    {
-                                        <div class="d-flex flex-wrap gap-2">
-                                            @if (tarea.TieneArchivo)
-                                            {
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                        data-descargar-tarea
-                                                        data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">
-                                                    <i class="bi bi-download me-1" aria-hidden="true"></i>Archivo
-                                                </button>
-                                            }
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @if (tarea.TieneArchivo)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    data-descargar-tarea
+                                                    data-url="@Url.Action("DescargarTarea", "Portal", new { idEstudiante = Model.IdEstudiante, idTareaAsignacion = tarea.IdTareaAsignacion })">
+                                                <i class="bi bi-download me-1" aria-hidden="true"></i>Archivo
+                                            </button>
+                                        }
 
-                                            @if (tieneEnlace)
-                                            {
-                                                <a href="@enlaceMaterial!.AbsoluteUri"
-                                                   target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   class="btn btn-sm btn-outline-secondary">
-                                                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Material
-                                                </a>
-                                            }
-                                        </div>
-                                    }
+                                        @if (tieneEnlace)
+                                        {
+                                            <a href="@enlaceMaterial!.AbsoluteUri"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Material
+                                            </a>
+                                        }
+
+                                        @if (tarea.SePuedeEntregar)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm @(estado == "entregada" ? "btn-outline-primary" : "btn-primary")"
+                                                    data-entregar-tarea
+                                                    data-id-tarea-asignacion="@tarea.IdTareaAsignacion"
+                                                    data-titulo="@tarea.Titulo"
+                                                    data-reemplaza="@(estado == "entregada" ? "1" : "0")">
+                                                <i class="bi bi-send-check me-1" aria-hidden="true"></i>@textoBoton
+                                            </button>
+                                        }
+                                    </div>
                                 </div>
                             </article>
                         </div>
@@ -144,6 +180,68 @@
         }
     </div>
 </main>
+@* ---------- Entregar una tarea ---------- *@
+<div class="modal fade ModalReportarPago" id="ModalEntregarTarea" tabindex="-1" aria-labelledby="TituloEntregarTarea" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form id="FormularioEntregarTarea" novalidate
+                  data-url="@Url.Action("EntregarTarea", "Portal")"
+                  data-id-estudiante="@Model.IdEstudiante">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title fs-5" id="TituloEntregarTarea">Entregar tarea</h2>
+                        <p class="TextoSuave small mb-0" id="NombreTareaEntrega"></p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="AlertaEntregarTarea" class="alert alert-danger" role="alert" hidden></div>
+                    <div id="AvisoReemplazoEntrega" class="alert alert-info small py-2" role="note" hidden>
+                        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Esta entrega reemplaza la que ya envió.
+                    </div>
+
+                    <div class="mb-1">
+                        <span class="form-label d-block">Foto o PDF del trabajo <span class="TextoSuave">(opcional)</span></span>
+                        <label class="ZonaComprobante" id="ZonaEntrega" for="ArchivoEntrega">
+                            <input type="file" id="ArchivoEntrega" name="archivo" class="visually-hidden"
+                                   accept="image/jpeg,image/png,image/webp,application/pdf">
+                            <span class="ZonaComprobante-Vacia">
+                                <i class="bi bi-camera" aria-hidden="true"></i>
+                                <span><strong>Toque para elegir</strong> o arrastre el archivo aquí</span>
+                                <small>JPG, PNG, WEBP o PDF · máximo 10 MB</small>
+                            </span>
+                            <span class="ZonaComprobante-Vista" hidden>
+                                <img alt="Vista previa del archivo" hidden>
+                                <span class="ZonaComprobante-Pdf" hidden><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></span>
+                                <span class="ZonaComprobante-Nombre"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="QuitarArchivoEntrega">
+                                    <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Quitar
+                                </button>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="form-text mb-3">En el celular puede tomar la foto directamente.</p>
+
+                    <div>
+                        <label for="ComentarioEntrega" class="form-label">Comentario <span class="TextoSuave">(opcional)</span></label>
+                        <textarea class="form-control" id="ComentarioEntrega" name="comentario" rows="3" maxlength="500"
+                                  placeholder="Ej. Lo hicimos juntos el fin de semana"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="BotonEnviarEntrega">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                        <i class="bi bi-send-check me-1" aria-hidden="true"></i>Entregar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="~/js/tareasPortal.js" asp-append-version="true"></script>
 }

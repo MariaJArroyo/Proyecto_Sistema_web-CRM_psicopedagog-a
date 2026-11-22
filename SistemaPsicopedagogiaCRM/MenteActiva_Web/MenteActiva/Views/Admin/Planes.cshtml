@@ -103,21 +103,28 @@
 
                                 
                                 <button type="button"
-                                        class="btn btn-sm border-0"
+                                        class="btn btn-sm border-0 @(plan.Estado == "Inactivo" ? "btn-outline-success" : "btn-outline-danger")"
                                         data-accion="cambiar-estado"
                                         data-bs-toggle="tooltip"
                                         title="@(plan.Estado == "Inactivo" ? "Reactivar plan" : "Inactivar plan")">
                                     <i class="bi @(plan.Estado == "Inactivo" ? "bi-check-circle" : "bi-slash-circle")"></i>
                                 </button>
 
-                                
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger border-0"
-                                        data-accion="eliminar-plan"
-                                        data-bs-toggle="tooltip"
-                                        title="Eliminar plan">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                                @* Eliminar borra el plan de verdad: va en el menu de tres puntos *@
+                                <div class="dropdown d-inline-block MenuAccionesFila">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary border-0"
+                                            data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                                            title="Más acciones" aria-label="Más acciones del plan">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button type="button" class="dropdown-item text-danger" data-accion="eliminar-plan">
+                                                <i class="bi bi-trash me-2" aria-hidden="true"></i>Eliminar plan
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
 
 
                             </td>
@@ -131,8 +138,9 @@
 
         <div class="EstadoVacio @(Model.Any() ? "d-none" : "")"
              data-tabla-vacio="TablaPlanes">
-            <i class="bi bi-clipboard2-pulse"></i>
-            <p class="mb-3">
+            <i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">No hay planes para mostrar</p>
+            <p class="mb-3" data-texto-vacio>
                 @(Model.Any()
                     ? "No se encontraron planes con ese criterio de búsqueda."
                     : "No hay planes de intervención registrados.")
@@ -1507,7 +1515,7 @@ if (accionConfirmadaPlan === "eliminar") {
             if (estadoVacio) {
                 estadoVacio.classList.remove("d-none");
 
-                estadoVacio.querySelector("p").textContent =
+                estadoVacio.querySelector("[data-texto-vacio]").textContent =
                     "No hay planes de intervención registrados.";
             }
         }
@@ -1640,7 +1648,10 @@ if (accionConfirmadaPlan === "eliminar") {
                     botonEstado.classList.add(
                         "btn",
                         "btn-sm",
-                        "border-0"
+                        "border-0",
+                        nuevoEstado === "Activo"
+                            ? "btn-outline-danger"
+                            : "btn-outline-success"
                     );
 
                     if (icono) {

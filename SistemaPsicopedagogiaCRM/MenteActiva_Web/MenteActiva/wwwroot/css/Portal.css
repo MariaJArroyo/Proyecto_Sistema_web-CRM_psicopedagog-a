@@ -1697,3 +1697,38 @@ button.SelectorEstudiante[aria-expanded="true"] {
     font-size: 1.4rem;
   }
 }
+
+/* ---------- Tareas: entrega y comentario de la profesional ---------- */
+
+.ItemPortal-PorCorregir {
+  border-color: #F6D7AE;
+  box-shadow: 0 0 0 1px #F6D7AE inset;
+}
+
+.NotaProfesional {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background-color: #EEF6F3;
+  color: #24524A;
+  font-size: 0.88rem;
+}
+
+.NotaProfesional-Corregir {
+  background: linear-gradient(110deg, #FFF8EE 0%, #FDEFD9 100%);
+  color: #7A4A10;
+}
+
+.NotaProfesional-Icono {
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.NotaProfesional-Titulo {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}

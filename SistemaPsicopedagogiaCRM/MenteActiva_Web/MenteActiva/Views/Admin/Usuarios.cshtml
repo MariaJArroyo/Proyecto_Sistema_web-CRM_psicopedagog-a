@@ -138,19 +138,7 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-accion="editar"
                       data-bs-toggle="tooltip" title="Editar"><i class="bi bi-pencil"></i></button>
  
-                    @if (usuario.Estado != "Inactivo")
-                    {
-                      <form asp-controller="Admin" asp-action="ReenviarInvitacion" method="post" class="d-inline">
-                        <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary border-0"
-                          data-bs-toggle="tooltip"
-                          title="@(usuario.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Enviar enlace para restablecer la contraseña")">
-                          <i class="bi bi-envelope"></i>
-                        </button>
-                      </form>
-                    }
- 
-                                       @* Su propia cuenta no se puede activar ni desactivar: no se muestran esos botones *@
+                    @* Su propia cuenta no se puede activar ni desactivar: no se muestran esos botones *@
                     @if (usuario.IdUsuario != idUsuarioActual)
                     {
                       if (usuario.Estado == "Inactivo")
@@ -158,7 +146,7 @@
                         <form asp-controller="Admin" asp-action="CambiarEstadoUsuario" method="post" class="d-inline">
                           <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
                           <input type="hidden" name="idEstadoUsuario" value="1">
-                          <button type="submit" class="btn btn-sm btn-outline-primary border-0" data-bs-toggle="tooltip"
+                          <button type="submit" class="btn btn-sm btn-outline-success border-0" data-bs-toggle="tooltip"
                             title="Activar"><i class="bi bi-check-circle"></i></button>
                         </form>
                       }
@@ -167,6 +155,25 @@
                         <button type="button" class="btn btn-sm btn-outline-danger border-0" data-accion="desactivar"
                           data-bs-toggle="tooltip" title="Desactivar"><i class="bi bi-slash-circle"></i></button>
                       }
+                    }
+
+                    @* Acciones secundarias en el menu de tres puntos *@
+                    @if (usuario.Estado != "Inactivo")
+                    {
+                      <div class="dropdown d-inline-block MenuAccionesFila">
+                        <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                          title="Más acciones" aria-label="Más acciones para @usuario.NombreCompleto"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <form asp-controller="Admin" asp-action="ReenviarInvitacion" method="post">
+                              <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
+                              <button type="submit" class="dropdown-item">
+                                <i class="bi bi-envelope me-2" aria-hidden="true"></i>@(usuario.Estado == "Pendiente de activación" ? "Reenviar invitación" : "Enviar enlace para restablecer la contraseña")
+                              </button>
+                            </form>
+                          </li>
+                        </ul>
+                      </div>
                     }
  
                   </td>
@@ -177,9 +184,10 @@
           </div>
  
           <!-- Estado vacío: sin resultados de búsqueda -->
-          <div class="EstadoVacio d-none" data-tabla-vacio="TablaUsuarios">
-            <i class="bi bi-people"></i>
-            <p class="mb-3">No se encontraron usuarios con ese criterio de búsqueda.</p>
+          <div class="EstadoVacio EstadoVacio-Busqueda d-none" data-tabla-vacio="TablaUsuarios">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <p class="EstadoVacio-Titulo">Sin resultados</p>
+            <p>No se encontraron usuarios con ese criterio de búsqueda.</p>
           </div>
         </div>
       </main>

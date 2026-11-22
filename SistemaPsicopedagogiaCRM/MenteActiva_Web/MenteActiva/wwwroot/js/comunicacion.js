@@ -1,4 +1,4 @@
-﻿// Comunicacion y notificaciones (M10).
+// Comunicacion y notificaciones (M10).
 //
 // Conectadas: Correo (HU-M10-1) y Plantillas (HU-M10-5). Recordatorios y
 // Mensajeria muestran su aviso de pendiente y no tienen ningun boton que finja
@@ -664,7 +664,8 @@
             filas.forEach(n => notificacionesVistas.set(n.idNotificacion, n));
 
             cuerpo.innerHTML = filas.length === 0
-                ? '<tr><td colspan="5" class="TextoSuave text-center py-4">Todavía no hay avisos automáticos.</td></tr>'
+                ? FilaVaciaTabla(5, "bi-bell", "Todavía no hay avisos automáticos",
+                    "Los recordatorios de citas que envíe el sistema aparecerán aquí.")
                 : filas.map(filaAviso).join("");
         } catch {
             cuerpo.innerHTML = "";
@@ -683,14 +684,14 @@
     function botonesDe(plantilla) {
         if (!puedeAdministrar) return "";
 
-        const editar = `<button type="button" class="btn btn-sm btn-outline-secondary"
+        const editar = `<button type="button" class="btn btn-sm btn-outline-secondary border-0"
             data-accion="editar" data-id="${plantilla.idPlantilla}" title="Editar">
             <i class="bi bi-pencil" aria-hidden="true"></i><span class="visually-hidden">Editar</span></button>`;
 
         // La del sistema no se apaga: en vez de un boton que va a dar error, se
         // muestra deshabilitado con el motivo en el tooltip
         if (plantilla.esSistema) {
-            return editar + ` <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+            return editar + ` <button type="button" class="btn btn-sm btn-outline-secondary border-0" disabled
                 title="La usa el sistema y no se puede desactivar">
                 <i class="bi bi-slash-circle" aria-hidden="true"></i>
                 <span class="visually-hidden">No se puede desactivar</span></button>`;
@@ -699,7 +700,9 @@
         const icono = plantilla.activa ? "bi-slash-circle" : "bi-check-circle";
         const etiqueta = plantilla.activa ? "Desactivar" : "Activar";
 
-        return editar + ` <button type="button" class="btn btn-sm btn-outline-secondary"
+        const color = plantilla.activa ? "btn-outline-danger" : "btn-outline-success";
+
+        return editar + ` <button type="button" class="btn btn-sm ${color} border-0"
             data-accion="estado" data-id="${plantilla.idPlantilla}" title="${etiqueta}">
             <i class="bi ${icono}" aria-hidden="true"></i>
             <span class="visually-hidden">${etiqueta}</span></button>`;
@@ -711,7 +714,8 @@
         if (!cuerpo) return;
 
         if (plantillas.length === 0) {
-            cuerpo.innerHTML = filaVacia("No hay plantillas registradas.");
+            cuerpo.innerHTML = FilaVaciaTabla(5, "bi-chat-dots", "Todavía no hay plantillas",
+                "Cree una con el botón Nueva plantilla para reutilizar mensajes.");
             if (conteo) conteo.textContent = "";
             return;
         }
