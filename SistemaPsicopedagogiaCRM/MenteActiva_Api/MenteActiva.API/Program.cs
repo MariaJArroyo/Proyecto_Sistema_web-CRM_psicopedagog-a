@@ -40,6 +40,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IRepositorioUsuario, RepositorioUsuario>();
 builder.Services.AddScoped<IGeneradorTokenAcceso, GeneradorTokenAcceso>();
 builder.Services.AddScoped<IServicioAutenticacion, ServicioAutenticacion>();
+// Bitacora de inicios de sesion (la escribe el login, la leen Usuarios)
+builder.Services.AddScoped<IRepositorioAcceso, RepositorioAcceso>();
 builder.Services.AddScoped<IServicioUsuarios, ServicioUsuarios>();
 
 // ---------- Agenda ----------

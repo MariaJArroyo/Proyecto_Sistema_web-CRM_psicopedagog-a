@@ -152,8 +152,8 @@
                                             data-desactivar-estudiante="@estudiante.IdEstudiante"
                                             data-nombre="@estudiante.Estudiante"
                                             data-bs-toggle="tooltip"
-                                            title="Inactivar"
-                                            aria-label="Inactivar a @estudiante.Estudiante">
+                                            title="Desactivar"
+                                            aria-label="Desactivar a @estudiante.Estudiante">
                                         <i class="bi bi-slash-circle"></i>
                                     </button>
                                 }
@@ -407,7 +407,7 @@
     </div>
 </div>
 
-<!-- Modal inactivar estudiante -->
+<!-- Modal desactivar estudiante -->
 <div class="modal fade" id="ModalDesactivarEstudiante" tabindex="-1"
      aria-labelledby="ModalDesactivarEstudianteLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -419,18 +419,18 @@
                 <input type="hidden" name="idEstudiante" id="DesactivarIdEstudiante">
 
                 <div class="modal-header">
-                    <h5 class="modal-title" id="ModalDesactivarEstudianteLabel">Inactivar estudiante</h5>
+                    <h5 class="modal-title" id="ModalDesactivarEstudianteLabel">Desactivar estudiante</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
                     <div class="alert d-none" id="DesactivarEstError" role="alert"></div>
-                    <p>¿Está seguro de que desea inactivar a <strong id="DesactivarNombreEstudiante"></strong>?</p>
+                    <p>¿Está seguro de que desea desactivar a <strong id="DesactivarNombreEstudiante"></strong>?</p>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger" id="BotonConfirmarDesactivar">Inactivar</button>
+                    <button type="submit" class="btn btn-danger" id="BotonConfirmarDesactivar">Desactivar</button>
                 </div>
             </form>
         </div>

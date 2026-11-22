@@ -106,7 +106,7 @@
                                         class="btn btn-sm border-0 @(plan.Estado == "Inactivo" ? "btn-outline-success" : "btn-outline-danger")"
                                         data-accion="cambiar-estado"
                                         data-bs-toggle="tooltip"
-                                        title="@(plan.Estado == "Inactivo" ? "Reactivar plan" : "Inactivar plan")">
+                                        title="@(plan.Estado == "Inactivo" ? "Reactivar plan" : "Desactivar plan")">
                                     <i class="bi @(plan.Estado == "Inactivo" ? "bi-check-circle" : "bi-slash-circle")"></i>
                                 </button>
 
@@ -1358,7 +1358,7 @@
                     estadoActual !== "Inactivo") {
 
                     MostrarToast(
-                        "Solo se pueden activar o inactivar planes activos o inactivos.",
+                        "Solo se pueden activar o desactivar planes activos o inactivos.",
                         "error"
                     );
                     return;
@@ -1372,13 +1372,13 @@
                 document.getElementById(
                     "TituloModalEstadoPlan"
                 ).textContent = esInactivacion
-                    ? "Inactivar plan"
+                    ? "Desactivar plan"
                     : "Reactivar plan";
 
                 document.getElementById(
                     "MensajeModalEstadoPlan"
                 ).textContent = esInactivacion
-                    ? "¿Seguro que desea inactivar el plan "
+                    ? "¿Seguro que desea desactivar el plan "
                     : "¿Seguro que desea reactivar el plan ";
 
                 document.getElementById(
@@ -1391,7 +1391,7 @@
                 );
 
                 botonConfirmar.textContent = esInactivacion
-                    ? "Inactivar plan"
+                    ? "Desactivar plan"
                     : "Reactivar plan";
 
                 botonConfirmar.className = esInactivacion
@@ -1435,7 +1435,7 @@ else if (accion === "eliminar-plan") {
 
 
 /* =====================================================
-   INACTIVAR PLAN
+   DESACTIVAR PLAN
    ===================================================== */
 
 
@@ -1632,7 +1632,7 @@ if (accionConfirmadaPlan === "eliminar") {
 
                     botonEstado.title =
                         nuevoEstado === "Activo"
-                            ? "Inactivar plan"
+                            ? "Desactivar plan"
                             : "Reactivar plan";
 
                     botonEstado.setAttribute(
@@ -1670,7 +1670,7 @@ if (accionConfirmadaPlan === "eliminar") {
                     resultado.mensaje ||
                     (nuevoEstado === "Activo"
                         ? "Plan reactivado correctamente."
-                        : "Plan inactivado correctamente."),
+                        : "Plan desactivado correctamente."),
                     "success"
                 );
 

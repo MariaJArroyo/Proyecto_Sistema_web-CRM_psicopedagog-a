@@ -12,6 +12,7 @@
         detalle: "/Admin/DetalleSesion",
         buscarEstudiantes: "/Admin/BuscarEstudiantesSesion",
         citasDisponibles: "/Admin/CitasDisponiblesSesion",
+        citasSinSesion: "/Admin/CitasSinSesion",
         registrar: "/Admin/RegistrarSesion",
         editar: "/Admin/EditarSesion",
         inactivar: "/Admin/InactivarSesion"
@@ -25,9 +26,13 @@
     ];
 
     let sesiones = [];
-    // Tras editar o inactivar se queda en la misma pagina; con filtros nuevos vuelve a la 1
+    // Tras editar o desactivar se queda en la misma pagina; con filtros nuevos vuelve a la 1
     let conservarPagina = false;
     let idSesionInactivar = null;
+    // Cita que se debe dejar elegida cuando terminen de cargar las del estudiante
+    let citaPorElegir = null;
+    // Ya se advirtio que se guarda sin cita teniendo citas pendientes
+    let confirmadoSinCita = false;
 
     // =====================================================
     // UTILIDADES
@@ -204,7 +209,7 @@
                             data-accion="editar" data-id="${s.idSesion}" title="Editar" aria-label="Editar">
                       <i class="bi bi-pencil"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                            data-accion="inactivar" data-id="${s.idSesion}" title="Inactivar" aria-label="Inactivar registro">
+                            data-accion="inactivar" data-id="${s.idSesion}" title="Desactivar" aria-label="Desactivar registro">
                       <i class="bi bi-slash-circle"></i></button>
                   </td>
                 </tr>`;
@@ -372,6 +377,17 @@
         const select = $("CitaOrigenSesion");
         select.innerHTML = '<option value="">Sin cita (sesión suelta)</option>';
         select.disabled = true;
+        confirmadoSinCita = false;
+        $("AyudaCitasPendientes").classList.add("d-none");
+    }
+
+    // Debajo del select: cuantas citas del estudiante esperan su sesion
+    function avisarCitasPendientes(cantidad) {
+        const ayuda = $("AyudaCitasPendientes");
+        ayuda.classList.toggle("d-none", cantidad === 0);
+        ayuda.querySelector("span").textContent = cantidad === 1
+            ? "Este estudiante tiene 1 cita atendida sin sesión. Si esta sesión es de esa cita, elíjala aquí."
+            : `Este estudiante tiene ${cantidad} citas atendidas sin sesión. Si esta sesión es de una de ellas, elíjala aquí.`;
     }
 
     async function cargarCitasDisponibles() {
@@ -400,6 +416,14 @@
             });
 
             select.disabled = citas.length === 0;
+            avisarCitasPendientes(citas.length);
+
+            // Vino de "Registrar sesion" en el aviso: se deja la cita elegida
+            if (citaPorElegir && citas.some(c => String(c.idCita) === String(citaPorElegir))) {
+                select.value = String(citaPorElegir);
+                alElegirCita();
+            }
+            citaPorElegir = null;
 
         } catch {
             // Sin citas el formulario sigue sirviendo: la sesion queda suelta
@@ -409,6 +433,9 @@
     // Elegir la cita llena fecha, duracion y tipo, pero se pueden cambiar: la
     // sesion real pudo durar distinto de lo agendado
     function alElegirCita() {
+        confirmadoSinCita = false;
+        ocultarAlerta($("AlertaNuevaSesion"));
+
         const opcion = $("CitaOrigenSesion").selectedOptions[0];
         if (!opcion || !opcion.value) return;
 
@@ -458,6 +485,23 @@
 
         if (!validarFormulario("nueva")) return;
 
+        // Tiene citas atendidas sin sesion y no eligio ninguna: se avisa una
+        // vez, porque asi es como quedan sesiones sueltas y la burbuja no baja
+        const select = $("CitaOrigenSesion");
+        const pendientes = select.options.length - 1;
+
+        if (!select.value && pendientes > 0 && !confirmadoSinCita) {
+            confirmadoSinCita = true;
+            mostrarAlerta($("AlertaNuevaSesion"),
+                (pendientes === 1
+                    ? "Este estudiante tiene 1 cita atendida sin sesión."
+                    : `Este estudiante tiene ${pendientes} citas atendidas sin sesión.`)
+                + " Si esta sesión corresponde a una de ellas, elíjala en «Cita de origen»; si no, presione Guardar otra vez para registrarla sin cita.",
+                "warning");
+            select.focus();
+            return;
+        }
+
         const datos = datosConToken(Object.assign({
             IdEstudiante: buscadorSesion.valor,
             IdCita: $("CitaOrigenSesion").value,
@@ -481,7 +525,71 @@
         // La cita deja de estar pendiente de sesion, asi que la burbuja del
         // menu baja sin esperar el refresco del minuto
         if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
+        cargarCitasSinSesion();
     }
+
+    // =====================================================
+    // CITAS ATENDIDAS SIN SESION (aviso de arriba)
+    // =====================================================
+
+    let citasSinSesion = [];
+
+    async function cargarCitasSinSesion() {
+        const aviso = $("AvisoCitasSinSesion");
+
+        try {
+            const respuesta = await fetch(RUTAS.citasSinSesion, { headers: { "Accept": "application/json" } });
+            if (!respuesta.ok) return;
+            citasSinSesion = await respuesta.json();
+        } catch {
+            return;
+        }
+
+        aviso.classList.toggle("d-none", citasSinSesion.length === 0);
+        if (citasSinSesion.length === 0) return;
+
+        $("TituloCitasSinSesion").textContent = citasSinSesion.length === 1
+            ? "1 cita atendida sin sesión registrada"
+            : `${citasSinSesion.length} citas atendidas sin sesión registrada`;
+
+        $("CuerpoCitasSinSesion").innerHTML = citasSinSesion.map(c => `
+            <li class="AvisoCitasSinSesion-Item">
+                <div class="min-w-0">
+                    <div class="fw-semibold">${escaparHtml(c.estudiante)}</div>
+                    <small class="TextoSuave">
+                        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>${escaparHtml(formatoFechaHora(c.fechaHoraInicio))}
+                        · ${escaparHtml(c.tipoSesion)} · ${escaparHtml(c.estadoCita)}
+                    </small>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary text-nowrap" data-registrar-cita="${c.idCita}"
+                        ${$("BotonNuevaSesion").disabled ? "disabled" : ""}>
+                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar sesión
+                </button>
+            </li>`).join("");
+    }
+
+    // Abre el formulario con el estudiante y la cita ya elegidos
+    function registrarDesdeCita(idCita) {
+        const cita = citasSinSesion.find(c => String(c.idCita) === String(idCita));
+        if (!cita) return;
+
+        citaPorElegir = cita.idCita;
+        modal("ModalNuevaSesion").show();
+
+        // seleccionar dispara alCambiar, que carga las citas del estudiante y,
+        // al terminar, deja elegida citaPorElegir
+        buscadorSesion.seleccionar({
+            idEstudiante: cita.idEstudiante,
+            estudiante: cita.estudiante,
+            nivelEducativo: cita.nivelEducativo,
+            encargado: cita.encargado
+        });
+    }
+
+    $("CuerpoCitasSinSesion").addEventListener("click", function (evento) {
+        const boton = evento.target.closest("[data-registrar-cita]");
+        if (boton && !boton.disabled) registrarDesdeCita(boton.dataset.registrarCita);
+    });
 
     // =====================================================
     // EDITAR
@@ -557,10 +665,11 @@
 
         // Editar puede cambiar a que cita pertenece la sesion
         if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
+        cargarCitasSinSesion();
     }
 
     // =====================================================
-    // INACTIVAR
+    // DESACTIVAR
     // =====================================================
 
     function abrirInactivar(id) {
@@ -586,12 +695,13 @@
         }
 
         modal("ModalInactivarSesion").hide();
-        notificar("Registro de sesión eliminado.", "success");
+        notificar("Registro de sesión desactivado.", "success");
         idSesionInactivar = null;
         await cargar(true);
 
         // La cita vuelve a quedar pendiente de sesion, asi que la burbuja sube
         if (window.actualizarContadores) window.actualizarContadores("citasSinSesion");
+        cargarCitasSinSesion();
     }
 
     // =====================================================
@@ -637,4 +747,5 @@
     $("ModalNuevaSesion").addEventListener("shown.bs.modal", () => buscadorSesion.enfocar());
 
     cargar();
+    cargarCitasSinSesion();
 })();

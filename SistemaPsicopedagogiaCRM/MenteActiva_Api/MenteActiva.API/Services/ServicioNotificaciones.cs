@@ -1,4 +1,4 @@
-﻿using MenteActiva.Api.Infraestructura;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Repositories;
 using Microsoft.Extensions.Options;
 
@@ -58,7 +58,9 @@ public sealed class ServicioNotificaciones : IServicioNotificaciones
 
             try
             {
-                var html = MensajeComunicacion.Armar(asunto, pendiente.Cuerpo, datos.NombreConsultorio);
+                var html = MensajeComunicacion.Armar(
+                    asunto, pendiente.Cuerpo, datos.NombreConsultorio,
+                    TiposCorreo.DesdeClavePlantilla(pendiente.ClavePlantilla));
 
                 await _correo.EnviarAsync(pendiente.Correo, asunto, html);
                 await _repositorio.MarcarEnviadaAsync(pendiente.IdNotificacion, cancelacion);

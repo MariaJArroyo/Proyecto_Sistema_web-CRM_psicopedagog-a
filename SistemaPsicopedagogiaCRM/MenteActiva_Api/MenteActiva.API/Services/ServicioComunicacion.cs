@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Repositories;
@@ -109,7 +109,8 @@ public sealed class ServicioComunicacion : IServicioComunicacion
         {
             var datos = await _configuracion.ObtenerDatosConsultorioAsync(cancelacion);
 
-            var html = MensajeComunicacion.Armar(vista.Asunto, vista.Cuerpo, datos.NombreConsultorio);
+            var html = MensajeComunicacion.Armar(
+                vista.Asunto, vista.Cuerpo, datos.NombreConsultorio, TiposCorreo.Leer(peticion.Tipo));
 
             await _correo.EnviarAsync(destinatario.Correo, vista.Asunto, html);
 

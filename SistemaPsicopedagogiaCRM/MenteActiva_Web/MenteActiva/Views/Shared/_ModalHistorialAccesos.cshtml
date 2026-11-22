@@ -1,0 +1,40 @@
+@* Historial de inicios de sesion de una cuenta. Lo abre "Historial de accesos"
+   del menu de tres puntos en Usuarios internos y Usuarios externos; lo llena
+   accesosUsuarios.js. *@
+<div class="modal fade" id="ModalHistorialAccesos" tabindex="-1" aria-labelledby="TituloHistorialAccesos" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="min-w-0">
+          <h5 class="modal-title" id="TituloHistorialAccesos">Historial de accesos</h5>
+          <p class="TextoSuave small mb-0 text-truncate" id="SubtituloHistorialAccesos"></p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger d-none" id="AlertaHistorialAccesos" role="alert"></div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3" id="ResumenHistorialAccesos"></div>
+
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Fecha y hora</th>
+                <th>Resultado</th>
+                <th>Dónde</th>
+                <th>Dispositivo</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody id="CuerpoHistorialAccesos"></tbody>
+          </table>
+        </div>
+        <p class="TextoSuave small mt-3 mb-0">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Se muestran los últimos 50 intentos
+          de los últimos 90 días.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

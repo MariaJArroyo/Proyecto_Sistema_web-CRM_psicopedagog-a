@@ -57,6 +57,23 @@
           <div class="alert alert-danger" role="alert">@problema</div>
         }
  
+        <ul class="nav nav-pills mb-3 flex-wrap" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#PanelUsuarios"
+              role="tab" aria-controls="PanelUsuarios" aria-selected="true">
+              <i class="bi bi-people-fill me-1" aria-hidden="true"></i>Usuarios
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#PanelBitacoraAccesos"
+              role="tab" aria-controls="PanelBitacoraAccesos" aria-selected="false">
+              <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Bitácora de accesos
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+        <div class="tab-pane fade show active" id="PanelUsuarios" role="tabpanel">
         <div class="Tarjeta p-3 p-md-4">
  
           <div class="row g-2 mb-3" data-tabla-buscador="TablaUsuarios" data-tabla-paginar="10">
@@ -158,12 +175,17 @@
                     }
 
                     @* Acciones secundarias en el menu de tres puntos *@
-                    @if (usuario.Estado != "Inactivo")
-                    {
-                      <div class="dropdown d-inline-block MenuAccionesFila">
-                        <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
-                          title="Más acciones" aria-label="Más acciones para @usuario.NombreCompleto"><i class="bi bi-three-dots"></i></button>
-                        <ul class="dropdown-menu dropdown-menu-end">
+                    <div class="dropdown d-inline-block MenuAccionesFila">
+                      <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                        title="Más acciones" aria-label="Más acciones para @usuario.NombreCompleto"><i class="bi bi-three-dots"></i></button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                          <button type="button" class="dropdown-item" data-historial-accesos="@usuario.IdUsuario" data-nombre="@usuario.NombreCompleto">
+                            <i class="bi bi-clock-history me-2" aria-hidden="true"></i>Historial de accesos
+                          </button>
+                        </li>
+                        @if (usuario.Estado != "Inactivo")
+                        {
                           <li>
                             <form asp-controller="Admin" asp-action="ReenviarInvitacion" method="post">
                               <input type="hidden" name="idUsuario" value="@usuario.IdUsuario">
@@ -172,9 +194,9 @@
                               </button>
                             </form>
                           </li>
-                        </ul>
-                      </div>
-                    }
+                        }
+                      </ul>
+                    </div>
  
                   </td>
                 </tr>
@@ -190,7 +212,81 @@
             <p>No se encontraron usuarios con ese criterio de búsqueda.</p>
           </div>
         </div>
+        </div>
+
+        @* Bitacora de inicios de sesion: internos y externos juntos *@
+        <div class="tab-pane fade" id="PanelBitacoraAccesos" role="tabpanel">
+          <div class="Tarjeta p-3 p-md-4">
+            <p class="TextoSuave small mb-3">
+              Cada intento de entrar al panel o al portal de padres, salga bien o mal. Se guardan 90 días.
+            </p>
+
+            <form class="row g-2 align-items-end mb-3" id="FiltrosBitacoraAccesos" novalidate>
+              <div class="col-md-3">
+                <label for="TextoBitacoraAccesos" class="form-label small mb-1">Buscar</label>
+                <input type="search" class="form-control" id="TextoBitacoraAccesos" name="texto" maxlength="150"
+                  placeholder="Nombre, correo o IP">
+              </div>
+              <div class="col-6 col-md-2">
+                <label for="TipoBitacoraAccesos" class="form-label small mb-1">Usuario</label>
+                <select class="form-select" id="TipoBitacoraAccesos" name="tipo">
+                  <option value="">Todos</option>
+                  <option value="Internos">Personal</option>
+                  <option value="Externos">Encargados</option>
+                  <option value="Desconocidos">Correo no registrado</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label for="ResultadoBitacoraAccesos" class="form-label small mb-1">Resultado</label>
+                <select class="form-select" id="ResultadoBitacoraAccesos" name="resultado">
+                  <option value="">Todos</option>
+                  <option value="Exitoso">Ingresó</option>
+                  <option value="Fallido">Fallidos</option>
+                  <option value="ContrasenaIncorrecta">Contraseña incorrecta</option>
+                  <option value="CuentaBloqueada">Cuenta bloqueada</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label for="DesdeBitacoraAccesos" class="form-label small mb-1">Desde</label>
+                <input type="date" class="form-control" id="DesdeBitacoraAccesos" name="desde">
+              </div>
+              <div class="col-6 col-md-2">
+                <label for="HastaBitacoraAccesos" class="form-label small mb-1">Hasta</label>
+                <input type="date" class="form-control" id="HastaBitacoraAccesos" name="hasta">
+              </div>
+              <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary flex-fill" title="Buscar" aria-label="Buscar"><i class="bi bi-funnel"></i></button>
+                <button type="reset" class="btn btn-outline-secondary" title="Limpiar filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </form>
+
+            <div class="alert alert-danger d-none" id="AlertaBitacoraAccesos" role="alert"></div>
+            <div class="d-flex flex-wrap gap-2 mb-3" id="ResumenBitacoraAccesos"></div>
+
+            <div data-tabla-buscador="TablaBitacoraAccesos" data-tabla-paginar="15">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="TablaBitacoraAccesos">
+                  <thead>
+                    <tr>
+                      <th>Fecha y hora</th>
+                      <th>Usuario</th>
+                      <th>Tipo</th>
+                      <th>Resultado</th>
+                      <th>Dispositivo</th>
+                      <th>IP</th>
+                      <th class="TablaAcciones"></th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
       </main>
+
+      <partial name="_ModalHistorialAccesos" />
       <!-- Razor: /fin de contenido de la vista -->
  
       <div class="modal fade" id="ModalNuevoUsuario" tabindex="-1" aria-hidden="true">
@@ -314,6 +410,7 @@
  
 @section Scripts {
   <script src="~/js/Validaciones.js"></script>
+  <script src="~/js/accesosUsuarios.js" asp-append-version="true"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       var tabla = document.getElementById("TablaUsuarios");

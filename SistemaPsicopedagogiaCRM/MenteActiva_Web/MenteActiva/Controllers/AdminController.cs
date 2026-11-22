@@ -2318,7 +2318,7 @@ public class AdminController : Controller
         {
             mensaje = idEstadoPlan == 2
                 ? "Plan reactivado correctamente."
-                : "Plan inactivado correctamente."
+                : "Plan desactivado correctamente."
         });
     }
 
@@ -2798,6 +2798,11 @@ public class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> CitasSinSesion(CancellationToken cancelacion)
+        => ReenviarGetAsync("sesiones/citas-sin-sesion", cancelacion);
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
     public Task<IActionResult> CitasDisponiblesSesion(int idEstudiante, CancellationToken cancelacion)
         => ReenviarGetAsync($"sesiones/citas-disponibles?idEstudiante={idEstudiante}", cancelacion);
 
@@ -2846,7 +2851,7 @@ public class AdminController : Controller
 
         var respuesta = await client.PutAsync(UrlApi($"sesiones/{id}/inactivar"), null, cancelacion);
 
-        return await ResponderSegunApi(respuesta, "No se pudo inactivar la sesión.");
+        return await ResponderSegunApi(respuesta, "No se pudo desactivar la sesión.");
     }
 
     #endregion
@@ -3047,6 +3052,41 @@ public class AdminController : Controller
         }
 
         return RedirectToAction(nameof(Usuarios));
+    }
+
+    // ---------- bitacora de inicios de sesion ----------
+
+    // Historial de una cuenta. El API decide: la psicopedagoga solo ve los de
+    // los encargados; el administrador, todos.
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> AccesosUsuario(int id, CancellationToken cancelacion)
+        => ReenviarGetAsync($"usuarios/{id}/accesos", cancelacion);
+
+    // La bitacora completa con filtros (pestania de Usuarios internos)
+    [HttpGet]
+    [Authorize(Roles = "Administrador")]
+    public Task<IActionResult> BitacoraAccesos(
+        string? tipo, string? resultado, DateOnly? desde, DateOnly? hasta, string? texto,
+        CancellationToken cancelacion)
+    {
+        var filtros = new List<string>();
+
+        void Agregar(string nombre, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor))
+            {
+                filtros.Add($"{nombre}={Uri.EscapeDataString(valor.Trim())}");
+            }
+        }
+
+        Agregar("tipo", tipo);
+        Agregar("resultado", resultado);
+        Agregar("desde", desde?.ToString("yyyy-MM-dd"));
+        Agregar("hasta", hasta?.ToString("yyyy-MM-dd"));
+        Agregar("texto", texto);
+
+        return ReenviarGetAsync(filtros.Count == 0 ? "accesos" : "accesos?" + string.Join("&", filtros), cancelacion);
     }
 
     [Authorize(Roles = "Administrador,Psicopedagoga")]

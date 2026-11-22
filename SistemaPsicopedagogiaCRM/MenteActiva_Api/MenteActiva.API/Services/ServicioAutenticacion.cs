@@ -17,14 +17,17 @@ public class ServicioAutenticacion : IServicioAutenticacion
     private readonly IPasswordHasher<UsuarioAutenticado> _hasher;
     private readonly IServicioUsuarios _usuarios;
     private readonly ILogger<ServicioAutenticacion> _registro;
+    private readonly IRepositorioAcceso _accesos;
 
     public ServicioAutenticacion(
         IRepositorioUsuario repositorio,
         IGeneradorTokenAcceso generador,
         IPasswordHasher<UsuarioAutenticado> hasher,
         IServicioUsuarios usuarios,
-        ILogger<ServicioAutenticacion> registro)
+        ILogger<ServicioAutenticacion> registro,
+        IRepositorioAcceso accesos)
     {
+        _accesos = accesos;
         _repositorio = repositorio;
         _generador = generador;
         _hasher = hasher;
@@ -41,22 +44,32 @@ public class ServicioAutenticacion : IServicioAutenticacion
             // Suma el intento fallido incluso si el correo no existe, para que el
             // tiempo de respuesta no delate cuales cuentas estan registradas.
             await _repositorio.RegistrarFalloAsync(peticion.Correo);
+            await AnotarAccesoAsync(peticion, usuario?.IdUsuario,
+                usuario is null ? ResultadosAcceso.CorreoNoRegistrado : ResultadosAcceso.ContrasenaIncorrecta);
             return new ResultadoInicioSesion(false, MensajeCredencialInvalida, null);
         }
 
         // El estado solo se revela cuando la contrasena ya era correcta.
         if (usuario.IdEstadoUsuario != EstadoActivo)
         {
+            await AnotarAccesoAsync(peticion, usuario.IdUsuario, usuario.IdEstadoUsuario switch
+            {
+                3 => ResultadosAcceso.CuentaBloqueada,
+                4 => ResultadosAcceso.PendienteActivacion,
+                _ => ResultadosAcceso.CuentaInactiva
+            });
             return new ResultadoInicioSesion(false, MensajeSegunEstado(usuario), null);
         }
 
         if (string.IsNullOrWhiteSpace(usuario.Rol))
         {
+            await AnotarAccesoAsync(peticion, usuario.IdUsuario, ResultadosAcceso.SinRol);
             return new ResultadoInicioSesion(
                 false, "La cuenta no tiene un rol asignado. Contacte al administrador.", null);
         }
 
         await _repositorio.RegistrarIngresoAsync(usuario.IdUsuario);
+        await AnotarAccesoAsync(peticion, usuario.IdUsuario, ResultadosAcceso.Exitoso);
 
         var token = _generador.Generar(usuario);
 
@@ -164,6 +177,22 @@ public class ServicioAutenticacion : IServicioAutenticacion
             // Los usuarios invitados llevan una marca en vez de un hash real.
             // No es un error simplemente todavia no tienen contrasena.
             return false;
+        }
+    }
+
+    // La bitacora de accesos es un registro de apoyo: si falla, el login sigue
+    // como si nada. Nunca se anota la contrasena.
+    private async Task AnotarAccesoAsync(LoginRequest peticion, int? idUsuario, string resultado)
+    {
+        try
+        {
+            await _accesos.RegistrarAsync(
+                idUsuario, peticion.Correo, resultado, peticion.IpCliente, peticion.Navegador);
+        }
+        catch (Exception ex)
+        {
+            _registro.LogWarning(ex, "No se pudo anotar el acceso de {Correo} ({Resultado}).",
+                peticion.Correo, resultado);
         }
     }
 

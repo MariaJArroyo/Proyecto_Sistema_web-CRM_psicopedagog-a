@@ -1,4 +1,4 @@
-﻿using MenteActiva.Api.Infraestructura;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +51,12 @@ public sealed class SesionesController : ControllerBase
         [FromQuery] string? texto, CancellationToken cancelacion)
         => Ok(await _servicio.BuscarEstudiantesAsync(texto, cancelacion));
 
+    // Las citas atendidas sin sesion: lo que cuenta la burbuja del menu
+    [HttpGet("citas-sin-sesion")]
+    public async Task<ActionResult<IReadOnlyList<CitaSinSesionResponse>>> ListarCitasSinSesion(
+        CancellationToken cancelacion)
+        => Ok(await _servicio.ListarCitasSinSesionAsync(cancelacion));
+
     [HttpGet("citas-disponibles")]
     public async Task<ActionResult<IReadOnlyList<CitaDisponibleSesionResponse>>> ListarCitasDisponibles(
         [FromQuery] int idEstudiante, CancellationToken cancelacion)
@@ -84,6 +90,6 @@ public sealed class SesionesController : ControllerBase
     {
         await _servicio.InactivarAsync(User.ObtenerIdUsuario(), id, cancelacion);
 
-        return Ok(new { mensaje = "Sesión inactivada correctamente." });
+        return Ok(new { mensaje = "Sesión desactivada correctamente." });
     }
 }

@@ -747,226 +747,6 @@ DELIMITER ;
 -- 2. Clientes (encargados)
 -- ============================================================
 
--- Alta completa del encargado con su telefono principal.
-DROP PROCEDURE IF EXISTS SP_Encargado_Crear;
-DELIMITER $$
-CREATE PROCEDURE SP_Encargado_Crear(
-  IN p_IdUsuarioAccion INT,
-  IN p_Nombre VARCHAR(100),
-  IN p_PrimerApellido VARCHAR(100),
-  IN p_SegundoApellido VARCHAR(100),
-  IN p_Identificacion VARCHAR(30),
-  IN p_Correo VARCHAR(150),
-  IN p_Observaciones VARCHAR(1000),
-  IN p_IdEstadoCliente INT,
-  IN p_IdServicioInteres INT,
-  IN p_Telefono VARCHAR(15),
-  IN p_IdTipoTelefono INT
-)
-BEGIN
-  DECLARE v_IdEncargado INT;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  START TRANSACTION;
-
-  INSERT INTO TB_ENCARGADO (IdEstadoCliente, IdServicioInteres, Nombre, PrimerApellido,
-                            SegundoApellido, Identificacion, Correo, Observaciones)
-  VALUES (IFNULL(p_IdEstadoCliente, 1), p_IdServicioInteres, p_Nombre, p_PrimerApellido,
-          p_SegundoApellido, p_Identificacion, p_Correo, p_Observaciones);
-
-  SET v_IdEncargado = LAST_INSERT_ID();
-
-  IF p_Telefono IS NOT NULL AND TRIM(p_Telefono) <> '' THEN
-    INSERT INTO TB_TELEFONO (IdEncargado, IdTipoTelefono, Numero, EsPrincipal)
-    VALUES (v_IdEncargado, IFNULL(p_IdTipoTelefono, 1), p_Telefono, 1);
-  END IF;
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', v_IdEncargado, 'Crear',
-          JSON_OBJECT('Nombre', p_Nombre, 'PrimerApellido', p_PrimerApellido,
-                      'Correo', p_Correo, 'IdEstadoCliente', IFNULL(p_IdEstadoCliente, 1)));
-
-  COMMIT;
-
-  SELECT v_IdEncargado AS IdEncargado;
-END$$
-DELIMITER ;
-
-
--- Edicion de los datos generales. El telefono se maneja aparte.
-DROP PROCEDURE IF EXISTS SP_Encargado_Editar;
-DELIMITER $$
-CREATE PROCEDURE SP_Encargado_Editar(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEncargado INT,
-  IN p_Nombre VARCHAR(100),
-  IN p_PrimerApellido VARCHAR(100),
-  IN p_SegundoApellido VARCHAR(100),
-  IN p_Identificacion VARCHAR(30),
-  IN p_Correo VARCHAR(150),
-  IN p_Observaciones VARCHAR(1000),
-  IN p_IdServicioInteres INT
-)
-BEGIN
-  DECLARE v_Anterior JSON DEFAULT NULL;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  SELECT JSON_OBJECT('Nombre', Nombre, 'PrimerApellido', PrimerApellido,
-                     'Correo', Correo, 'IdServicioInteres', IdServicioInteres)
-    INTO v_Anterior
-  FROM TB_ENCARGADO
-  WHERE IdEncargado = p_IdEncargado;
-
-  IF v_Anterior IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado indicado no existe.';
-  END IF;
-
-  START TRANSACTION;
-
-  UPDATE TB_ENCARGADO
-  SET Nombre = p_Nombre,
-      PrimerApellido = p_PrimerApellido,
-      SegundoApellido = p_SegundoApellido,
-      Identificacion = p_Identificacion,
-      Correo = p_Correo,
-      Observaciones = p_Observaciones,
-      IdServicioInteres = p_IdServicioInteres,
-      FechaModificacion = NOW()
-  WHERE IdEncargado = p_IdEncargado;
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'Editar', v_Anterior,
-          JSON_OBJECT('Nombre', p_Nombre, 'PrimerApellido', p_PrimerApellido,
-                      'Correo', p_Correo, 'IdServicioInteres', p_IdServicioInteres));
-
-  COMMIT;
-END$$
-DELIMITER ;
-
-
--- Provisional: se acepta cualquier movimiento en el embudo. Si el equipo define
--- que hay pasos que no se pueden saltar, la regla va aqui.
-DROP PROCEDURE IF EXISTS SP_Encargado_CambiarEstado;
-DELIMITER $$
-CREATE PROCEDURE SP_Encargado_CambiarEstado(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEncargado INT,
-  IN p_IdEstadoCliente INT
-)
-BEGIN
-  DECLARE v_Anterior INT DEFAULT NULL;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  SELECT IdEstadoCliente INTO v_Anterior FROM TB_ENCARGADO WHERE IdEncargado = p_IdEncargado;
-
-  IF v_Anterior IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado indicado no existe.';
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM TB_ESTADO_CLIENTE WHERE IdEstadoCliente = p_IdEstadoCliente) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estado indicado no existe.';
-  END IF;
-
-  START TRANSACTION;
-
-  UPDATE TB_ENCARGADO
-  SET IdEstadoCliente = p_IdEstadoCliente,
-      FechaModificacion = NOW()
-  WHERE IdEncargado = p_IdEncargado;
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'CambiarEstado',
-          JSON_OBJECT('IdEstadoCliente', v_Anterior),
-          JSON_OBJECT('IdEstadoCliente', p_IdEstadoCliente));
-
-  COMMIT;
-END$$
-DELIMITER ;
-
-
--- Baja logica. El encargado no se borra nunca: queda el historial.
-DROP PROCEDURE IF EXISTS SP_Encargado_Eliminar;
-DELIMITER $$
-CREATE PROCEDURE SP_Encargado_Eliminar(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEncargado INT
-)
-BEGIN
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  IF NOT EXISTS (SELECT 1 FROM TB_ENCARGADO WHERE IdEncargado = p_IdEncargado) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El encargado indicado no existe.';
-  END IF;
-
-  START TRANSACTION;
-
-  UPDATE TB_ENCARGADO
-  SET Activo = 0,
-      FechaModificacion = NOW()
-  WHERE IdEncargado = p_IdEncargado;
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_ENCARGADO', p_IdEncargado, 'Eliminar',
-          JSON_OBJECT('Activo', 0));
-
-  COMMIT;
-END$$
-DELIMITER ;
-
-
--- Devuelve tres resultados: datos del encargado, sus telefonos y sus estudiantes.
--- Desde Dapper se leen con QueryMultiple.
-DROP PROCEDURE IF EXISTS SP_Encargado_ObtenerDetalle;
-DELIMITER $$
-CREATE PROCEDURE SP_Encargado_ObtenerDetalle(
-  IN p_IdEncargado INT
-)
-BEGIN
-  SELECT e.IdEncargado, e.Nombre, e.PrimerApellido, e.SegundoApellido, e.Identificacion,
-         e.Correo, e.Observaciones, e.IdEstadoCliente, ec.Nombre AS EstadoCliente,
-         e.IdServicioInteres, s.Nombre AS ServicioInteres, e.FechaRegistro, e.Activo
-  FROM TB_ENCARGADO e
-  JOIN TB_ESTADO_CLIENTE ec ON ec.IdEstadoCliente = e.IdEstadoCliente
-  LEFT JOIN TB_SERVICIO s ON s.IdServicio = e.IdServicioInteres
-  WHERE e.IdEncargado = p_IdEncargado;
-
-  SELECT t.IdTelefono, t.Numero, t.CodigoPais, t.EsPrincipal, tt.Nombre AS TipoTelefono
-  FROM TB_TELEFONO t
-  JOIN TB_TIPO_TELEFONO tt ON tt.IdTipoTelefono = t.IdTipoTelefono
-  WHERE t.IdEncargado = p_IdEncargado
-  ORDER BY t.EsPrincipal DESC, t.IdTelefono;
-
-  SELECT es.IdEstudiante,
-         TRIM(CONCAT(es.Nombre, ' ', es.PrimerApellido)) AS Estudiante,
-         p.Nombre AS Parentesco,
-         ee.EsPrincipal
-  FROM TB_ESTUDIANTE_ENCARGADO ee
-  JOIN TB_ESTUDIANTE es ON es.IdEstudiante = ee.IdEstudiante
-  JOIN TB_PARENTESCO p ON p.IdParentesco = ee.IdParentesco
-  WHERE ee.IdEncargado = p_IdEncargado
-  ORDER BY ee.EsPrincipal DESC, es.Nombre;
-END$$
-DELIMITER ;
-
 DROP PROCEDURE IF EXISTS SP_ConsultarClientes_CRM;
 DELIMITER $$
 CREATE PROCEDURE SP_ConsultarClientes_CRM()
@@ -2892,95 +2672,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-
--- Confirmar, completar o marcar que no asistio.
--- Provisional: lo unico que se impide es sacar una cita de Cancelada. Si el
--- equipo define mas reglas de avance, van aqui.
-DROP PROCEDURE IF EXISTS SP_Cita_CambiarEstado;
-DELIMITER $$
-CREATE PROCEDURE SP_Cita_CambiarEstado(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdCita INT,
-  IN p_IdEstadoCita INT
-)
-BEGIN
-  DECLARE v_Estado INT DEFAULT NULL;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  SELECT IdEstadoCita INTO v_Estado FROM TB_CITA WHERE IdCita = p_IdCita;
-
-  IF v_Estado IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cita indicada no existe.';
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM TB_ESTADO_CITA WHERE IdEstadoCita = p_IdEstadoCita) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estado indicado no existe.';
-  END IF;
-
-  IF v_Estado = 4 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una cita cancelada ya no cambia de estado.';
-  END IF;
-
-  IF p_IdEstadoCita = 4 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Para cancelar use SP_Cita_Cancelar, que pide el motivo.';
-  END IF;
-
-  START TRANSACTION;
-
-  UPDATE TB_CITA
-  SET IdEstadoCita = p_IdEstadoCita,
-      FechaModificacion = NOW()
-  WHERE IdCita = p_IdCita;
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_CITA', p_IdCita, 'CambiarEstado',
-          JSON_OBJECT('IdEstadoCita', v_Estado),
-          JSON_OBJECT('IdEstadoCita', p_IdEstadoCita));
-
-  COMMIT;
-END$$
-DELIMITER ;
-
-
--- Calendario por rango de fechas. Con p_IdEstudiante en NULL trae todo.
-DROP PROCEDURE IF EXISTS SP_Cita_Listar;
-DELIMITER $$
-CREATE PROCEDURE SP_Cita_Listar(
-  IN p_Desde DATETIME,
-  IN p_Hasta DATETIME,
-  IN p_IdEstudiante INT,
-  IN p_IdEstadoCita INT
-)
-BEGIN
-  SELECT c.IdCita,
-         c.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         c.FechaHoraInicio,
-         c.FechaHoraFin,
-         ts.Nombre AS TipoSesion,
-         m.Nombre AS Modalidad,
-         ec.Nombre AS Estado,
-         ec.ColorHex,
-         c.Observaciones
-  FROM TB_CITA c
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = c.IdEstudiante
-  JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
-  JOIN TB_MODALIDAD m ON m.IdModalidad = c.IdModalidad
-  JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
-  WHERE (p_Desde IS NULL OR c.FechaHoraInicio >= p_Desde)
-    AND (p_Hasta IS NULL OR c.FechaHoraInicio <= p_Hasta)
-    AND (p_IdEstudiante IS NULL OR c.IdEstudiante = p_IdEstudiante)
-    AND (p_IdEstadoCita IS NULL OR c.IdEstadoCita = p_IdEstadoCita)
-  ORDER BY c.FechaHoraInicio;
-END$$
-DELIMITER ;
-
-
 DROP PROCEDURE IF EXISTS SP_Cita_ObtenerDetalle;
 DELIMITER $$
 CREATE PROCEDURE SP_Cita_ObtenerDetalle(
@@ -3005,52 +2696,6 @@ BEGIN
   JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
   LEFT JOIN TB_SESION s ON s.IdCita = c.IdCita
   WHERE c.IdCita = p_IdCita;
-END$$
-DELIMITER ;
-
-
--- Espacios libres de un dia: el horario de atencion partido en bloques del
--- largo que tenga el tipo de sesion, menos lo que ya esta ocupado.
-DROP PROCEDURE IF EXISTS SP_Agenda_ConsultarDisponibilidad;
-DELIMITER $$
-CREATE PROCEDURE SP_Agenda_ConsultarDisponibilidad(
-  IN p_Fecha DATE,
-  IN p_IdTipoSesion INT
-)
-BEGIN
-  DECLARE v_Duracion INT DEFAULT 60;
-  DECLARE v_DiaSemana INT;
-
-  SELECT IFNULL(DuracionMinutos, 60) INTO v_Duracion
-  FROM TB_TIPO_SESION
-  WHERE IdTipoSesion = p_IdTipoSesion;
-
-  SET v_Duracion = IFNULL(v_Duracion, 60);
-  SET v_DiaSemana = WEEKDAY(p_Fecha) + 1;
-
-  IF EXISTS (SELECT 1 FROM TB_DIA_NO_LABORAL WHERE Fecha = p_Fecha) THEN
-    SELECT CAST(NULL AS DATETIME) AS Inicio, CAST(NULL AS DATETIME) AS Fin FROM DUAL WHERE FALSE;
-  ELSE
-    WITH RECURSIVE bloque AS (
-      SELECT TIMESTAMP(p_Fecha, h.HoraInicio) AS Inicio,
-             TIMESTAMP(p_Fecha, h.HoraFin) AS Cierre
-      FROM TB_HORARIO_ATENCION h
-      WHERE h.DiaSemana = v_DiaSemana AND h.Activo = 1
-      UNION ALL
-      SELECT b.Inicio + INTERVAL v_Duracion MINUTE, b.Cierre
-      FROM bloque b
-      WHERE b.Inicio + INTERVAL (v_Duracion * 2) MINUTE <= b.Cierre
-    )
-    SELECT b.Inicio, b.Inicio + INTERVAL v_Duracion MINUTE AS Fin
-    FROM bloque b
-    WHERE b.Inicio + INTERVAL v_Duracion MINUTE <= b.Cierre
-      AND NOT EXISTS (
-        SELECT 1 FROM TB_CITA c
-        WHERE c.IdEstadoCita NOT IN (4, 5)
-          AND c.FechaHoraInicio < b.Inicio + INTERVAL v_Duracion MINUTE
-          AND b.Inicio < c.FechaHoraFin)
-    ORDER BY b.Inicio;
-  END IF;
 END$$
 DELIMITER ;
 
@@ -4226,8 +3871,12 @@ BEGIN
 
     SET v_Ahora = IFNULL(p_Ahora, NOW());
 
+    -- Solo estudiantes activos: la cita de uno desactivado no se puede
+    -- registrar (el buscador no lo ofrece) y no tiene sentido que avise.
+    -- Mismo criterio que SP_Sesion_ListarCitasSinSesion, que es la lista.
     SELECT COUNT(*) AS Total
     FROM TB_CITA c
+    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = c.IdEstudiante AND e.Activo = 1
     WHERE c.FechaHoraInicio <= v_Ahora
       AND c.IdEstadoCita NOT IN (4, 5)
       AND NOT EXISTS (SELECT 1 FROM TB_SESION s
@@ -4283,39 +3932,6 @@ DELIMITER ;
 -- ============================================================
 
 -- Ids de TB_ESTADO_PLAN: 1 Borrador, 2 Activo, 3 Finalizado, 4 Suspendido.
-
-
--- Devuelve tres resultados: el plan, sus estrategias y sus actividades.
-DROP PROCEDURE IF EXISTS SP_Plan_ObtenerDetalle;
-DELIMITER $$
-CREATE PROCEDURE SP_Plan_ObtenerDetalle(
-  IN p_IdPlan INT
-)
-BEGIN
-  SELECT p.IdPlan, p.IdEstudiante,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         p.Titulo, p.ObjetivoGeneral, p.FechaInicio, p.FechaFin,
-         p.IdEstadoPlan, ep.Nombre AS Estado,
-         u.NombreCompleto AS RegistradoPor
-  FROM TB_PLAN_INTERVENCION p
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = p.IdEstudiante
-  JOIN TB_ESTADO_PLAN ep ON ep.IdEstadoPlan = p.IdEstadoPlan
-  JOIN TB_USUARIO u ON u.IdUsuario = p.IdUsuarioRegistro
-  WHERE p.IdPlan = p_IdPlan;
-
-  SELECT IdEstrategia, IdPlan, Descripcion, Orden
-  FROM TB_ESTRATEGIA
-  WHERE IdPlan = p_IdPlan
-  ORDER BY IFNULL(Orden, 9999), IdEstrategia;
-
-  SELECT a.IdActividad, a.IdEstrategia, a.Nombre, a.Descripcion, a.Completada
-  FROM TB_ACTIVIDAD a
-  JOIN TB_ESTRATEGIA es ON es.IdEstrategia = a.IdEstrategia
-  WHERE es.IdPlan = p_IdPlan
-  ORDER BY a.IdEstrategia, a.IdActividad;
-END$$
-DELIMITER ;
-
 
 DROP PROCEDURE IF EXISTS SP_Estrategia_Agregar;
 DELIMITER $$
@@ -4459,57 +4075,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-
-DROP PROCEDURE IF EXISTS SP_Pago_Crear;
-DELIMITER $$
-CREATE PROCEDURE SP_Pago_Crear(
-  IN p_IdUsuarioAccion INT,
-  IN p_IdEstudiante INT,
-  IN p_Concepto VARCHAR(200),
-  IN p_Monto DECIMAL(10,2),
-  IN p_FechaEmision DATE,
-  IN p_FechaVencimiento DATE,
-  IN p_Observaciones VARCHAR(1000)
-)
-BEGIN
-  DECLARE v_IdPago INT;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  IF p_Monto IS NULL OR p_Monto <= 0 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El monto del cobro tiene que ser mayor que cero.';
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante indicado no existe o esta inactivo.';
-  END IF;
-
-  START TRANSACTION;
-
-  INSERT INTO TB_PAGO (IdEstudiante, IdEstadoPago, IdUsuarioRegistro, Concepto, Monto,
-                       FechaEmision, FechaVencimiento, Observaciones)
-  VALUES (p_IdEstudiante, 2, p_IdUsuarioAccion, p_Concepto, p_Monto,
-          IFNULL(p_FechaEmision, CURDATE()), p_FechaVencimiento, p_Observaciones);
-
-  SET v_IdPago = LAST_INSERT_ID();
-
-  INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorNuevo)
-  VALUES (p_IdUsuarioAccion, 'TB_PAGO', v_IdPago, 'Crear',
-          JSON_OBJECT('IdEstudiante', p_IdEstudiante, 'Concepto', p_Concepto, 'Monto', p_Monto));
-
-  COMMIT;
-
-  CALL SP_Pago_RecalcularEstado(v_IdPago);
-
-  SELECT v_IdPago AS IdPago;
-END$$
-DELIMITER ;
-
-
 -- Registrar un abono. Aqui viven las tres reglas que una restriccion CHECK no
 -- puede validar: que la suma no pase del monto, que quien paga este asociado al
 -- estudiante, y el estado resultante del cobro.
@@ -4636,42 +4201,11 @@ BEGIN
 END$$
 DELIMITER ;
 
-
--- Estado de cuenta de un estudiante: el resumen y el detalle de cada cobro.
-DROP PROCEDURE IF EXISTS SP_Pago_ObtenerEstadoCuenta;
-DELIMITER $$
-CREATE PROCEDURE SP_Pago_ObtenerEstadoCuenta(
-  IN p_IdEstudiante INT
-)
-BEGIN
-  SELECT IFNULL(SUM(p.Monto), 0) AS TotalCobrado,
-         IFNULL(SUM((SELECT IFNULL(SUM(a.Monto), 0) FROM TB_ABONO a
-                     WHERE a.IdPago = p.IdPago AND a.Activo = 1)), 0) AS TotalAbonado,
-         IFNULL(SUM(p.Monto), 0) - IFNULL(SUM((SELECT IFNULL(SUM(a.Monto), 0) FROM TB_ABONO a
-                     WHERE a.IdPago = p.IdPago AND a.Activo = 1)), 0) AS SaldoTotal
-  FROM TB_PAGO p
-  WHERE p.IdEstudiante = p_IdEstudiante
-    AND p.IdEstadoPago <> 5;
-
-  SELECT p.IdPago, p.Concepto, p.Monto,
-         IFNULL((SELECT SUM(a.Monto) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1), 0) AS Abonado,
-         p.FechaEmision, p.FechaVencimiento,
-         ep.Nombre AS Estado
-  FROM TB_PAGO p
-  JOIN TB_ESTADO_PAGO ep ON ep.IdEstadoPago = p.IdEstadoPago
-  WHERE p.IdEstudiante = p_IdEstudiante
-  ORDER BY p.FechaEmision DESC;
-END$$
-DELIMITER ;
-
-
--- Pasa a Vencido lo que ya vencio y sigue sin abonos. Pensado para correr una
--- vez al dia; tambien se puede llamar a mano.
 -- Para la burbuja de Pagos: cobros en estado "Vencido" (3). Cuenta el estado
 -- guardado y no lo recalcula, para decir lo mismo que muestra la pantalla.
--- Ojo: quien pasa un cobro a vencido es SP_Pago_RecalcularVencidos, y hoy no lo
--- llama nadie, asi que un cobro pasado de fecha puede seguir figurando como
--- pendiente y no entrar aqui. Esta anotado.
+-- Quien pasa un cobro a vencido es SP_Pago_Listar, cada vez que se abre la
+-- pantalla de Pagos (antes lo hacia SP_Pago_RecalcularVencidos, que no se usaba
+-- y se quito en la limpieza del 2026-11-22).
 DROP PROCEDURE IF EXISTS SP_Pago_ContarVencidos;
 DELIMITER $$
 CREATE PROCEDURE SP_Pago_ContarVencidos()
@@ -4681,25 +4215,6 @@ BEGIN
     WHERE IdEstadoPago = 3;
 END$$
 DELIMITER ;
-
-
-DROP PROCEDURE IF EXISTS SP_Pago_RecalcularVencidos;
-DELIMITER $$
-CREATE PROCEDURE SP_Pago_RecalcularVencidos()
-BEGIN
-  UPDATE TB_PAGO p
-  SET p.IdEstadoPago = 3,
-      p.FechaModificacion = NOW()
-  WHERE p.IdEstadoPago = 2
-    AND p.FechaVencimiento IS NOT NULL
-    AND p.FechaVencimiento < CURDATE()
-    AND NOT EXISTS (SELECT 1 FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1);
-
-  SELECT ROW_COUNT() AS CobrosActualizados;
-END$$
-DELIMITER ;
-
-
 
 -- ============================================================
 -- 8. Reportes
@@ -6697,58 +6212,6 @@ DELIMITER ;
 -- ============================================================
 -- 11. Dashboard
 -- ============================================================
-
--- Todo lo que muestra el tablero, en una sola llamada: contadores, proximas
--- citas y actividad reciente. Son tres resultados seguidos.
-DROP PROCEDURE IF EXISTS SP_Dashboard_ObtenerResumen;
-DELIMITER $$
-CREATE PROCEDURE SP_Dashboard_ObtenerResumen()
-BEGIN
-  SELECT
-    (SELECT COUNT(*) FROM TB_ESTUDIANTE WHERE Activo = 1) AS EstudiantesActivos,
-    (SELECT COUNT(*) FROM TB_ENCARGADO WHERE Activo = 1) AS ClientesActivos,
-    (SELECT COUNT(*) FROM TB_CITA
-      WHERE IdEstadoCita IN (1, 2)
-        AND FechaHoraInicio >= CURDATE()
-        AND FechaHoraInicio < CURDATE() + INTERVAL 7 DAY) AS CitasProximaSemana,
-    -- M5 renombro Fecha a FechaHoraInicio y agrego borrado logico (2026-10-07)
-    (SELECT COUNT(*) FROM TB_SESION
-      WHERE Activo = 1
-        AND FechaHoraInicio >= CURDATE() - INTERVAL 30 DAY) AS SesionesUltimoMes,
-    (SELECT COUNT(*) FROM TB_PLAN_INTERVENCION WHERE IdEstadoPlan = 2) AS PlanesActivos,
-    (SELECT IFNULL(SUM(p.Monto), 0) - IFNULL(SUM(
-       (SELECT IFNULL(SUM(a.Monto), 0) FROM TB_ABONO a WHERE a.IdPago = p.IdPago AND a.Activo = 1)
-     ), 0) FROM TB_PAGO p WHERE p.IdEstadoPago IN (2, 3, 4)) AS SaldoPorCobrar,
-    (SELECT COUNT(*) FROM TB_PAGO WHERE IdEstadoPago = 3) AS CobrosVencidos;
-
-  SELECT c.IdCita,
-         TRIM(CONCAT(e.Nombre, ' ', e.PrimerApellido)) AS Estudiante,
-         c.FechaHoraInicio,
-         c.FechaHoraFin,
-         ts.Nombre AS TipoSesion,
-         ec.Nombre AS Estado,
-         ec.ColorHex
-  FROM TB_CITA c
-  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = c.IdEstudiante
-  JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
-  JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
-  WHERE c.IdEstadoCita IN (1, 2)
-    AND c.FechaHoraInicio >= NOW()
-  ORDER BY c.FechaHoraInicio
-  LIMIT 10;
-
-  SELECT b.IdBitacora,
-         b.Entidad,
-         b.IdRegistro,
-         b.Accion,
-         b.FechaHora,
-         u.NombreCompleto AS Usuario
-  FROM TB_BITACORA b
-  JOIN TB_USUARIO u ON u.IdUsuario = b.IdUsuario
-  ORDER BY b.FechaHora DESC, b.IdBitacora DESC
-  LIMIT 10;
-END$$
-DELIMITER ;
 
 -- ============================================================
 -- 12. Portal de encargados
@@ -8786,7 +8249,7 @@ BEGIN
 
     IF p_IdEstadoPlan NOT IN (2, 5) THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Solo se permite activar o inactivar planes.';
+            SET MESSAGE_TEXT = 'Solo se permite activar o desactivar planes.';
     END IF;
 
     IF v_Estado = p_IdEstadoPlan THEN
@@ -10266,5 +9729,317 @@ BEGIN
     AND u.IdUsuario = p_IdUsuario
     AND ta.ArchivoEntrega IS NOT NULL
   LIMIT 1;
+END$$
+DELIMITER ;
+
+
+-- ============================================================
+-- Bitacora de inicios de sesion
+-- ============================================================
+
+-- Un intento de inicio de sesion. Lo llama el API en cada login, salga bien o
+-- mal; si falla, el login sigue igual (el API se traga el error). De paso borra
+-- un lote de lo que ya paso de 90 dias, asi la tabla no crece sin limite.
+DROP PROCEDURE IF EXISTS SP_Acceso_Registrar;
+DELIMITER $$
+CREATE PROCEDURE SP_Acceso_Registrar(
+  IN p_IdUsuario INT,
+  IN p_Correo VARCHAR(150),
+  IN p_Resultado VARCHAR(30),
+  IN p_Ip VARCHAR(45),
+  IN p_Navegador VARCHAR(300)
+)
+BEGIN
+  DECLARE v_IdUsuario INT DEFAULT p_IdUsuario;
+  DECLARE v_IdEncargado INT DEFAULT NULL;
+  DECLARE v_Origen VARCHAR(10) DEFAULT NULL;
+  DECLARE v_Correo VARCHAR(150) DEFAULT LEFT(LOWER(TRIM(IFNULL(p_Correo, ''))), 150);
+
+  IF v_IdUsuario IS NULL AND v_Correo <> '' THEN
+    SELECT IdUsuario INTO v_IdUsuario
+    FROM TB_USUARIO
+    WHERE Correo = v_Correo
+    LIMIT 1;
+  END IF;
+
+  IF v_IdUsuario IS NOT NULL THEN
+    SELECT IdEncargado INTO v_IdEncargado
+    FROM TB_USUARIO
+    WHERE IdUsuario = v_IdUsuario;
+
+    SET v_Origen = IF(v_IdEncargado IS NULL, 'Panel', 'Portal');
+  END IF;
+
+  INSERT INTO TB_ACCESO_USUARIO (IdUsuario, CorreoIntentado, Resultado, Origen, Ip, Navegador)
+  VALUES (v_IdUsuario, IF(v_Correo = '', '(vacío)', v_Correo), p_Resultado, v_Origen,
+          LEFT(NULLIF(TRIM(p_Ip), ''), 45), LEFT(NULLIF(TRIM(p_Navegador), ''), 300));
+
+  DELETE FROM TB_ACCESO_USUARIO
+  WHERE FechaHora < NOW() - INTERVAL 90 DAY
+  ORDER BY FechaHora
+  LIMIT 200;
+END$$
+DELIMITER ;
+
+
+-- Los ultimos intentos de una cuenta, para el historial del menu de la fila
+DROP PROCEDURE IF EXISTS SP_Acceso_ListarPorUsuario;
+DELIMITER $$
+CREATE PROCEDURE SP_Acceso_ListarPorUsuario(
+  IN p_IdUsuario INT,
+  IN p_Limite INT
+)
+BEGIN
+  DECLARE v_Limite INT DEFAULT 50;
+
+  IF p_Limite IS NOT NULL AND p_Limite BETWEEN 1 AND 200 THEN
+    SET v_Limite = p_Limite;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM TB_USUARIO WHERE IdUsuario = p_IdUsuario) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+  END IF;
+
+  SELECT a.IdAcceso,
+         a.FechaHora,
+         a.Resultado,
+         a.Origen,
+         a.Ip,
+         a.Navegador
+  FROM TB_ACCESO_USUARIO a
+  WHERE a.IdUsuario = p_IdUsuario
+  ORDER BY a.FechaHora DESC, a.IdAcceso DESC
+  LIMIT v_Limite;
+END$$
+DELIMITER ;
+
+
+-- La bitacora completa con filtros. p_Tipo: Internos, Externos, Desconocidos
+-- o nulo para todos. p_Resultado: Exitoso, Fallido (todo lo que no entro) o
+-- uno exacto. Fechas inclusive; nulas = sin limite por ese lado.
+DROP PROCEDURE IF EXISTS SP_Acceso_Listar;
+DELIMITER $$
+CREATE PROCEDURE SP_Acceso_Listar(
+  IN p_Tipo VARCHAR(15),
+  IN p_Resultado VARCHAR(30),
+  IN p_Desde DATE,
+  IN p_Hasta DATE,
+  IN p_Texto VARCHAR(150),
+  IN p_Limite INT
+)
+BEGIN
+  DECLARE v_Limite INT DEFAULT 500;
+  DECLARE v_Texto VARCHAR(152) DEFAULT NULL;
+
+  IF p_Limite IS NOT NULL AND p_Limite BETWEEN 1 AND 1000 THEN
+    SET v_Limite = p_Limite;
+  END IF;
+
+  IF NULLIF(TRIM(p_Texto), '') IS NOT NULL THEN
+    SET v_Texto = CONCAT('%', TRIM(p_Texto), '%');
+  END IF;
+
+  SELECT a.IdAcceso,
+         a.FechaHora,
+         a.IdUsuario,
+         u.NombreCompleto AS Usuario,
+         COALESCE(u.Correo, a.CorreoIntentado) AS Correo,
+         r.Nombre AS Rol,
+         CASE
+           WHEN a.IdUsuario IS NULL THEN 'Desconocido'
+           WHEN u.IdEncargado IS NULL THEN 'Interno'
+           ELSE 'Externo'
+         END AS Tipo,
+         a.Origen,
+         a.Resultado,
+         a.Ip,
+         a.Navegador
+  FROM TB_ACCESO_USUARIO a
+  LEFT JOIN TB_USUARIO u ON u.IdUsuario = a.IdUsuario
+  LEFT JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+  LEFT JOIN TB_ROL r ON r.IdRol = ur.IdRol
+  WHERE (p_Tipo IS NULL OR p_Tipo = ''
+         OR (p_Tipo = 'Internos' AND a.IdUsuario IS NOT NULL AND u.IdEncargado IS NULL)
+         OR (p_Tipo = 'Externos' AND u.IdEncargado IS NOT NULL)
+         OR (p_Tipo = 'Desconocidos' AND a.IdUsuario IS NULL))
+    AND (p_Resultado IS NULL OR p_Resultado = ''
+         OR (p_Resultado = 'Fallido' AND a.Resultado <> 'Exitoso')
+         OR a.Resultado = p_Resultado)
+    AND (p_Desde IS NULL OR a.FechaHora >= p_Desde)
+    AND (p_Hasta IS NULL OR a.FechaHora < p_Hasta + INTERVAL 1 DAY)
+    AND (v_Texto IS NULL
+         OR u.NombreCompleto LIKE v_Texto
+         OR a.CorreoIntentado LIKE v_Texto
+         OR a.Ip LIKE v_Texto)
+  ORDER BY a.FechaHora DESC, a.IdAcceso DESC
+  LIMIT v_Limite;
+END$$
+DELIMITER ;
+
+
+-- Las citas que ya pasaron, no se cancelaron ni quedaron como "no asistio", y
+-- no tienen sesion registrada. Es la lista detras de la burbuja de "Bitacora
+-- de citas" (SP_Sesion_ContarCitasSinSesion cuenta exactamente esto), para que
+-- la pantalla muestre cuales son y permita registrarlas.
+DROP PROCEDURE IF EXISTS SP_Sesion_ListarCitasSinSesion;
+DELIMITER $$
+CREATE PROCEDURE SP_Sesion_ListarCitasSinSesion(
+  IN p_Ahora DATETIME
+)
+BEGIN
+  SELECT c.IdCita,
+         c.IdEstudiante,
+         TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, NULLIF(e.SegundoApellido, ''))) AS Estudiante,
+         ne.Nombre AS NivelEducativo,
+         (SELECT TRIM(CONCAT_WS(' ', en.Nombre, en.PrimerApellido))
+          FROM TB_ESTUDIANTE_ENCARGADO ee
+          JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
+          WHERE ee.IdEstudiante = e.IdEstudiante
+          ORDER BY en.IdEncargado
+          LIMIT 1) AS Encargado,
+         c.FechaHoraInicio,
+         TIMESTAMPDIFF(MINUTE, c.FechaHoraInicio, c.FechaHoraFin) AS DuracionMinutos,
+         c.IdTipoSesion,
+         ts.Nombre AS TipoSesion,
+         ec.Nombre AS EstadoCita
+  FROM TB_CITA c
+  JOIN TB_ESTUDIANTE e ON e.IdEstudiante = c.IdEstudiante AND e.Activo = 1
+  JOIN TB_TIPO_SESION ts ON ts.IdTipoSesion = c.IdTipoSesion
+  JOIN TB_ESTADO_CITA ec ON ec.IdEstadoCita = c.IdEstadoCita
+  LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = e.IdNivelEducativo
+  WHERE c.FechaHoraInicio <= IFNULL(p_Ahora, NOW())
+    AND c.IdEstadoCita NOT IN (4, 5)
+    AND NOT EXISTS (SELECT 1 FROM TB_SESION s
+                    WHERE s.IdCita = c.IdCita AND s.Activo = 1)
+  ORDER BY c.FechaHoraInicio DESC, c.IdCita DESC
+  LIMIT 100;
+END$$
+DELIMITER ;
+
+
+-- ============================================================
+-- Ficha del estudiante: faltaban y el API ya los llamaba
+-- ============================================================
+
+-- Editar una necesidad de apoyo del estudiante (nombre y observacion).
+-- El nombre sale del catalogo TB_NECESIDAD_APOYO, que comparten todos los
+-- estudiantes: por eso no se renombra el catalogo (le cambiaria el nombre a
+-- los demas). Si el nombre cambia, la relacion se pasa a la necesidad con el
+-- nombre nuevo (se crea en el catalogo si no existe), igual que al agregar.
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarNecesidad;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_EditarNecesidad(
+    IN p_IdEstudiante INT,
+    IN p_IdNecesidadApoyo INT,
+    IN p_NombreNecesidad VARCHAR(100),
+    IN p_Observacion VARCHAR(500)
+)
+BEGIN
+    DECLARE v_Nombre VARCHAR(100);
+    DECLARE v_NombreActual VARCHAR(100) DEFAULT NULL;
+    DECLARE v_IdNueva INT;
+    DECLARE v_ActivoNueva BOOLEAN DEFAULT NULL;
+    DECLARE v_Observacion VARCHAR(500);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SET v_Nombre = TRIM(p_NombreNecesidad);
+    SET v_Observacion = NULLIF(TRIM(p_Observacion), '');
+
+    IF v_Nombre IS NULL OR v_Nombre = '' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar la necesidad de apoyo.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT n.Nombre INTO v_NombreActual
+    FROM TB_ESTUDIANTE_NECESIDAD en
+    JOIN TB_NECESIDAD_APOYO n ON n.IdNecesidadApoyo = en.IdNecesidadApoyo
+    WHERE en.IdEstudiante = p_IdEstudiante
+      AND en.IdNecesidadApoyo = p_IdNecesidadApoyo
+      AND en.Activo = 1
+    FOR UPDATE;
+
+    IF v_NombreActual IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La necesidad de apoyo indicada no está registrada para este estudiante.';
+    END IF;
+
+    IF v_NombreActual = v_Nombre THEN
+        -- Mismo nombre: solo cambia la observacion
+        UPDATE TB_ESTUDIANTE_NECESIDAD
+        SET Observacion = v_Observacion
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdNecesidadApoyo = p_IdNecesidadApoyo;
+    ELSE
+        INSERT INTO TB_NECESIDAD_APOYO (Nombre)
+        VALUES (v_Nombre)
+        ON DUPLICATE KEY UPDATE IdNecesidadApoyo = LAST_INSERT_ID(IdNecesidadApoyo);
+
+        SET v_IdNueva = LAST_INSERT_ID();
+
+        SELECT Activo INTO v_ActivoNueva
+        FROM TB_ESTUDIANTE_NECESIDAD
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdNecesidadApoyo = v_IdNueva
+        FOR UPDATE;
+
+        IF v_ActivoNueva = 1 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El estudiante ya tiene registrada esa necesidad de apoyo.';
+        END IF;
+
+        -- La anterior se da de baja (queda como historial) y se activa la nueva
+        UPDATE TB_ESTUDIANTE_NECESIDAD
+        SET Activo = 0
+        WHERE IdEstudiante = p_IdEstudiante
+          AND IdNecesidadApoyo = p_IdNecesidadApoyo;
+
+        IF v_ActivoNueva = 0 THEN
+            UPDATE TB_ESTUDIANTE_NECESIDAD
+            SET Activo = 1,
+                Observacion = v_Observacion
+            WHERE IdEstudiante = p_IdEstudiante
+              AND IdNecesidadApoyo = v_IdNueva;
+        ELSE
+            INSERT INTO TB_ESTUDIANTE_NECESIDAD (IdEstudiante, IdNecesidadApoyo, Observacion)
+            VALUES (p_IdEstudiante, v_IdNueva, v_Observacion);
+        END IF;
+    END IF;
+
+    COMMIT;
+END$$
+DELIMITER ;
+
+
+-- Resumen del estudiante en la ficha. Se guarda en TB_ESTUDIANTE.Observaciones,
+-- que es lo que la ficha muestra como "Resumen". Vacio = sin resumen.
+DROP PROCEDURE IF EXISTS SP_Estudiante_ActualizarResumen;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_ActualizarResumen(
+    IN p_IdEstudiante INT,
+    IN p_Resumen VARCHAR(1000)
+)
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE
+    SET Observaciones = NULLIF(TRIM(p_Resumen), '')
+    WHERE IdEstudiante = p_IdEstudiante;
 END$$
 DELIMITER ;

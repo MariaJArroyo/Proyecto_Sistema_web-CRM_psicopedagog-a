@@ -149,7 +149,7 @@
                                                 class="btn btn-sm btn-outline-danger border-0"
                                                 data-accion="eliminar"
                                                 data-bs-toggle="tooltip"
-                                                title="Inactivar"
+                                                title="Desactivar"
                                                 data-id="@cliente.Id">
                                             <i class="bi bi-slash-circle"></i>
                                         </button>
@@ -564,14 +564,14 @@
         <div class="modal-content">
  
             <div class="modal-header">
-                <h5 class="modal-title">Inactivar encargado</h5>
+                <h5 class="modal-title">Desactivar encargado</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
  
             <div class="modal-body">
                 <div class="alert d-none" id="EliminarClienteError" role="alert"></div>
                 <p class="mb-0">
-                    ¿Está seguro de que desea inactivar a
+                    ¿Está seguro de que desea desactivar a
                     <strong id="NombreClienteEliminar"></strong>?
                 </p>
                 <p class="TextoSuave mb-0">
@@ -583,7 +583,7 @@
  
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente"><i class="bi bi-slash-circle me-1"></i>Inactivar</button>
+                <button type="button" class="btn btn-danger" id="BotonConfirmarEliminarCliente"><i class="bi bi-slash-circle me-1"></i>Desactivar</button>
             </div>
  
         </div>
@@ -608,7 +608,7 @@
                     ¿Desea reactivar a <strong id="NombreClienteReactivar"></strong>?
                 </p>
                 <p class="TextoSuave mb-0">
-                    Vuelve con el estado que tenía antes de inactivarse, y con él vuelven
+                    Vuelve con el estado que tenía antes de desactivarse, y con él vuelven
                     los estudiantes que quedaron inactivos a su cargo.
                 </p>
             </div>

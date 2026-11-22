@@ -21,6 +21,25 @@
 
   <partial name="_AvisoCarga" />
 
+  @* Citas atendidas sin sesion: lo que cuenta la burbuja del menu. Lo llena
+     sesiones.js y se esconde cuando no hay ninguna. *@
+  <section class="AvisoCitasSinSesion d-none mb-3" id="AvisoCitasSinSesion" aria-live="polite">
+    <div class="AvisoCitasSinSesion-Cabecera">
+      <span class="AvisoCitasSinSesion-Icono"><i class="bi bi-journal-plus" aria-hidden="true"></i></span>
+      <div class="flex-grow-1 min-w-0">
+        <p class="AvisoCitasSinSesion-Titulo mb-0" id="TituloCitasSinSesion"></p>
+        <p class="small mb-0">Ya se atendieron pero no tienen sesión registrada. Regístrela para que quede en la bitácora y en el progreso del estudiante.</p>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+              data-bs-target="#ListaCitasSinSesion" aria-expanded="true" aria-controls="ListaCitasSinSesion">
+        <i class="bi bi-chevron-down" aria-hidden="true"></i><span class="visually-hidden">Mostrar u ocultar</span>
+      </button>
+    </div>
+    <div class="collapse show" id="ListaCitasSinSesion">
+      <ul class="list-unstyled mb-0 AvisoCitasSinSesion-Lista" id="CuerpoCitasSinSesion"></ul>
+    </div>
+  </section>
+
   <div class="Tarjeta p-3 p-md-4">
 
     <!-- El estudiante se elige con el buscador, no con una lista fija de nombres -->
@@ -130,6 +149,9 @@
               <div class="form-text">
                 Si la sesión nace de una cita, al elegirla se llenan la fecha, la hora,
                 la duración y el tipo de sesión.
+              </div>
+              <div class="form-text text-warning-emphasis d-none" id="AyudaCitasPendientes">
+                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i><span></span>
               </div>
             </div>
 
@@ -408,23 +430,21 @@
   </div>
 </div>
 
-<!-- Dice "Eliminar" aunque la fila no se borre: SP_Sesion_Listar filtra
-     Activo = 1 sin parametro para incluir las inactivas, no existe ningun
-     SP_Sesion_Activar y la bitacora guarda la accion como 'Eliminar'. Desde
-     la interfaz no hay vuelta, asi que el basurero dice la verdad y
-     "Inactivar" prometia algo que el sistema no sabe hacer. La fila se
-     conserva para auditoria y el parrafo de abajo lo explica (HU-M5-3) -->
+<!-- Dice "Desactivar", igual que el boton de la tabla: la fila no se borra
+     (Activo = 0) y se conserva para auditoria. Ojo: no existe
+     SP_Sesion_Activar ni un listado de inactivas, asi que desde la interfaz no
+     hay vuelta; por eso el parrafo de abajo lo advierte (HU-M5-3) -->
 <div class="modal fade" id="ModalInactivarSesion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Eliminar registro de sesión</h5>
+        <h5 class="modal-title">Desactivar registro de sesión</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <div class="alert d-none" id="AlertaInactivarSesion" role="alert"></div>
         <p class="mb-2">
-          ¿Seguro que desea eliminar el registro de la sesión de
+          ¿Seguro que desea desactivar el registro de la sesión de
           <strong id="NombreSesionInactivar"></strong>?
         </p>
         <p class="TextoSuave mb-0">
@@ -435,7 +455,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion"><i class="bi bi-slash-circle me-1"></i>Eliminar</button>
+        <button type="button" class="btn btn-danger" id="BotonConfirmarInactivarSesion"><i class="bi bi-slash-circle me-1"></i>Desactivar</button>
       </div>
     </div>
   </div>

@@ -2853,3 +2853,96 @@ button.TopbarAdmin-Usuario {
     width: 100%;
   }
 }
+
+/* Vista previa del correo: el mismo distintivo que llega a la familia */
+.DistintivoCorreo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.DistintivoCorreo-Icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+}
+
+.DistintivoCorreo-Etiqueta {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Bitacora de accesos: un intento fallido lleva una raya roja a la izquierda */
+.FilaAccesoFallido > td:first-child {
+  box-shadow: inset 3px 0 0 #E9A6A2;
+}
+
+/* ---------- Bitacora de citas: citas atendidas sin sesion ---------- */
+.AvisoCitasSinSesion {
+  padding: 1rem 1.15rem;
+  border: 1px solid #F6D7AE;
+  border-radius: var(--radio-tarjeta);
+  background: linear-gradient(110deg, #FFF8EE 0%, #FDF1E1 100%);
+  color: #7A4A10;
+}
+
+.AvisoCitasSinSesion-Cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.AvisoCitasSinSesion-Icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background-color: #fff;
+  color: #D08A2E;
+  font-size: 1.2rem;
+}
+
+.AvisoCitasSinSesion-Titulo {
+  font-weight: 700;
+  color: #5E3A0C;
+}
+
+.AvisoCitasSinSesion .btn[data-bs-toggle="collapse"] .bi {
+  transition: transform 0.2s ease;
+}
+
+.AvisoCitasSinSesion .btn[aria-expanded="false"] .bi {
+  transform: rotate(-90deg);
+}
+
+.AvisoCitasSinSesion-Lista {
+  margin-top: 0.85rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.AvisoCitasSinSesion-Item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: var(--color-texto);
+}
+
+.AvisoCitasSinSesion-Item + .AvisoCitasSinSesion-Item {
+  margin-top: 0.4rem;
+}

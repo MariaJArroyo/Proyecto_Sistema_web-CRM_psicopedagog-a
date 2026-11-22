@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net;
 using MenteActiva.Api.Models;
 
@@ -56,7 +56,8 @@ public static class MensajesSolicitudContacto
             encabezado: C(Nombre(consultorio)),
             subEncabezado: null,
             contenido: contenido,
-            pie: $"{C(Nombre(consultorio))} &middot; Aviso automatico del formulario del sitio publico.");
+            pie: $"{C(Nombre(consultorio))} &middot; Aviso automatico del formulario del sitio publico.",
+            tipo: TipoCorreo.Solicitud);
     }
 
     // Confirmacion a quien escribio. No promete ningun plazo a proposito: el
@@ -101,7 +102,8 @@ public static class MensajesSolicitudContacto
             encabezado: nombreConsultorio,
             subEncabezado: null,
             contenido: contenido.ToString(),
-            pie: $"{nombreConsultorio} &middot; Este correo salio solo, al recibir su mensaje.");
+            pie: $"{nombreConsultorio} &middot; Este correo salio solo, al recibir su mensaje.",
+            tipo: TipoCorreo.Confirmacion);
     }
 
     // Las formas de contestar que esten configuradas. Si no hay ninguna, el

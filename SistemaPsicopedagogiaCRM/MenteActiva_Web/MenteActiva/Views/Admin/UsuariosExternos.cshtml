@@ -97,6 +97,19 @@
                         <button type="submit" class="btn btn-sm btn-outline-success border-0" data-bs-toggle="tooltip"
                           title="Reactivar" aria-label="Reactivar el acceso"><i class="bi bi-check-circle"></i></button>
                       </form>
+
+                      <div class="dropdown d-inline-block MenuAccionesFila">
+                        <button type="button" class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown"
+                          data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                          title="Más acciones" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <button type="button" class="dropdown-item" data-historial-accesos="@acceso.IdUsuario" data-nombre="@acceso.Encargado">
+                              <i class="bi bi-clock-history me-2" aria-hidden="true"></i>Historial de accesos
+                            </button>
+                          </li>
+                        </ul>
+                      </div>
                     }
                     else
                     {
@@ -108,6 +121,11 @@
                           data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
                           title="Más acciones" aria-label="Más acciones"><i class="bi bi-three-dots"></i></button>
                         <ul class="dropdown-menu dropdown-menu-end">
+                          <li>
+                            <button type="button" class="dropdown-item" data-historial-accesos="@acceso.IdUsuario" data-nombre="@acceso.Encargado">
+                              <i class="bi bi-clock-history me-2" aria-hidden="true"></i>Historial de accesos
+                            </button>
+                          </li>
                           <li>
                             <form asp-controller="Admin" asp-action="ReenviarInvitacionPortal" method="post">
                               <input type="hidden" name="idUsuario" value="@acceso.IdUsuario">
@@ -173,8 +191,11 @@
         </div>
       </div>
 
+<partial name="_ModalHistorialAccesos" />
+
 @section Scripts {
   <script src="~/js/Validaciones.js"></script>
+  <script src="~/js/accesosUsuarios.js" asp-append-version="true"></script>
   <script>
     // Lo unico que queda en el navegador es abrir el modal con el usuario
     // correcto. Suspender, reactivar y reenviar son formularios contra el

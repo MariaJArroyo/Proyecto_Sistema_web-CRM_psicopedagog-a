@@ -1,4 +1,4 @@
-﻿using MenteActiva.Api.Models;
+using MenteActiva.Api.Models;
 
 namespace MenteActiva.Api.Services;
 
@@ -10,6 +10,8 @@ public interface IServicioSesiones
         int? idEstudiante, DateOnly? desde, DateOnly? hasta, CancellationToken cancelacion);
 
     Task<SesionDetalleResponse> ObtenerAsync(int idSesion, CancellationToken cancelacion);
+
+    Task<IReadOnlyList<CitaSinSesionResponse>> ListarCitasSinSesionAsync(CancellationToken cancelacion);
 
     Task<IReadOnlyList<CitaDisponibleSesionResponse>> ListarCitasDisponiblesAsync(
         int idEstudiante, CancellationToken cancelacion);

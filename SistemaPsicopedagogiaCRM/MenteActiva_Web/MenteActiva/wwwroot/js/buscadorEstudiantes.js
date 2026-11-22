@@ -1,4 +1,4 @@
-﻿// Buscador de estudiantes reutilizable (lookup).
+// Buscador de estudiantes reutilizable (lookup).
 //
 // Uso:
 //   const buscador = crearBuscadorEstudiantes(document.getElementById("Contenedor"), {
@@ -253,6 +253,11 @@
                 return valido;
             },
             limpiar,
+            // Deja elegido un estudiante sin que la persona lo busque (por
+            // ejemplo, desde "Registrar sesion" de una cita pendiente).
+            // Necesita idEstudiante y estudiante; nivelEducativo y encargado
+            // son opcionales.
+            seleccionar,
             enfocar() {
                 (oculto.value ? botonQuitar : entrada).focus();
             }

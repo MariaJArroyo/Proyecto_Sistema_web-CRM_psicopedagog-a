@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 
 namespace MenteActiva.Api.Services;
@@ -13,7 +13,9 @@ public static class MensajeComunicacion
     // (nadie pega HTML en un correo nuestro por accidente ni a proposito) y
     // despues se parte en parrafos por linea en blanco, para que los saltos que
     // la persona escribio se vean en el correo.
-    public static string Armar(string asunto, string cuerpoTextoPlano, string nombreConsultorio)
+    // tipo: de que se trata (recordatorio, alerta...), para el distintivo de arriba
+    public static string Armar(
+        string asunto, string cuerpoTextoPlano, string nombreConsultorio, TipoCorreo tipo = TipoCorreo.Mensaje)
     {
         var consultorio = WebUtility.HtmlEncode(
             string.IsNullOrWhiteSpace(nombreConsultorio) ? "Mente Activa" : nombreConsultorio);
@@ -32,6 +34,7 @@ public static class MensajeComunicacion
             encabezado: consultorio,
             subEncabezado: null,
             contenido: contenido.ToString(),
-            pie: $"{consultorio} &middot; Si necesita responder, escriba al correo de contacto del consultorio.");
+            pie: $"{consultorio} &middot; Si necesita responder, escriba al correo de contacto del consultorio.",
+            tipo: tipo);
     }
 }

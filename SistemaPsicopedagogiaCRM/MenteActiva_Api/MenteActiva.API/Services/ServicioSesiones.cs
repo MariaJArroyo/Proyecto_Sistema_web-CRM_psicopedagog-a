@@ -1,4 +1,4 @@
-﻿using MenteActiva.Api.Infraestructura;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Repositories;
 
@@ -58,6 +58,11 @@ public sealed class ServicioSesiones : IServicioSesiones
         // 404 lo decide el controlador; aqui solo se dice que no esta
         return sesion ?? throw new ReglaNegocioException("La sesión indicada no existe.");
     }
+
+    // Con el reloj del negocio, igual que el contador de la burbuja, para que
+    // los dos digan lo mismo
+    public Task<IReadOnlyList<CitaSinSesionResponse>> ListarCitasSinSesionAsync(CancellationToken cancelacion)
+        => _repositorio.ListarCitasSinSesionAsync(_reloj.Ahora, cancelacion);
 
     public Task<IReadOnlyList<CitaDisponibleSesionResponse>> ListarCitasDisponiblesAsync(
         int idEstudiante, CancellationToken cancelacion)
