@@ -1975,6 +1975,61 @@ BEGIN
 END$$
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_AgregarInfoAcademica(
+    IN p_IdEstudiante INT,
+    IN p_Titulo VARCHAR(100),
+    IN p_Detalle VARCHAR(1000)
+)
+BEGIN
+    IF NULLIF(TRIM(p_Titulo), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el título.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
+                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    INSERT INTO TB_ESTUDIANTE_INFO_ACADEMICA (IdEstudiante, Titulo, Detalle)
+    VALUES (p_IdEstudiante, TRIM(p_Titulo), COALESCE(TRIM(p_Detalle), ''));
+END$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS SP_Estudiante_EditarInfoAcademica;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_EditarInfoAcademica(
+    IN p_IdEstudiante INT,
+    IN p_IdInfoAcademica INT,
+    IN p_Titulo VARCHAR(100),
+    IN p_Detalle VARCHAR(1000)
+)
+BEGIN
+    IF NULLIF(TRIM(p_Titulo), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Debe ingresar el título.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_INFO_ACADEMICA
+                   WHERE IdInfoAcademica = p_IdInfoAcademica
+                     AND IdEstudiante = p_IdEstudiante
+                     AND Activo = 1) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La información indicada no está registrada para este estudiante.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE_INFO_ACADEMICA
+     SET Titulo = TRIM(p_Titulo),
+        Detalle = COALESCE(NULLIF(TRIM(p_Detalle), ''), 'Sin detalle'),
+        FechaModificacion = NOW()
+    WHERE IdInfoAcademica = p_IdInfoAcademica
+      AND IdEstudiante = p_IdEstudiante;
+END$$
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarNecesidad;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_AgregarNecesidad(
@@ -2118,7 +2173,8 @@ BEGIN
     END IF;
 
     INSERT INTO TB_ESTUDIANTE_INFO_ACADEMICA (IdEstudiante, Titulo, Detalle)
-    VALUES (p_IdEstudiante, TRIM(p_Titulo), TRIM(p_Detalle));
+    VALUES (p_IdEstudiante, TRIM(p_Titulo),
+            COALESCE(NULLIF(TRIM(p_Detalle), ''), 'Sin detalle'));
 END$$
 DELIMITER ;
 

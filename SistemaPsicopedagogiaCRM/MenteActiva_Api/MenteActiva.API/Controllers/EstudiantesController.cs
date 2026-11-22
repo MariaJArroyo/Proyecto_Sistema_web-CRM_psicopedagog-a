@@ -274,6 +274,42 @@ public class EstudiantesController : ControllerBase
         return Ok(new { mensaje = "Necesidad de apoyo registrada correctamente." });
     }
 
+
+    [HttpPut("{id:int}/necesidades/{idNecesidad:int}")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarNecesidad(
+        int id,
+        int idNecesidad,
+        [FromBody] EditarNecesidadEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0 || idNecesidad <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Los datos indicados no son válidos."
+            });
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await _repositorioEstudiante.EditarNecesidadAsync(
+            id,
+            idNecesidad,
+            request.NombreNecesidad,
+            request.Observacion,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = "Necesidad de apoyo actualizada correctamente."
+        });
+    }
+
+
     [HttpDelete("{id:int}/necesidades/{idNecesidad:int}")]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public async Task<IActionResult> QuitarNecesidad(
@@ -341,5 +377,38 @@ public class EstudiantesController : ControllerBase
         return Ok(new { mensaje = "Información académica quitada correctamente." });
     }
 
+
+    [HttpPut("{id:int}/resumen")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ActualizarResumen(
+        int id,
+        [FromBody] ActualizarResumenEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await _repositorioEstudiante.ActualizarResumenAsync(
+            id,
+            request.Resumen,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = string.IsNullOrWhiteSpace(request.Resumen)
+                ? "Resumen eliminado correctamente."
+                : "Resumen actualizado correctamente."
+        });
+    }
     #endregion
 }

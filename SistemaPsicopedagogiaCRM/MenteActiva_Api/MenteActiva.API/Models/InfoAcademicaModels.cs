@@ -8,7 +8,6 @@ public class GuardarInfoAcademicaRequest
     [StringLength(100)]
     public string Titulo { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "El detalle es obligatorio.")]
     [StringLength(1000)]
     public string Detalle { get; set; } = string.Empty;
 }

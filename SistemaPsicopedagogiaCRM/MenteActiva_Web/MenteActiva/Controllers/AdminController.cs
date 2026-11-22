@@ -897,18 +897,18 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public async Task<IActionResult> AgregarInfoAcademicaEstudiante(
-        int idEstudiante, string titulo, string detalle)
+    int idEstudiante, string titulo, string? detalle)
     {
-        if (idEstudiante <= 0 || string.IsNullOrWhiteSpace(titulo) || string.IsNullOrWhiteSpace(detalle))
+        if (idEstudiante <= 0 || string.IsNullOrWhiteSpace(titulo))
         {
-            return BadRequest(new { mensaje = "Debe ingresar el título y el detalle." });
+            return BadRequest(new { mensaje = "Debe ingresar el título." });
         }
 
         using var client = _http.CreateClient();
 
         var respuesta = await client.PostAsJsonAsync(
             UrlApi($"estudiantes/{idEstudiante}/info-academica"),
-            new { Titulo = titulo.Trim(), Detalle = detalle.Trim() });
+            new { Titulo = titulo.Trim(), Detalle = (detalle ?? string.Empty).Trim() });
 
         return await ResponderSegunApi(respuesta, "No se pudo registrar la información académica.");
     }
@@ -917,19 +917,18 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
     public async Task<IActionResult> EditarInfoAcademicaEstudiante(
-        int idEstudiante, int idInfo, string titulo, string detalle)
+        int idEstudiante, int idInfo, string titulo, string? detalle)
     {
-        if (idEstudiante <= 0 || idInfo <= 0
-            || string.IsNullOrWhiteSpace(titulo) || string.IsNullOrWhiteSpace(detalle))
+        if (idEstudiante <= 0 || idInfo <= 0 || string.IsNullOrWhiteSpace(titulo))
         {
-            return BadRequest(new { mensaje = "Debe ingresar el título y el detalle." });
+            return BadRequest(new { mensaje = "Debe ingresar el título." });
         }
 
         using var client = _http.CreateClient();
 
         var respuesta = await client.PutAsJsonAsync(
             UrlApi($"estudiantes/{idEstudiante}/info-academica/{idInfo}"),
-            new { Titulo = titulo.Trim(), Detalle = detalle.Trim() });
+            new { Titulo = titulo.Trim(), Detalle = (detalle ?? string.Empty).Trim() });
 
         return await ResponderSegunApi(respuesta, "No se pudo actualizar la información académica.");
     }
@@ -1002,6 +1001,41 @@ public class AdminController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarNecesidadEstudiante(
+        int idEstudiante,
+        int idNecesidad,
+        string nombreNecesidad,
+        string? observacion)
+    {
+        if (idEstudiante <= 0 ||
+            idNecesidad <= 0 ||
+            string.IsNullOrWhiteSpace(nombreNecesidad))
+        {
+            return BadRequest(new
+            {
+                mensaje = "Debe ingresar una necesidad de apoyo válida."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"estudiantes/{idEstudiante}/necesidades/{idNecesidad}"),
+            new
+            {
+                NombreNecesidad = nombreNecesidad.Trim(),
+                Observacion = observacion?.Trim()
+            });
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo actualizar la necesidad de apoyo.");
+    }
+
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
     public async Task<IActionResult> QuitarNecesidadEstudiante(int idEstudiante, int idNecesidad)
     {
         if (idEstudiante <= 0 || idNecesidad <= 0)
@@ -1014,6 +1048,46 @@ public class AdminController : Controller
         var respuesta = await client.DeleteAsync(UrlApi($"estudiantes/{idEstudiante}/necesidades/{idNecesidad}"));
 
         return await ResponderSegunApi( respuesta,"No se pudo quitar la necesidad de apoyo.");
+    }
+
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ActualizarResumenEstudiante(
+        int idEstudiante,
+        string? resumen,
+        CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        if (resumen?.Length > 1000)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El resumen no puede superar los 1000 caracteres."
+            });
+        }
+
+        using var client = _http.CreateClient();
+
+        var respuesta = await client.PutAsJsonAsync(
+            UrlApi($"estudiantes/{idEstudiante}/resumen"),
+            new
+            {
+                Resumen = resumen?.Trim()
+            },
+            cancelacion);
+
+        return await ResponderSegunApi(
+            respuesta,
+            "No se pudo actualizar el resumen.");
     }
 
     #endregion
