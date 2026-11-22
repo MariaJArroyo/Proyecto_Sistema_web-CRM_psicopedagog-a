@@ -1,3 +1,4 @@
+
 @model MenteActiva.Models.FichaEstudianteViewModel
 
 @{
@@ -10,8 +11,8 @@
     var nombreCompleto =
         $"{Model.Nombre} {Model.PrimerApellido} {Model.SegundoApellido}".Trim();
 
-    // Documentos: solo Administrador y Psicopedagoga (pueden ser informes clinicos)
-    var puedeVerDocumentos = User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
+    var puedeVerDocumentos =
+        User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
 
     int? edad = null;
 
@@ -36,7 +37,8 @@
 
     <div id="ContenedorMensaje"></div>
 
-    <a href="@Url.Action("Estudiantes", "Admin")" class="d-inline-flex align-items-center gap-1 small mb-3">
+    <a href="@Url.Action("Estudiantes", "Admin")"
+       class="d-inline-flex align-items-center gap-1 small mb-3">
         <i class="bi bi-arrow-left" aria-hidden="true"></i>
         Volver a estudiantes
     </a>
@@ -47,23 +49,21 @@
             <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
             <p class="TextoSuave mb-0">Información individual del estudiante</p>
         </div>
-
-        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalEditarFicha">
-            <i class="bi bi-pencil me-1" aria-hidden="true"></i>
-            Editar ficha
-        </button>
     </div>
 
-    <!-- Layout de 2 columnas según boceto -->
+    <!-- Layout de dos columnas -->
     <div class="row g-3 align-items-start">
 
-        <!-- Columna izquierda: Datos generales (+ Necesidades de apoyo) e Información académica -->
+        <!-- COLUMNA IZQUIERDA -->
         <div class="col-lg-7 d-flex flex-column gap-3">
 
+            <!-- Datos generales y necesidades -->
             <div class="Tarjeta p-3 p-md-4">
+
                 <h3 class="mb-3">Datos generales</h3>
 
                 <dl class="row mb-0">
+
                     <dt class="col-sm-4 TextoSuave fw-normal">Nombre completo</dt>
                     <dd id="FichaDatoNombre" class="col-sm-8">@nombreCompleto</dd>
 
@@ -88,64 +88,139 @@
                     <dd id="FichaDatoInstitucion" class="col-sm-8">
                         @(Model.Institucion ?? "-")
                     </dd>
+
+                    <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
+                    <dd id="FichaDatoResumen" class="col-sm-8 text-break">
+                        @(string.IsNullOrWhiteSpace(Model.Observaciones)
+                            ? "Sin resumen registrado."
+                            : Model.Observaciones)
+                    </dd>
+
                 </dl>
 
                 <hr class="my-3">
 
-                <div>
-                    <h4 class="h6 fw-semibold mb-2">Necesidades de apoyo</h4>
+                <!-- Necesidades de apoyo -->
+                <section id="NecesidadesApoyo"
+                         data-id-estudiante="@Model.IdEstudiante"
+                         data-url-lista="@Url.Action("ConsultarNecesidadesEstudiante", "Admin")"
+                         data-url-editar="@Url.Action("EditarNecesidadEstudiante", "Admin")"
+                         data-url-quitar="@Url.Action("QuitarNecesidadEstudiante", "Admin")">
+
+                    @Html.AntiForgeryToken()
+
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+
+                        <h4 class="h6 fw-semibold mb-0">
+                            Necesidades de apoyo
+                        </h4>
+
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#ModalAgregarNecesidad">
+
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                            Agregar necesidad
+
+                        </button>
+
+                    </div>
+
+
+                    <div id="AvisoNecesidades"
+                         class="alert d-none"
+                         role="status"
+                         aria-live="polite"></div>
+
+                    <div id="ListaNecesidadesApoyo">
+                        Cargando necesidades…
+                    </div>
 
                     @if (!string.IsNullOrWhiteSpace(Model.NecesidadesApoyo))
                     {
-                        <p id="FichaDatoNecesidades" class="mb-0">@Model.NecesidadesApoyo</p>
+                        <p class="TextoSuave small mt-3 mb-0">
+                            Nota anterior:
+                            <span id="FichaDatoNecesidades">@Model.NecesidadesApoyo</span>
+                        </p>
                     }
-                    else
-                    {
-                        <p id="FichaDatoNecesidades" class="TextoSuave mb-0">No hay necesidades de apoyo registradas.</p>
-                    }
-                </div>
+
+                </section>
+
             </div>
 
-            <div class="Tarjeta p-3 p-md-4">
-                <h3 class="mb-3">Información académica</h3>
+                <section id="InfoAcademica"
+                         class="Tarjeta p-3 p-md-4"
+                         data-id-estudiante="@Model.IdEstudiante"
+                         data-url-lista="@Url.Action("ConsultarInfoAcademicaEstudiante", "Admin")"
+                         data-url-quitar="@Url.Action("QuitarInfoAcademicaEstudiante", "Admin")">
 
-                <dl class="row mb-0">
-                    <dt class="col-sm-4 TextoSuave fw-normal">Áreas de dificultad actuales</dt>
-                    <dd id="FichaDatoMateria" class="col-sm-8">
-                        @(Model.AreasDificultad ?? "No registradas")
-                    </dd>
+                    @Html.AntiForgeryToken()
 
-                    <dt class="col-sm-4 TextoSuave fw-normal">Resumen</dt>
-                    <dd id="FichaDatoResumen" class="col-sm-8 mb-0">
-                        @(Model.Observaciones ?? "No hay observaciones registradas.")
-                    </dd>
-                </dl>
-            </div>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+
+                        <h3 class="mb-0">Información académica</h3>
+
+                        <button id="BotonAgregarInfoAcademica"
+                                type="button"
+                                class="btn btn-sm btn-outline-primary">
+
+                            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                            Agregar información
+
+                        </button>
+
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div id="AvisoInfoAcademica"
+                         class="alert d-none"
+                         role="status"
+                         aria-live="polite"></div>
+
+                    <div id="ListaInfoAcademica"
+                         class="list-group list-group-flush">
+                        Cargando información…
+                    </div>
+
+                </section>
 
         </div>
 
-        <!-- Columna derecha: Persona encargada y Áreas de dificultad -->
+        <!-- COLUMNA DERECHA -->
         <div class="col-lg-5 d-flex flex-column gap-3">
 
+            <!-- Persona encargada -->
             <div class="Tarjeta p-3 p-md-4">
+
                 <h3 class="mb-3">Persona encargada</h3>
 
                 @if (Model.Encargados != null && Model.Encargados.Any())
                 {
                     <div class="d-flex flex-column gap-3">
+
                         @foreach (var encargado in Model.Encargados)
                         {
                             <div>
+
                                 <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
-                                    <span class="fw-semibold">@encargado.NombreCompleto</span>
+
+                                    <span class="fw-semibold">
+                                        @encargado.NombreCompleto
+                                    </span>
 
                                     @if (!string.IsNullOrWhiteSpace(encargado.Parentesco))
                                     {
-                                        <span class="badge badge-etiqueta-morado">@encargado.Parentesco</span>
+                                        <span class="badge badge-etiqueta-morado">
+                                            @encargado.Parentesco
+                                        </span>
                                     }
+
                                 </div>
 
                                 <ul class="list-unstyled TextoSuave small mb-0 mt-2">
+
                                     @if (!string.IsNullOrWhiteSpace(encargado.Correo))
                                     {
                                         <li class="d-flex align-items-start gap-2 text-break mb-1">
@@ -161,95 +236,174 @@
                                             <span>@encargado.Identificacion</span>
                                         </li>
                                     }
+
                                 </ul>
+
                             </div>
                         }
+
                     </div>
                 }
                 else
                 {
-                    <p class="TextoSuave mb-0">No hay persona encargada asociada.</p>
+                    <p class="TextoSuave mb-0">
+                        No hay persona encargada asociada.
+                    </p>
                 }
+
             </div>
 
-            <section id="AreasEstado" class="Tarjeta p-3 p-md-4" data-id-estudiante="@Model.IdEstudiante" data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")" data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
+            <!-- Áreas de dificultad -->
+            <section id="AreasEstado"
+                     class="Tarjeta p-3 p-md-4"
+                     data-id-estudiante="@Model.IdEstudiante"
+                     data-url-lista="@Url.Action("ConsultarAreasEstadoEstudiante", "Admin")"
+                     data-url-estado="@Url.Action("CambiarEstadoAreaEstudiante", "Admin")">
+
                 @Html.AntiForgeryToken()
 
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+
                     <h3 class="mb-0">Áreas de dificultad</h3>
 
                     <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#ModalAreasInactivas">
+
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#ModalAreasInactivas">
+
                             Áreas inactivas
-                            <span id="CantidadAreasInactivas" class="badge bg-secondary">0</span>
+
+                            <span id="CantidadAreasInactivas"
+                                  class="badge bg-secondary">
+                                0
+                            </span>
+
                         </button>
 
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ModalAgregarArea">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#ModalAgregarArea">
+
                             <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
                             Agregar área
+
                         </button>
+
                     </div>
+
                 </div>
 
-                <div id="AvisoAreasEstado" class="alert d-none" role="status" aria-live="polite"></div>
+                <div id="AvisoAreasEstado"
+                     class="alert d-none"
+                     role="status"
+                     aria-live="polite"></div>
 
-                <div id="ListaAreasDificultad" class="list-group list-group-flush" aria-busy="true">
+                <div id="ListaAreasDificultad"
+                     class="list-group list-group-flush"
+                     aria-busy="true">
                     Cargando áreas…
                 </div>
 
-                <button id="RecargarAreasEstado" type="button" class="btn btn-sm btn-link mt-2 px-0">
+                <button id="RecargarAreasEstado"
+                        type="button"
+                        class="btn btn-sm btn-link mt-2 px-0">
                     Actualizar áreas
                 </button>
+
             </section>
 
         </div>
 
     </div>
 
-
     @if (puedeVerDocumentos)
     {
-        <!-- Documentos del estudiante: los pinta documentosEstudiante.js -->
-        <section id="DocumentosEstudiante" class="Tarjeta p-3 p-md-4 mt-3" aria-labelledby="TituloDocumentos"
+        <!-- Documentos del estudiante -->
+        <section id="DocumentosEstudiante"
+                 class="Tarjeta p-3 p-md-4 mt-3"
+                 aria-labelledby="TituloDocumentos"
                  data-id-estudiante="@Model.IdEstudiante"
                  data-url-lista="@Url.Action("ConsultarDocumentosEstudiante", "Admin")"
                  data-url-subir="@Url.Action("SubirDocumentoEstudiante", "Admin")"
                  data-url-ver="@Url.Action("VerDocumentoEstudiante", "Admin")"
                  data-url-visibilidad="@Url.Action("CambiarVisibilidadDocumento", "Admin")"
                  data-url-eliminar="@Url.Action("EliminarDocumentoEstudiante", "Admin")">
+
             @Html.AntiForgeryToken()
 
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+
                 <div class="d-flex align-items-center gap-3">
-                    <div class="TarjetaServicio-Icono mb-0" style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #fff4e4; color: #d69a43;">
+
+                    <div class="TarjetaServicio-Icono mb-0"
+                         style="width: 42px; height: 42px; font-size: 1.2rem; background-color: #fff4e4; color: #d69a43;">
+
                         <i class="bi bi-folder2-open" aria-hidden="true"></i>
+
                     </div>
+
                     <div>
+
                         <h3 class="mb-0" id="TituloDocumentos">
                             Documentos
-                            <span class="badge rounded-pill text-bg-light border ms-1 align-middle" id="ContadorDocumentos">0</span>
+                            <span class="badge rounded-pill text-bg-light border ms-1 align-middle"
+                                  id="ContadorDocumentos">
+                                0
+                            </span>
                         </h3>
+
                         <p class="TextoSuave small mb-0">
-                            Evaluaciones, informes y otros archivos. El interruptor decide si la familia lo ve en el portal.
+                            Evaluaciones, informes y otros archivos.
+                            El interruptor decide si la familia lo ve en el portal.
                         </p>
+
                     </div>
+
                 </div>
 
                 <div class="d-flex flex-wrap gap-2">
+
                     <div class="input-group input-group-sm BuscadorDocumentos">
-                        <span class="input-group-text bg-white"><i class="bi bi-search" aria-hidden="true"></i></span>
-                        <input type="search" class="form-control" id="BuscarDocumento" placeholder="Buscar documento" aria-label="Buscar documento">
+
+                        <span class="input-group-text bg-white">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                        </span>
+
+                        <input type="search"
+                               class="form-control"
+                               id="BuscarDocumento"
+                               placeholder="Buscar documento"
+                               aria-label="Buscar documento">
+
                     </div>
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#ModalSubirDocumento">
-                        <i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Subir documento
+
+                    <button type="button"
+                            class="btn btn-sm btn-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#ModalSubirDocumento">
+
+                        <i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>
+                        Subir documento
+
                     </button>
+
                 </div>
+
             </div>
 
-            <div id="AvisoDocumentos" class="alert d-none" role="status" aria-live="polite"></div>
+            <div id="AvisoDocumentos"
+                 class="alert d-none"
+                 role="status"
+                 aria-live="polite"></div>
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 TablaDocumentos" id="TablaDocumentos">
+
+                <table class="table table-hover align-middle mb-0 TablaDocumentos"
+                       id="TablaDocumentos">
+
                     <thead>
                         <tr>
                             <th>Documento</th>
@@ -259,87 +413,501 @@
                             <th class="TablaAcciones text-end">Acciones</th>
                         </tr>
                     </thead>
+
                     <tbody id="CuerpoDocumentos">
-                        <tr><td colspan="5" class="TextoSuave">Cargando documentos…</td></tr>
+                        <tr>
+                            <td colspan="5" class="TextoSuave">
+                                Cargando documentos…
+                            </td>
+                        </tr>
                     </tbody>
+
                 </table>
+
             </div>
 
             <div class="EstadoVacio d-none" id="VacioDocumentos">
                 <i class="bi bi-folder2" aria-hidden="true"></i>
-                <p class="mb-0" id="TextoVacioDocumentos">Todavía no hay documentos para este estudiante.</p>
+                <p class="mb-0" id="TextoVacioDocumentos">
+                    Todavía no hay documentos para este estudiante.
+                </p>
             </div>
+
         </section>
     }
 
 </main>
 
+<!-- ========================================= -->
+<!-- MODALES -->
+<!-- ========================================= -->
+
 <!-- Modal agregar área -->
-<div id="ModalAgregarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloAgregarArea" aria-hidden="true">
+<div id="ModalAgregarArea"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloAgregarArea"
+     aria-hidden="true">
+
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioAgregarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("AgregarAreaEstudiante", "Admin")">
+            <form id="FormularioAgregarArea"
+                  data-id-estudiante="@Model.IdEstudiante"
+                  data-url="@Url.Action("AgregarAreaEstudiante", "Admin")"
+                  data-url-buscar="@Url.Action("BuscarAreasDificultad", "Admin")">
+
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-                    <h5 id="TituloAgregarArea" class="modal-title">Agregar área de dificultad</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <h5 id="TituloAgregarArea" class="modal-title">
+                        Agregar área de dificultad
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
+
                     <div class="mb-3">
-                        <label for="NombreArea" class="form-label">Área</label>
-                        <input id="NombreArea" name="NombreArea" type="text" class="form-control" maxlength="100" required placeholder="Ej. Razonamiento lógico-matemático">
+
+                        <label for="NombreArea" class="form-label">
+                            Área
+                        </label>
+
+                        <div class="position-relative">
+
+                            <input id="NombreArea"
+                                   name="NombreArea"
+                                   type="text"
+                                   class="form-control"
+                                   maxlength="100"
+                                   required
+                                   autocomplete="off"
+                                   placeholder="Busque o escriba un área">
+
+                            <div id="ResultadosArea"
+                                 class="list-group position-absolute w-100 shadow-sm d-none"
+                                 style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+
+                        </div>
+
+                        <div id="AvisoLookupArea" class="form-text"></div>
+
                     </div>
 
                     <div class="mb-1">
-                        <label for="ObservacionArea" class="form-label">Observación</label>
-                        <textarea id="ObservacionArea" name="ObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
+                        <label for="ObservacionArea" class="form-label">
+                            Observación
+                        </label>
+
+                        <textarea id="ObservacionArea"
+                                  name="ObservacionArea"
+                                  class="form-control"
+                                  maxlength="500"
+                                  rows="3"></textarea>
                     </div>
+
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Agregar</button>
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        Agregar
+                    </button>
+
                 </div>
+
             </form>
 
         </div>
     </div>
 </div>
 
-<!-- Modal editar área -->
-<div id="ModalEditarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarArea" aria-hidden="true">
+<!-- Modal agregar / editar información académica -->
+<div id="ModalInfoAcademica"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloModalInfoAcademica"
+     aria-hidden="true">
+
     <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioEditarArea" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarAreaEstudiante", "Admin")">
+            <form id="FormularioInfoAcademica"
+                  data-url-agregar="@Url.Action("AgregarInfoAcademicaEstudiante", "Admin")"
+                  data-url-editar="@Url.Action("EditarInfoAcademicaEstudiante", "Admin")">
+
+                @Html.AntiForgeryToken()
+
+                <input id="IdInfoAcademica" type="hidden">
+
+                <div class="modal-header">
+
+                    <h5 id="TituloModalInfoAcademica" class="modal-title">
+                        Agregar información académica
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div id="AlertaInfoAcademica"
+                         class="alert d-none"
+                         role="alert"></div>
+
+                    <div class="mb-3">
+
+                        <label for="TituloInfoAcademica" class="form-label">
+                            Título
+                        </label>
+
+                        <input id="TituloInfoAcademica"
+                               type="text"
+                               class="form-control"
+                               maxlength="100"
+                               required
+                               placeholder="Ej. Rendimiento en matemática">
+
+                    </div>
+
+                    <div class="mb-1">
+
+                        <label for="DetalleInfoAcademica" class="form-label">
+                            Detalle
+                        </label>
+
+                        <textarea id="DetalleInfoAcademica"
+                                  class="form-control"
+                                  maxlength="1000"
+                                  rows="4"></textarea>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        Agregar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Modal agregar necesidad de apoyo -->
+<div id="ModalAgregarNecesidad"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloAgregarNecesidad"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioAgregarNecesidad"
+                  data-url="@Url.Action("AgregarNecesidadEstudiante", "Admin")"
+                  data-url-buscar="@Url.Action("BuscarNecesidadesApoyo", "Admin")">
+
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+
+                    <h5 id="TituloAgregarNecesidad" class="modal-title">
+                        Agregar necesidad de apoyo
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div id="AlertaAgregarNecesidad"
+                         class="alert d-none"
+                         role="alert"></div>
+
+                    <div class="mb-3">
+
+                        <label for="NombreNecesidad" class="form-label">
+                            Necesidad
+                        </label>
+
+                        <div class="position-relative">
+
+                            <input id="NombreNecesidad"
+                                   type="text"
+                                   class="form-control"
+                                   maxlength="100"
+                                   required
+                                   autocomplete="off"
+                                   placeholder="Busque o escriba una necesidad de apoyo">
+
+                            <div id="ResultadosNecesidad"
+                                 class="list-group position-absolute w-100 shadow-sm d-none"
+                                 style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+
+                        </div>
+
+                        <div id="AvisoLookupNecesidad" class="form-text"></div>
+
+                    </div>
+
+                    <div class="mb-1">
+
+                        <label for="ObservacionNecesidad" class="form-label">
+                            Observación
+                        </label>
+
+                        <textarea id="ObservacionNecesidad"
+                                  class="form-control"
+                                  maxlength="500"
+                                  rows="3"></textarea>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        Agregar
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal editar necesidad de apoyo -->
+<div id="ModalEditarNecesidad"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloEditarNecesidad"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioEditarNecesidad"
+                  data-url="@Url.Action("EditarNecesidadEstudiante", "Admin")"
+                  data-url-buscar="@Url.Action("BuscarNecesidadesApoyo", "Admin")">
+
+                @Html.AntiForgeryToken()
+
+                <input type="hidden" id="EditarIdNecesidad">
+
+                <div class="modal-header">
+
+                    <h5 id="TituloEditarNecesidad" class="modal-title">
+                        Editar necesidad de apoyo
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+                    <div id="AlertaEditarNecesidad"
+                         class="alert d-none"
+                         role="alert"></div>
+
+                    <div class="mb-3">
+
+                        <label for="EditarNombreNecesidad" class="form-label">
+                            Necesidad
+                        </label>
+
+                        <div class="position-relative">
+
+                            <input id="EditarNombreNecesidad"
+                                   type="text"
+                                   class="form-control"
+                                   maxlength="100"
+                                   required
+                                   autocomplete="off">
+
+                            <div id="ResultadosEditarNecesidad"
+                                 class="list-group position-absolute w-100 shadow-sm d-none"
+                                 style="z-index:1056;max-height:220px;overflow-y:auto;"></div>
+
+                        </div>
+
+                        <div id="AvisoLookupEditarNecesidad"
+                             class="form-text"></div>
+
+                    </div>
+
+                    <div class="mb-1">
+
+                        <label for="EditarObservacionNecesidad"
+                               class="form-label">
+                            Observación
+                        </label>
+
+                        <textarea id="EditarObservacionNecesidad"
+                                  class="form-control"
+                                  maxlength="500"
+                                  rows="3"></textarea>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Guardar cambios
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal editar área -->
+<div id="ModalEditarArea"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloEditarArea"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form id="FormularioEditarArea"
+                  data-id-estudiante="@Model.IdEstudiante"
+                  data-url="@Url.Action("EditarAreaEstudiante", "Admin")"
+                  data-url-buscar="@Url.Action("BuscarAreasDificultad", "Admin")">
+
                 @Html.AntiForgeryToken()
 
                 <input id="EditarIdArea" type="hidden">
 
                 <div class="modal-header">
-                    <h5 id="TituloEditarArea" class="modal-title">Editar área de dificultad</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                    <h5 id="TituloEditarArea" class="modal-title">
+                        Editar área de dificultad
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+
                 </div>
 
                 <div class="modal-body">
+
                     <div class="mb-3">
-                        <label for="EditarNombreArea" class="form-label">Área</label>
-                        <input id="EditarNombreArea" type="text" class="form-control" maxlength="100" required>
+
+                        <label for="EditarNombreArea" class="form-label">
+                            Área
+                        </label>
+
+                        <div class="position-relative">
+
+                            <input id="EditarNombreArea"
+                                   type="text"
+                                   class="form-control"
+                                   maxlength="100"
+                                   required
+                                   autocomplete="off">
+
+                            <div id="ResultadosEditarArea"
+                                 class="list-group position-absolute w-100 shadow-sm d-none"
+                                 style="z-index: 1056; max-height: 220px; overflow-y: auto;"></div>
+
+                        </div>
+
+                        <div id="AvisoLookupEditarArea" class="form-text"></div>
+
                     </div>
 
                     <div class="mb-1">
-                        <label for="EditarObservacionArea" class="form-label">Observación</label>
-                        <textarea id="EditarObservacionArea" class="form-control" maxlength="500" rows="3"></textarea>
+
+                        <label for="EditarObservacionArea" class="form-label">
+                            Observación
+                        </label>
+
+                        <textarea id="EditarObservacionArea"
+                                  class="form-control"
+                                  maxlength="500"
+                                  rows="3"></textarea>
+
                     </div>
+
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        Guardar cambios
+                    </button>
+
                 </div>
+
             </form>
 
         </div>
@@ -347,30 +915,55 @@
 </div>
 
 <!-- Modal áreas inactivas -->
-<div id="ModalAreasInactivas" class="modal fade" tabindex="-1" aria-labelledby="TituloAreasInactivas" aria-hidden="true">
+<div id="ModalAreasInactivas"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloAreasInactivas"
+     aria-hidden="true">
+
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
 
             <div class="modal-header">
-                <h5 id="TituloAreasInactivas" class="modal-title">Áreas trabajadas e inactivas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                <h5 id="TituloAreasInactivas" class="modal-title">
+                    Áreas trabajadas e inactivas
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+
             </div>
 
             <div class="modal-body">
+
                 <p class="TextoSuave">
                     Se conserva la observación de cada área.
                     Podés reactivarla si necesita volver a trabajarse.
                 </p>
 
-                <div id="AvisoAreasInactivas" class="alert d-none" role="status" aria-live="polite"></div>
+                <div id="AvisoAreasInactivas"
+                     class="alert d-none"
+                     role="status"
+                     aria-live="polite"></div>
 
-                <div id="ListaAreasInactivas" class="list-group list-group-flush">
+                <div id="ListaAreasInactivas"
+                     class="list-group list-group-flush">
                     Cargando áreas…
                 </div>
+
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+
             </div>
 
         </div>
@@ -378,16 +971,30 @@
 </div>
 
 <!-- Modal confirmar desactivación -->
-<div id="ModalDesactivarArea" class="modal fade" tabindex="-1" aria-labelledby="TituloDesactivarArea" aria-hidden="true">
+<div id="ModalDesactivarArea"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloDesactivarArea"
+     aria-hidden="true">
+
     <div class="modal-dialog">
         <div class="modal-content">
 
             <div class="modal-header">
-                <h5 id="TituloDesactivarArea" class="modal-title">Marcar área como trabajada</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                <h5 id="TituloDesactivarArea" class="modal-title">
+                    Marcar área como trabajada
+                </h5>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+
             </div>
 
             <div class="modal-body">
+
                 <p id="NombreDesactivarArea" class="fw-semibold"></p>
 
                 <p>
@@ -395,93 +1002,131 @@
                     Se conservará como área trabajada y podrás reactivarla.
                 </p>
 
-                <div id="AvisoDesactivarArea" class="alert d-none" role="alert"></div>
+                <div id="AvisoDesactivarArea"
+                     class="alert d-none"
+                     role="alert"></div>
+
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button id="ConfirmarDesactivarArea" type="button" class="btn btn-danger">Desactivar</button>
+
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button id="ConfirmarDesactivarArea"
+                        type="button"
+                        class="btn btn-danger">
+                    Desactivar
+                </button>
+
             </div>
 
         </div>
     </div>
 </div>
 
-<!-- Modal editar ficha -->
-<div id="ModalEditarFicha" class="modal fade" tabindex="-1" aria-labelledby="TituloEditarFicha" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<!-- Modal confirmar eliminación de necesidad -->
+<div id="ModalEliminarNecesidad"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloEliminarNecesidad"
+     aria-hidden="true">
+
+    <div class="modal-dialog">
         <div class="modal-content">
 
-            <form id="FormularioEditarFicha" data-id-estudiante="@Model.IdEstudiante" data-url="@Url.Action("EditarFichaEstudiante", "Admin")">
-                @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 id="TituloEliminarNecesidad" class="modal-title">
+                    Eliminar necesidad de apoyo
+                </h5>
 
-                <div class="modal-header">
-                    <h5 id="TituloEditarFicha" class="modal-title">Editar ficha del estudiante</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
 
-                <div class="modal-body">
-                    <div class="row g-3">
+            <div class="modal-body">
+                <p id="NombreEliminarNecesidad" class="fw-semibold"></p>
 
-                        <div class="col-md-4">
-                            <label for="EditarNombreFicha" class="form-label">Nombre</label>
-                            <input id="EditarNombreFicha" type="text" class="form-control" maxlength="100" required value="@Model.Nombre">
-                        </div>
+                <p>
+                    ¿Está seguro de que desea eliminar esta necesidad de apoyo
+                    del estudiante?
+                </p>
 
-                        <div class="col-md-4">
-                            <label for="EditarPrimerApellidoFicha" class="form-label">Primer apellido</label>
-                            <input id="EditarPrimerApellidoFicha" type="text" class="form-control" maxlength="100" required value="@Model.PrimerApellido">
-                        </div>
+                <div id="AvisoEliminarNecesidad"
+                     class="alert d-none"
+                     role="alert"></div>
+            </div>
 
-                        <div class="col-md-4">
-                            <label for="EditarSegundoApellidoFicha" class="form-label">Segundo apellido</label>
-                            <input id="EditarSegundoApellidoFicha" type="text" class="form-control" maxlength="100" value="@Model.SegundoApellido">
-                        </div>
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
 
-                        <div class="col-md-4">
-                            <label for="EditarFechaNacimientoFicha" class="form-label">Fecha de nacimiento</label>
-                            <input id="EditarFechaNacimientoFicha" type="text" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa" value="@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "")">
-                        </div>
+                <button id="ConfirmarEliminarNecesidad"
+                        type="button"
+                        class="btn btn-danger">
+                    Eliminar
+                </button>
+            </div>
 
-                        <div class="col-md-4">
-                            <label for="EditarNivelFicha" class="form-label">Nivel educativo</label>
+        </div>
+    </div>
+</div>
 
-                            <select id="EditarNivelFicha" class="form-select">
-                                <option value="">Sin especificar</option>
+<!-- Modal confirmar eliminación de información académica -->
+<div id="ModalEliminarInfoAcademica"
+     class="modal fade"
+     tabindex="-1"
+     aria-labelledby="TituloEliminarInfoAcademica"
+     aria-hidden="true">
 
-                                @foreach (var nivel in niveles)
-                                {
-                                    <option value="@nivel.IdNivelEducativo" selected="@(nivel.IdNivelEducativo == Model.IdNivelEducativo)">
-                                        @nivel.Nombre
-                                    </option>
-                                }
-                            </select>
-                        </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
 
-                        <div class="col-md-4">
-                            <label for="EditarInstitucionFicha" class="form-label">Institución</label>
-                            <input id="EditarInstitucionFicha" type="text" class="form-control" maxlength="100" value="@Model.Institucion">
-                        </div>
+            <div class="modal-header">
+                <h5 id="TituloEliminarInfoAcademica" class="modal-title">
+                    Eliminar información académica
+                </h5>
 
-                        <div class="col-12">
-                            <label for="EditarResumenFicha" class="form-label">Observaciones</label>
-                            <textarea id="EditarResumenFicha" class="form-control" maxlength="1000" rows="3">@Model.Observaciones</textarea>
-                        </div>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
 
-                        <div class="col-12">
-                            <label for="EditarNecesidadesFicha" class="form-label">Necesidades de apoyo</label>
-                            <textarea id="EditarNecesidadesFicha" class="form-control" maxlength="1000" rows="3">@Model.NecesidadesApoyo</textarea>
-                        </div>
+            <div class="modal-body">
+                <p id="NombreEliminarInfoAcademica" class="fw-semibold"></p>
 
-                    </div>
-                </div>
+                <p>
+                    ¿Está seguro de que desea eliminar esta información
+                    académica del estudiante?
+                </p>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Actualizar</button>
-                </div>
+                <div id="AvisoEliminarInfoAcademica"
+                     class="alert d-none"
+                     role="alert"></div>
+            </div>
 
-            </form>
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button id="ConfirmarEliminarInfoAcademica"
+                        type="button"
+                        class="btn btn-danger">
+                    Eliminar
+                </button>
+            </div>
 
         </div>
     </div>
@@ -490,96 +1135,225 @@
 @if (puedeVerDocumentos)
 {
     <!-- Modal subir documento -->
-    <div id="ModalSubirDocumento" class="modal fade" tabindex="-1" aria-labelledby="TituloSubirDocumento" aria-hidden="true">
+    <div id="ModalSubirDocumento"
+         class="modal fade"
+         tabindex="-1"
+         aria-labelledby="TituloSubirDocumento"
+         aria-hidden="true">
+
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
+
                 <form id="FormularioSubirDocumento" novalidate>
+
                     <div class="modal-header">
-                        <h5 id="TituloSubirDocumento" class="modal-title">Subir documento</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                        <h5 id="TituloSubirDocumento" class="modal-title">
+                            Subir documento
+                        </h5>
+
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+
                     </div>
 
                     <div class="modal-body">
-                        <div id="AvisoSubirDocumento" class="alert alert-danger d-none" role="alert"></div>
 
-                        <label class="ZonaArchivo mb-3" id="ZonaDocumento" for="ArchivoDocumento">
-                            <input type="file" id="ArchivoDocumento" class="visually-hidden"
+                        <div id="AvisoSubirDocumento"
+                             class="alert alert-danger d-none"
+                             role="alert"></div>
+
+                        <label class="ZonaArchivo mb-3"
+                               id="ZonaDocumento"
+                               for="ArchivoDocumento">
+
+                            <input type="file"
+                                   id="ArchivoDocumento"
+                                   class="visually-hidden"
                                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+
                             <span class="ZonaArchivo-Vacia">
+
                                 <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
-                                <span><strong>Elija un archivo</strong> o arrástrelo aquí</span>
-                                <small class="TextoSuave">PDF, imagen, Word, Excel o PowerPoint · máximo 15 MB</small>
+
+                                <span>
+                                    <strong>Elija un archivo</strong> o arrástrelo aquí
+                                </span>
+
+                                <small class="TextoSuave">
+                                    PDF, imagen, Word, Excel o PowerPoint · máximo 15 MB
+                                </small>
+
                             </span>
+
                             <span class="ZonaArchivo-Elegido d-none">
+
                                 <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+
                                 <span class="ZonaArchivo-Nombre"></span>
+
                                 <small class="TextoSuave ZonaArchivo-Tamano"></small>
+
                             </span>
+
                         </label>
 
                         <div class="mb-3">
-                            <label for="TituloDocumento" class="form-label CampoObligatorio">Título</label>
-                            <input type="text" id="TituloDocumento" class="form-control" maxlength="150"
+
+                            <label for="TituloDocumento"
+                                   class="form-label CampoObligatorio">
+                                Título
+                            </label>
+
+                            <input type="text"
+                                   id="TituloDocumento"
+                                   class="form-control"
+                                   maxlength="150"
                                    placeholder="Ej. Evaluación psicopedagógica inicial">
-                            <div class="invalid-feedback">Indique el título del documento.</div>
+
+                            <div class="invalid-feedback">
+                                Indique el título del documento.
+                            </div>
+
                         </div>
 
                         <div class="mb-3">
-                            <label for="DescripcionDocumento" class="form-label">Descripción <span class="TextoSuave">(opcional)</span></label>
-                            <textarea id="DescripcionDocumento" class="form-control" rows="2" maxlength="500"></textarea>
+
+                            <label for="DescripcionDocumento" class="form-label">
+                                Descripción
+                                <span class="TextoSuave">(opcional)</span>
+                            </label>
+
+                            <textarea id="DescripcionDocumento"
+                                      class="form-control"
+                                      rows="2"
+                                      maxlength="500"></textarea>
+
                         </div>
 
                         <div class="form-check form-switch InterruptorPortal">
-                            <input class="form-check-input" type="checkbox" role="switch" id="VisibleDocumento">
+
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="VisibleDocumento">
+
                             <label class="form-check-label" for="VisibleDocumento">
+
                                 <strong>Visible para la familia</strong>
-                                <span class="d-block TextoSuave small">Aparece en la pestaña Documentos del portal. Lo puede cambiar después.</span>
+
+                                <span class="d-block TextoSuave small">
+                                    Aparece en la pestaña Documentos del portal.
+                                    Lo puede cambiar después.
+                                </span>
+
                             </label>
+
                         </div>
+
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="BotonSubirDocumento">
-                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Subir
+
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">
+                            Cancelar
                         </button>
+
+                        <button type="submit"
+                                class="btn btn-primary"
+                                id="BotonSubirDocumento">
+
+                            <span class="spinner-border spinner-border-sm me-1 d-none"
+                                  aria-hidden="true"></span>
+                            Subir
+
+                        </button>
+
                     </div>
+
                 </form>
+
             </div>
         </div>
     </div>
 
     <!-- Modal eliminar documento -->
-    <div id="ModalEliminarDocumento" class="modal fade" tabindex="-1" aria-labelledby="TituloEliminarDocumento" aria-hidden="true">
+    <div id="ModalEliminarDocumento"
+         class="modal fade"
+         tabindex="-1"
+         aria-labelledby="TituloEliminarDocumento"
+         aria-hidden="true">
+
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
+
                 <div class="modal-header">
-                    <h5 id="TituloEliminarDocumento" class="modal-title">Eliminar documento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+                    <h5 id="TituloEliminarDocumento" class="modal-title">
+                        Eliminar documento
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+
                 </div>
+
                 <div class="modal-body">
+
                     <p class="fw-semibold mb-1" id="NombreEliminarDocumento"></p>
-                    <p class="mb-0">Dejará de aparecer en la ficha y en el portal de la familia.</p>
-                    <div id="AvisoEliminarDocumento" class="alert alert-danger d-none mt-3" role="alert"></div>
+
+                    <p class="mb-0">
+                        Dejará de aparecer en la ficha y en el portal de la familia.
+                    </p>
+
+                    <div id="AvisoEliminarDocumento"
+                         class="alert alert-danger d-none mt-3"
+                         role="alert"></div>
+
                 </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" id="ConfirmarEliminarDocumento">
-                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Eliminar
+
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
                     </button>
+
+                    <button type="button"
+                            class="btn btn-danger"
+                            id="ConfirmarEliminarDocumento">
+
+                        <span class="spinner-border spinner-border-sm me-1 d-none"
+                              aria-hidden="true"></span>
+                        Eliminar
+
+                    </button>
+
                 </div>
+
             </div>
         </div>
     </div>
 }
 
 @section Scripts {
+
+    <script src="~/js/lookupCatalogo.js" asp-append-version="true"></script>
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>
+    <script src="~/js/necesidadesApoyo.js" asp-append-version="true"></script>
+    <script src="~/js/infoAcademica.js" asp-append-version="true"></script>
     <script src="~/js/areasEstado.js" asp-append-version="true"></script>
+
     @if (puedeVerDocumentos)
     {
         <script src="~/js/documentosEstudiante.js" asp-append-version="true"></script>
     }
+
 }
-
-

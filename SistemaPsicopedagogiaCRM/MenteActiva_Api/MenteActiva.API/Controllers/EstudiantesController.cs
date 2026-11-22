@@ -233,4 +233,182 @@ public class EstudiantesController : ControllerBase
 
     #endregion
 
+    #region Lookups y necesidades de apoyo
+
+    // Rutas literales: no chocan con {id:int}
+    [HttpGet("areas/buscar")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> BuscarAreas(
+        [FromQuery] string? texto, CancellationToken cancelacion)
+        => Ok(await _repositorioEstudiante.BuscarAreasDificultadAsync(texto, cancelacion));
+
+    [HttpGet("necesidades/buscar")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> BuscarNecesidades(
+        [FromQuery] string? texto, CancellationToken cancelacion)
+        => Ok(await _repositorioEstudiante.BuscarNecesidadesApoyoAsync(texto, cancelacion));
+
+    [HttpGet("{id:int}/necesidades")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ListarNecesidades(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+
+        return Ok(await _repositorioEstudiante.ListarNecesidadesAsync(id, cancelacion));
+    }
+
+    [HttpPost("{id:int}/necesidades")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> AgregarNecesidad(
+        int id,
+        [FromBody] AgregarNecesidadEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+
+        await _repositorioEstudiante.AgregarNecesidadAsync(
+            id, request.NombreNecesidad, request.Observacion, cancelacion);
+
+        return Ok(new { mensaje = "Necesidad de apoyo registrada correctamente." });
+    }
+
+
+    [HttpPut("{id:int}/necesidades/{idNecesidad:int}")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarNecesidad(
+        int id,
+        int idNecesidad,
+        [FromBody] EditarNecesidadEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0 || idNecesidad <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "Los datos indicados no son válidos."
+            });
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await _repositorioEstudiante.EditarNecesidadAsync(
+            id,
+            idNecesidad,
+            request.NombreNecesidad,
+            request.Observacion,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = "Necesidad de apoyo actualizada correctamente."
+        });
+    }
+
+
+    [HttpDelete("{id:int}/necesidades/{idNecesidad:int}")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> QuitarNecesidad(
+        int id, int idNecesidad, CancellationToken cancelacion)
+    {
+        if (id <= 0 || idNecesidad <= 0)
+            return BadRequest(new { mensaje = "Los datos indicados no son válidos." });
+
+        await _repositorioEstudiante.QuitarNecesidadAsync(id, idNecesidad, cancelacion);
+
+        return Ok(new { mensaje = "Necesidad de apoyo quitada correctamente." });
+    }
+
+    #endregion
+
+    #region Información académica adicional
+
+    [HttpGet("{id:int}/info-academica")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ListarInfoAcademica(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+
+        return Ok(await _repositorioEstudiante.ListarInfoAcademicaAsync(id, cancelacion));
+    }
+
+    [HttpPost("{id:int}/info-academica")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> AgregarInfoAcademica(
+        int id, [FromBody] GuardarInfoAcademicaRequest request, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+            return BadRequest(new { mensaje = "El estudiante indicado no es válido." });
+
+        await _repositorioEstudiante.AgregarInfoAcademicaAsync(id, request, cancelacion);
+
+        return Ok(new { mensaje = "Información académica registrada correctamente." });
+    }
+
+    [HttpPut("{id:int}/info-academica/{idInfo:int}")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> EditarInfoAcademica(
+        int id, int idInfo, [FromBody] GuardarInfoAcademicaRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0 || idInfo <= 0)
+            return BadRequest(new { mensaje = "Los datos indicados no son válidos." });
+
+        await _repositorioEstudiante.EditarInfoAcademicaAsync(id, idInfo, request, cancelacion);
+
+        return Ok(new { mensaje = "Información académica actualizada correctamente." });
+    }
+
+    [HttpDelete("{id:int}/info-academica/{idInfo:int}")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> QuitarInfoAcademica(
+        int id, int idInfo, CancellationToken cancelacion)
+    {
+        if (id <= 0 || idInfo <= 0)
+            return BadRequest(new { mensaje = "Los datos indicados no son válidos." });
+
+        await _repositorioEstudiante.QuitarInfoAcademicaAsync(id, idInfo, cancelacion);
+
+        return Ok(new { mensaje = "Información académica quitada correctamente." });
+    }
+
+
+    [HttpPut("{id:int}/resumen")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> ActualizarResumen(
+        int id,
+        [FromBody] ActualizarResumenEstudianteRequest request,
+        CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new
+            {
+                mensaje = "El estudiante indicado no es válido."
+            });
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await _repositorioEstudiante.ActualizarResumenAsync(
+            id,
+            request.Resumen,
+            cancelacion);
+
+        return Ok(new
+        {
+            mensaje = string.IsNullOrWhiteSpace(request.Resumen)
+                ? "Resumen eliminado correctamente."
+                : "Resumen actualizado correctamente."
+        });
+    }
+    #endregion
 }

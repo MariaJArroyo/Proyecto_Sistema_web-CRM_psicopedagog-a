@@ -49,6 +49,7 @@ public class RepositorioEstudiante : RepositorioBase
             cancelacion);
     }
 
+
     public async Task EditarFichaAsync(
         int idUsuarioAccion,
         int idEstudiante,
@@ -68,7 +69,10 @@ public class RepositorioEstudiante : RepositorioBase
         parametros.Add("p_Observaciones", datos.Observaciones?.Trim());
         parametros.Add("p_NecesidadesApoyo", datos.NecesidadesApoyo?.Trim());
 
-        // El SP en la base se llama SP_Estudiante_EditarFicha (sin _CRM)
+        // Encargado y parentesco.
+        parametros.Add("p_IdEncargado", datos.IdEncargado);
+        parametros.Add("p_IdParentesco", datos.IdParentesco);
+
         await EjecutarAsync(
             "SP_Estudiante_EditarFicha",
             parametros,
@@ -161,4 +165,136 @@ public class RepositorioEstudiante : RepositorioBase
 
         return EjecutarAsync("SP_Estudiante_Eliminar", parametros, cancelacion);
     }
+
+    #region Lookups: áreas de dificultad y necesidades de apoyo
+
+    public Task<IReadOnlyList<OpcionCatalogoResponse>> BuscarAreasDificultadAsync(
+        string? texto, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_Texto", texto?.Trim());
+        return ConsultarAsync<OpcionCatalogoResponse>("SP_BuscarAreasDificultad", p, cancelacion);
+    }
+
+    public Task<IReadOnlyList<OpcionCatalogoResponse>> BuscarNecesidadesApoyoAsync(
+        string? texto, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_Texto", texto?.Trim());
+        return ConsultarAsync<OpcionCatalogoResponse>("SP_BuscarNecesidadesApoyo", p, cancelacion);
+    }
+
+    public Task<IReadOnlyList<NecesidadEstudianteResponse>> ListarNecesidadesAsync(
+        int idEstudiante, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        return ConsultarAsync<NecesidadEstudianteResponse>(
+            "SP_Estudiante_ListarNecesidades", p, cancelacion);
+    }
+
+    public async Task AgregarNecesidadAsync(
+        int idEstudiante, string nombreNecesidad, string? observacion,
+        CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_NombreNecesidad", nombreNecesidad.Trim());
+        p.Add("p_Observacion", observacion?.Trim());
+        await EjecutarAsync("SP_Estudiante_AgregarNecesidad", p, cancelacion);
+    }
+
+
+    public async Task EditarNecesidadAsync(
+        int idEstudiante,
+        int idNecesidadApoyo,
+        string nombreNecesidad,
+        string? observacion,
+        CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_IdNecesidadApoyo", idNecesidadApoyo);
+        p.Add("p_NombreNecesidad", nombreNecesidad.Trim());
+        p.Add("p_Observacion", observacion?.Trim());
+
+        await EjecutarAsync(
+            "SP_Estudiante_EditarNecesidad",
+            p,
+            cancelacion);
+    }
+
+
+    public async Task QuitarNecesidadAsync(
+        int idEstudiante, int idNecesidadApoyo, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_IdNecesidadApoyo", idNecesidadApoyo);
+        await EjecutarAsync("SP_Estudiante_QuitarNecesidad", p, cancelacion);
+    }
+
+    #endregion
+
+    #region Información académica adicional
+
+    public Task<IReadOnlyList<InfoAcademicaResponse>> ListarInfoAcademicaAsync(
+        int idEstudiante, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        return ConsultarAsync<InfoAcademicaResponse>(
+            "SP_Estudiante_ListarInfoAcademica", p, cancelacion);
+    }
+
+    public async Task AgregarInfoAcademicaAsync(
+        int idEstudiante, GuardarInfoAcademicaRequest datos, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_Titulo", datos.Titulo.Trim());
+        p.Add("p_Detalle", (datos.Detalle ?? string.Empty).Trim());
+        await EjecutarAsync("SP_Estudiante_AgregarInfoAcademica", p, cancelacion);
+    }
+
+    public async Task EditarInfoAcademicaAsync(
+        int idEstudiante, int idInfo, GuardarInfoAcademicaRequest datos,
+        CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_IdInfoAcademica", idInfo);
+        p.Add("p_Titulo", datos.Titulo.Trim());
+        p.Add("p_Detalle", (datos.Detalle ?? string.Empty).Trim());
+        await EjecutarAsync("SP_Estudiante_EditarInfoAcademica", p, cancelacion);
+    }
+
+    public async Task QuitarInfoAcademicaAsync(
+        int idEstudiante, int idInfo, CancellationToken cancelacion)
+    {
+        var p = new DynamicParameters();
+        p.Add("p_IdEstudiante", idEstudiante);
+        p.Add("p_IdInfoAcademica", idInfo);
+        await EjecutarAsync("SP_Estudiante_QuitarInfoAcademica", p, cancelacion);
+    }
+
+
+    public async Task ActualizarResumenAsync(
+        int idEstudiante,
+        string? resumen,
+        CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdEstudiante", idEstudiante);
+        parametros.Add("p_Resumen", resumen?.Trim());
+
+        await EjecutarAsync(
+            "SP_Estudiante_ActualizarResumen",
+            parametros,
+            cancelacion);
+    }
+
+    #endregion
 }

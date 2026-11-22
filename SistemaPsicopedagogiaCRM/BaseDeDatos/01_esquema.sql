@@ -446,7 +446,31 @@ CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_AREA (
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_0900_ai_ci;
+  
+  CREATE TABLE IF NOT EXISTS TB_NECESIDAD_APOYO (
+  IdNecesidadApoyo INT NOT NULL AUTO_INCREMENT,
+  Nombre VARCHAR(100) NOT NULL,
+  Descripcion VARCHAR(255) NULL,
+  PRIMARY KEY (IdNecesidadApoyo),
+  UNIQUE KEY UX_NecesidadApoyo_Nombre (Nombre),
+  CONSTRAINT CK_NecesidadApoyo_NombreNoVacio CHECK (TRIM(Nombre) <> '')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE_NECESIDAD (
+  IdEstudianteNecesidad INT NOT NULL AUTO_INCREMENT,
+  IdEstudiante INT NOT NULL,
+  IdNecesidadApoyo INT NOT NULL,
+  Observacion VARCHAR(500) NULL,
+  Activo BOOLEAN NOT NULL DEFAULT 1,
+  FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (IdEstudianteNecesidad),
+  UNIQUE KEY UX_EstudianteNecesidad_Relacion (IdEstudiante, IdNecesidadApoyo),
+  KEY IX_EstudianteNecesidad_Necesidad (IdNecesidadApoyo),
+  CONSTRAINT FK_EstudianteNecesidad_Estudiante FOREIGN KEY (IdEstudiante)
+    REFERENCES TB_ESTUDIANTE (IdEstudiante) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT FK_EstudianteNecesidad_Necesidad FOREIGN KEY (IdNecesidadApoyo)
+    REFERENCES TB_NECESIDAD_APOYO (IdNecesidadApoyo) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ============================================================
 -- 3. Agenda y sesiones

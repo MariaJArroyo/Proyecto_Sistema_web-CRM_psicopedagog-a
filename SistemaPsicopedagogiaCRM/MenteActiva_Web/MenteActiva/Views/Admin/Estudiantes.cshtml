@@ -3,15 +3,12 @@
 @{
     ViewData["Title"] = "Estudiantes";
 
-    var estudiantes = Model
-        ?? new List<MenteActiva.Models.EstudianteViewModel>();
+    var estudiantes = Model ?? new List<MenteActiva.Models.EstudianteViewModel>();
 
-    var niveles = ViewBag.NivelesEducativos
-        as List<MenteActiva.Models.NivelEducativoViewModel>
+    var niveles = ViewBag.NivelesEducativos as List<MenteActiva.Models.NivelEducativoViewModel>
         ?? new List<MenteActiva.Models.NivelEducativoViewModel>();
 
-    var parentescos = ViewBag.Parentescos
-        as List<MenteActiva.Models.ParentescoViewModel>
+    var parentescos = ViewBag.Parentescos as List<MenteActiva.Models.ParentescoViewModel>
         ?? new List<MenteActiva.Models.ParentescoViewModel>();
 }
 
@@ -21,30 +18,19 @@
 
     <div id="ContenedorMensaje"></div>
 
-    <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-
         <div>
             <h2 class="mb-1">Estudiantes</h2>
-
-            <p class="TextoSuave mb-0">
-                Estudiantes registrados y su información general.
-            </p>
+            <p class="TextoSuave mb-0">Estudiantes registrados y su información general.</p>
         </div>
 
-        <button type="button"
-                class="btn btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#ModalNuevoEstudiante">
-
+        <button type="button" class="btn btn-primary"
+                data-bs-toggle="modal" data-bs-target="#ModalNuevoEstudiante">
             <i class="bi bi-plus-lg me-1"></i>
             Nuevo estudiante
-
         </button>
-
     </div>
 
-    <!-- Filtros, tabla y paginación -->
     <div class="Tarjeta p-3 p-md-4">
 
         <div class="row g-3 align-items-end mb-3"
@@ -52,39 +38,19 @@
              data-tabla-paginar="10">
 
             <div class="col-md-6">
-
-                <label for="BuscarEstudiante" class="form-label">
-                    Buscar estudiante
-                </label>
-
+                <label for="BuscarEstudiante" class="form-label">Buscar estudiante</label>
                 <div class="input-group">
-
-                    <span class="input-group-text">
-                        <i class="bi bi-search"></i>
-                    </span>
-
-                    <input type="text"
-                           id="BuscarEstudiante"
-                           class="form-control"
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="BuscarEstudiante" class="form-control"
                            data-buscar-texto
                            placeholder="Buscar por nombre, institución o encargado">
-
                 </div>
-
             </div>
 
             <div class="col-md-3">
-
-                <label for="FiltroNivel" class="form-label">
-                    Nivel educativo
-                </label>
-
-                <select id="FiltroNivel"
-                        class="form-select"
-                        data-buscar-estado>
-
+                <label for="FiltroNivel" class="form-label">Nivel educativo</label>
+                <select id="FiltroNivel" class="form-select" data-buscar-estado>
                     <option value="">Todos los niveles</option>
-
                     @foreach (var nivel in estudiantes
                         .Select(e => e.NivelEducativo)
                         .Where(n => !string.IsNullOrWhiteSpace(n))
@@ -93,34 +59,20 @@
                     {
                         <option value="@nivel">@nivel</option>
                     }
-
                 </select>
-
             </div>
 
             <div class="col-md-3">
-
-                <label for="FiltroEstadoEstudiante" class="form-label">
-                    Estado
-                </label>
-
-                <select id="FiltroEstadoEstudiante"
-                        class="form-select"
-                        data-buscar-extra>
-
+                <label for="FiltroEstadoEstudiante" class="form-label">Estado</label>
+                <select id="FiltroEstadoEstudiante" class="form-select" data-buscar-extra>
                     <option value="activo" selected>Activos</option>
                     <option value="inactivo">Inactivos</option>
                     <option value="">Todos</option>
-
                 </select>
-
             </div>
-
         </div>
 
-        <!-- Tabla -->
         <div class="table-responsive">
-
             <table class="table table-hover align-middle mb-0"
                    id="TablaEstudiantes"
                    data-url-activar="@Url.Action("CambiarEstadoEstudianteCliente", "Admin")">
@@ -137,7 +89,6 @@
                 </thead>
 
                 <tbody>
-
                     @foreach (var estudiante in estudiantes)
                     {
                         var edad = 0;
@@ -146,7 +97,6 @@
                         {
                             var nacimiento = estudiante.FechaNacimiento.Value.Date;
                             var hoy = DateTime.Today;
-
                             edad = hoy.Year - nacimiento.Year;
 
                             if (nacimiento.AddYears(edad) > hoy)
@@ -170,25 +120,14 @@
                             </td>
 
                             <td>
-                                @(estudiante.FechaNacimiento.HasValue
-                                    ? $"{edad} años"
-                                    : "-")
+                                @(estudiante.FechaNacimiento.HasValue ? $"{edad} años" : "-")
                             </td>
 
-                            <td>
-                                @(estudiante.NivelEducativo ?? "-")
-                            </td>
-
-                            <td>
-                                @(estudiante.Institucion ?? "-")
-                            </td>
-
-                            <td>
-                                @(estudiante.Encargado ?? "-")
-                            </td>
+                            <td>@(estudiante.NivelEducativo ?? "-")</td>
+                            <td>@(estudiante.Institucion ?? "-")</td>
+                            <td>@(estudiante.Encargado ?? "-")</td>
 
                             <td class="TablaAcciones text-center">
-
                                 @if (estudiante.Activo)
                                 {
                                     <a href="@Url.Action("EstudianteFicha", "Admin", new { id = estudiante.IdEstudiante })"
@@ -215,319 +154,160 @@
                                             data-bs-toggle="tooltip"
                                             title="Inactivar"
                                             aria-label="Inactivar a @estudiante.Estudiante">
-                                        <i class="bi bi-slash-circle"></i>
+                                        <i class="bi bi-person-x"></i>
                                     </button>
                                 }
                                 else if (estudiante.IdEncargado.HasValue)
                                 {
                                     <button type="button"
-                                            class="btn btn-sm btn-outline-primary border-0"
+                                            class="btn btn-sm btn-outline-success border-0"
                                             data-activar-estudiante="@estudiante.IdEstudiante"
                                             data-encargado="@estudiante.IdEncargado"
                                             data-bs-toggle="tooltip"
                                             title="Reactivar"
                                             aria-label="Reactivar a @estudiante.Estudiante">
-                                        <i class="bi bi-check-circle"></i>
+                                        <i class="bi bi-person-check"></i>
                                     </button>
                                 }
-
                             </td>
-
                         </tr>
                     }
-
                 </tbody>
-
             </table>
-
         </div>
 
-        <!-- Main.js inserta aquí la paginación automáticamente -->
-        <!-- Sin coincidencias al buscar o filtrar -->
-        <div id="EstadoVacio"
-             data-tabla-vacio="TablaEstudiantes"
+        <div id="EstadoVacio" data-tabla-vacio="TablaEstudiantes"
              class="text-center py-5 d-none">
-
             <i class="bi bi-people fs-1 text-muted"></i>
-
-            <h5 class="mt-3">
-                No se encontraron estudiantes
-            </h5>
-
-            <p class="text-muted mb-0">
-                Intenta cambiar los filtros o el texto de búsqueda.
-            </p>
-
+            <h5 class="mt-3">No se encontraron estudiantes</h5>
+            <p class="text-muted mb-0">Intenta cambiar los filtros o el texto de búsqueda.</p>
         </div>
 
-        <!-- Sin estudiantes registrados -->
         @if (!estudiantes.Any())
         {
             <div class="text-center py-5">
-
                 <i class="bi bi-people fs-1 text-muted"></i>
-
-                <h5 class="mt-3">
-                    No hay estudiantes registrados
-                </h5>
-
-                <p class="text-muted mb-0">
-                    Usá el botón Nuevo estudiante para registrar uno.
-                </p>
-
+                <h5 class="mt-3">No hay estudiantes registrados</h5>
+                <p class="text-muted mb-0">Usá el botón Nuevo estudiante para registrar uno.</p>
             </div>
         }
-
     </div>
-
 </main>
 
 <!-- Modal nuevo estudiante -->
-<div class="modal fade"
-     id="ModalNuevoEstudiante"
-     tabindex="-1"
-     aria-labelledby="ModalNuevoEstudianteLabel"
-     aria-hidden="true">
-
+<div class="modal fade" id="ModalNuevoEstudiante" tabindex="-1"
+     aria-labelledby="ModalNuevoEstudianteLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-
         <div class="modal-content">
 
-            <form id="FormularioNuevoEstudiante"
-                  novalidate
+            <form id="FormularioNuevoEstudiante" novalidate
                   data-url="@Url.Action("CrearEstudiante", "Admin")"
                   data-url-encargados="@Url.Action("BuscarEncargadosEstudiante", "Admin")">
 
                 @Html.AntiForgeryToken()
 
                 <div class="modal-header">
-
                     <div>
-
-                        <h5 class="modal-title"
-                            id="ModalNuevoEstudianteLabel">
-                            Nuevo estudiante
-                        </h5>
-
-                        <small class="text-muted">
-                            Registre al estudiante y asócielo a una persona encargada.
-                        </small>
-
+                        <h5 class="modal-title" id="ModalNuevoEstudianteLabel">Nuevo estudiante</h5>
+                        <small class="text-muted">Registre al estudiante y asócielo a una persona encargada.</small>
                     </div>
-
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal"
-                            aria-label="Cerrar">
-                    </button>
-
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body">
-
                     <div class="alert d-none" id="NuevoEstudianteError" role="alert"></div>
 
                     <div class="row g-3">
-
                         <div class="col-md-4">
-
-                            <label for="NombreEstudiante"
-                                   class="form-label">
-                                Nombre
-                            </label>
-
-                            <input type="text"
-                                   id="NombreEstudiante"
-                                   class="form-control"
-                                   maxlength="100"
-                                   required>
-
+                            <label for="NombreEstudiante" class="form-label">Nombre</label>
+                            <input type="text" id="NombreEstudiante" class="form-control" maxlength="100" required>
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="PrimerApellidoEstudiante"
-                                   class="form-label">
-                                Primer apellido
-                            </label>
-
-                            <input type="text"
-                                   id="PrimerApellidoEstudiante"
-                                   class="form-control"
-                                   maxlength="100"
-                                   required>
-
+                            <label for="PrimerApellidoEstudiante" class="form-label">Primer apellido</label>
+                            <input type="text" id="PrimerApellidoEstudiante" class="form-control" maxlength="100" required>
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="SegundoApellidoEstudiante"
-                                   class="form-label">
-                                Segundo apellido
-                            </label>
-
-                            <input type="text"
-                                   id="SegundoApellidoEstudiante"
-                                   class="form-control"
-                                   maxlength="100">
-
+                            <label for="SegundoApellidoEstudiante" class="form-label">Segundo apellido</label>
+                            <input type="text" id="SegundoApellidoEstudiante" class="form-control" maxlength="100">
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="FechaNacimientoEstudiante"
-                                   class="form-label">
-                                Fecha de nacimiento
-                            </label>
-
-                            <input type="date"
-                                   id="FechaNacimientoEstudiante"
-                                   class="form-control"
-                                   min="1900-01-01">
+                            <label for="FechaNacimientoEstudiante" class="form-label">Fecha de nacimiento</label>
+                            <input type="date" id="FechaNacimientoEstudiante" class="form-control" min="1900-01-01">
                             <div class="invalid-feedback">Ingrese una fecha válida que no sea futura.</div>
-
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="NivelEducativo"
-                                   class="form-label">
-                                Nivel educativo
-                            </label>
-
-                            <select id="NivelEducativo"
-                                    class="form-select">
-
+                            <label for="NivelEducativo" class="form-label">Nivel educativo</label>
+                            <select id="NivelEducativo" class="form-select">
                                 <option value="">Sin especificar</option>
-
                                 @foreach (var nivel in niveles)
                                 {
-                                    <option value="@nivel.IdNivelEducativo">
-                                        @nivel.Nombre
-                                    </option>
+                                    <option value="@nivel.IdNivelEducativo">@nivel.Nombre</option>
                                 }
-
                             </select>
-
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="Institucion"
-                                   class="form-label">
-                                Institución
-                            </label>
-
-                            <input type="text"
-                                   id="Institucion"
-                                   class="form-control"
-                                   maxlength="100">
-
+                            <label for="Institucion" class="form-label">Institución</label>
+                            <input type="text" id="Institucion" class="form-control" maxlength="100">
                         </div>
 
-                        <!-- Búsqueda de persona encargada -->
                         <div class="col-md-8">
-
-                            <label for="BuscarEncargadoLookup"
-                                   class="form-label">
-                                Persona encargada
-                            </label>
-
+                            <label for="BuscarEncargadoLookup" class="form-label">Persona encargada</label>
                             <div class="position-relative">
-
-                                <input type="text"
-                                       id="BuscarEncargadoLookup"
-                                       class="form-control"
+                                <input type="text" id="BuscarEncargadoLookup" class="form-control"
                                        placeholder="Escriba nombre, cédula o correo para buscar..."
                                        autocomplete="off">
-
-                                <input type="hidden"
-                                       id="IdEncargadoSeleccionado">
-
+                                <input type="hidden" id="IdEncargadoSeleccionado">
                                 <div id="ResultadosEncargado"
                                      class="list-group position-absolute w-100 shadow-sm d-none"
                                      style="z-index: 1056; max-height: 220px; overflow-y: auto;">
                                 </div>
-
                             </div>
-
-                            <div id="EncargadoSeleccionado"
-                                 class="form-text">
-                            </div>
-
+                            <div id="EncargadoSeleccionado" class="form-text"></div>
                         </div>
 
                         <div class="col-md-4">
-
-                            <label for="ParentescoEstudiante"
-                                   class="form-label">
-                                Parentesco
-                            </label>
-
-                            <select id="ParentescoEstudiante"
-                                    class="form-select">
-
+                            <label for="ParentescoEstudiante" class="form-label">Parentesco</label>
+                            <select id="ParentescoEstudiante" class="form-select">
                                 <option value="">Seleccione...</option>
-
                                 @foreach (var parentesco in parentescos)
                                 {
-                                    <option value="@parentesco.IdParentesco">
-                                        @parentesco.Nombre
-                                    </option>
+                                    <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
                                 }
-
                             </select>
-
                         </div>
 
                         <div class="col-md-12">
-
-                            <label for="ObservacionesEstudiante"
-                                   class="form-label">
-                                Observaciones
-                            </label>
-
-                            <textarea id="ObservacionesEstudiante"
-                                      class="form-control"
-                                      maxlength="1000"
-                                      rows="3"></textarea>
-
+                            <label for="ObservacionesEstudiante" class="form-label">Observaciones</label>
+                            <textarea id="ObservacionesEstudiante" class="form-control"
+                                      maxlength="1000" rows="3"></textarea>
                         </div>
-
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
-
-                    <button type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="submit"
-                            class="btn btn-primary">
-                        Guardar estudiante
-                    </button>
-
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar estudiante</button>
                 </div>
-
             </form>
-
         </div>
-
     </div>
-
 </div>
 
 <!-- Modal editar estudiante -->
-<div class="modal fade" id="ModalEditarEstudiante" tabindex="-1" aria-labelledby="ModalEditarEstudianteLabel" aria-hidden="true">
+<div class="modal fade" id="ModalEditarEstudiante" tabindex="-1"
+     aria-labelledby="ModalEditarEstudianteLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
+
             <form id="FormularioEditarEstudiante" novalidate
                   data-url="@Url.Action("EditarFichaEstudiante", "Admin")"
-                  data-url-ficha="@Url.Action("ObtenerFichaEstudiante", "Admin")">
+                  data-url-ficha="@Url.Action("ObtenerFichaEstudiante", "Admin")"
+                  data-url-encargados="@Url.Action("BuscarEncargadosEstudiante", "Admin")">
 
                 @Html.AntiForgeryToken()
 
@@ -544,10 +324,12 @@
                             <label for="EditarEstNombre" class="form-label">Nombre</label>
                             <input type="text" id="EditarEstNombre" class="form-control" maxlength="100" required>
                         </div>
+
                         <div class="col-md-4">
                             <label for="EditarEstPrimerApellido" class="form-label">Primer apellido</label>
                             <input type="text" id="EditarEstPrimerApellido" class="form-control" maxlength="100" required>
                         </div>
+
                         <div class="col-md-4">
                             <label for="EditarEstSegundoApellido" class="form-label">Segundo apellido</label>
                             <input type="text" id="EditarEstSegundoApellido" class="form-control" maxlength="100">
@@ -555,9 +337,11 @@
 
                         <div class="col-md-4">
                             <label for="EditarEstFecha" class="form-label">Fecha de nacimiento</label>
-                            <input type="text" id="EditarEstFecha" class="form-control" inputmode="numeric"
-                                   maxlength="10" autocomplete="off" placeholder="dd/mm/aaaa">
+                            <input type="text" id="EditarEstFecha" class="form-control"
+                                   inputmode="numeric" maxlength="10" autocomplete="off"
+                                   placeholder="dd/mm/aaaa">
                         </div>
+
                         <div class="col-md-4">
                             <label for="EditarEstNivel" class="form-label">Nivel educativo</label>
                             <select id="EditarEstNivel" class="form-select">
@@ -568,33 +352,55 @@
                                 }
                             </select>
                         </div>
+
                         <div class="col-md-4">
                             <label for="EditarEstInstitucion" class="form-label">Institución</label>
                             <input type="text" id="EditarEstInstitucion" class="form-control" maxlength="100">
                         </div>
 
+                        <!-- Lookup de encargado para edición -->
                         <div class="col-md-8">
-                            <label for="EditarEstEncargado" class="form-label">Persona encargada</label>
-                            <input type="text" id="EditarEstEncargado" class="form-control" disabled>
+                            <label for="EditarBuscarEncargado" class="form-label">Persona encargada</label>
+                            <div class="position-relative">
+                                <input type="text" id="EditarBuscarEncargado" class="form-control"
+                                       placeholder="Escriba nombre, cédula o correo para buscar..."
+                                       autocomplete="off">
+                                <input type="hidden" id="EditarIdEncargado">
+                                <div id="EditarResultadosEncargado"
+                                     class="list-group position-absolute w-100 shadow-sm d-none"
+                                     style="z-index: 1056; max-height: 220px; overflow-y: auto;">
+                                </div>
+                            </div>
+                            <div id="EditarEncargadoSeleccionado" class="form-text"></div>
                         </div>
+
                         <div class="col-md-4">
                             <label for="EditarEstParentesco" class="form-label">Parentesco</label>
-                            <input type="text" id="EditarEstParentesco" class="form-control" disabled>
+                            <select id="EditarEstParentesco" class="form-select">
+                                <option value="">Seleccione...</option>
+                                @foreach (var parentesco in parentescos)
+                                {
+                                    <option value="@parentesco.IdParentesco">@parentesco.Nombre</option>
+                                }
+                            </select>
                         </div>
 
                         <div class="col-12">
                             <label for="EditarEstObservaciones" class="form-label">Observaciones</label>
-                            <textarea id="EditarEstObservaciones" class="form-control" maxlength="1000" rows="3"></textarea>
+                            <textarea id="EditarEstObservaciones" class="form-control"
+                                      maxlength="1000" rows="3"></textarea>
                         </div>
 
-                        <!-- Se conserva tal cual para no perderlo al guardar; se edita desde la ficha -->
                         <input type="hidden" id="EditarEstNecesidades">
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="BotonGuardarEdicionEstudiante">Guardar cambios</button>
+                    <button type="submit" class="btn btn-primary"
+                            id="BotonGuardarEdicionEstudiante" disabled>
+                        Guardar cambios
+                    </button>
                 </div>
             </form>
         </div>
@@ -602,7 +408,8 @@
 </div>
 
 <!-- Modal inactivar estudiante -->
-<div class="modal fade" id="ModalDesactivarEstudiante" tabindex="-1" aria-labelledby="ModalDesactivarEstudianteLabel" aria-hidden="true">
+<div class="modal fade" id="ModalDesactivarEstudiante" tabindex="-1"
+     aria-labelledby="ModalDesactivarEstudianteLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form id="FormularioDesactivarEstudiante" novalidate
@@ -618,10 +425,7 @@
 
                 <div class="modal-body">
                     <div class="alert d-none" id="DesactivarEstError" role="alert"></div>
-                    <p class="mb-0">
-                        ¿Desea inactivar a <strong id="DesactivarNombreEstudiante"></strong>?
-                        Pasará a la lista de estudiantes inactivos y podrá reactivarlo de nuevo.
-                    </p>
+                    <p>¿Está seguro de que desea inactivar a <strong id="DesactivarNombreEstudiante"></strong>?</p>
                 </div>
 
                 <div class="modal-footer">
