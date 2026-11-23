@@ -224,7 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
         filas.forEach(fila => { fila.style.display = visibles.has(fila) ? "" : "none"; });
  
         if (sinResultados) {
-            sinResultados.style.display = filas.length > 0 && coincidentes.length === 0 ? "block" : "none";
+            sinResultados.style.display = filas.length > 0 && coincidentes.length === 0 ? "flex" : "none";
         }
  
         if (!paginacion) return;

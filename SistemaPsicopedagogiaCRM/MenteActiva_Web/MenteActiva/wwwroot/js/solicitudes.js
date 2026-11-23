@@ -1,4 +1,4 @@
-﻿document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
 
     // =====================================================
     // REFERENCIAS
@@ -115,7 +115,7 @@
             if (coincide) visibles++;
         });
 
-        sinResultados.style.display = filas.length > 0 && visibles === 0 ? "block" : "none";
+        sinResultados.style.display = filas.length > 0 && visibles === 0 ? "flex" : "none";
     }
 
     buscador.addEventListener("input", filtrar);

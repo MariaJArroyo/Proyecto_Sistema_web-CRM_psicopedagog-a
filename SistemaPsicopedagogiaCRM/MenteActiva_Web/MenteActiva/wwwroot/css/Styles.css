@@ -418,7 +418,9 @@ a:hover {
 
 .CuerpoAdmin .EstadoVacio p {
   max-width: 420px;
+  margin-right: auto;
   margin-bottom: 0;
+  margin-left: auto;
 }
 
 /* Dentro de una tabla o de una lista corta */
