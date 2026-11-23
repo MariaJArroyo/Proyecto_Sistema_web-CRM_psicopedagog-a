@@ -1802,8 +1802,8 @@ BEGIN
     END IF;
 
     UPDATE TB_ESTUDIANTE_INFO_ACADEMICA
-     SET Titulo = TRIM(p_Titulo),
-        Detalle = COALESCE(NULLIF(TRIM(p_Detalle), ''), 'Sin detalle'),
+    SET Titulo = TRIM(p_Titulo),
+        Detalle = COALESCE(TRIM(p_Detalle), ''),
         FechaModificacion = NOW()
     WHERE IdInfoAcademica = p_IdInfoAcademica
       AND IdEstudiante = p_IdEstudiante;
