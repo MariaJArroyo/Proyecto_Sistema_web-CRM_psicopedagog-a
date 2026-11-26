@@ -3,8 +3,12 @@
 // del controlador, que llegan en window.MENSAJERIA_RUTAS.
 //
 // Todo pasa por el controlador del Web, que reenvia al API. El API devuelve solo
-// los hilos del usuario autenticado y sus procedimientos validan que participe,
-// asi que desde aqui no hace falta filtrar nada por seguridad.
+// los hilos que el usuario autenticado puede ver y sus procedimientos lo
+// validan, asi que desde aqui no hace falta filtrar nada por seguridad.
+//
+// Bandeja del consultorio (HU-M10-4b): en el portal no hay selector de
+// destinatario (la parcial no lo pinta), y lo que escribe la familia va al
+// consultorio. Si el selector no esta, aqui no se piden destinatarios.
 
 (function () {
     "use strict";
@@ -13,6 +17,9 @@
 
     // Sin rutas la pantalla no es de mensajeria: no hay nada que hacer
     if (!RUTAS) return;
+
+    // true en el panel (bandeja del consultorio), ausente en el portal
+    const ES_CONSULTORIO = window.MENSAJERIA_CONSULTORIO === true;
 
     let hilos = [];
     let idHiloAbierto = null;
@@ -168,12 +175,19 @@
 
     function burbuja(m) {
         // Lo mio a la derecha, lo de la contraparte a la izquierda
-        const alineacion = m.mio ? "ms-auto text-end" : "me-auto";
-        const fondo = m.mio ? "bg-primary text-white" : "bg-body-tertiary";
+        // En el panel, todo lo que escribio el equipo es "nuestro lado"
+        const propio = ES_CONSULTORIO ? !m.remitenteEsEncargado : m.mio;
+        const alineacion = propio ? "ms-auto text-end" : "me-auto";
+        const fondo = propio ? "bg-primary text-white" : "bg-body-tertiary";
+
+        // En el portal, quien respondio va con su nombre y la etiqueta, para
+        // que la familia sepa con quien habla (D-4). En el panel basta el nombre.
+        let autor = m.mio ? "Usted" : m.remitente;
+        if (!ES_CONSULTORIO && !m.mio && !m.remitenteEsEncargado) autor += " · Consultorio";
 
         return `<div class="mb-3 ${alineacion}" style="max-width: 80%;">
             <div class="TextoSuave small mb-1">
-                ${escaparHtml(m.mio ? "Usted" : m.remitente)} &middot; ${escaparHtml(formatoFechaHora(m.fechaEnvio))}
+                ${escaparHtml(autor)} &middot; ${escaparHtml(formatoFechaHora(m.fechaEnvio))}
             </div>
             <div class="rounded-3 p-2 px-3 ${fondo}" style="white-space: pre-wrap;">${escaparHtml(m.cuerpo)}</div>
         </div>`;
@@ -267,6 +281,12 @@
             campo.classList.remove("is-invalid");
         });
 
+        // Portal: sin selector, el mensaje va al consultorio
+        if (!selector) {
+            bootstrap.Modal.getOrCreateInstance($("ModalNuevoHilo")).show();
+            return;
+        }
+
         selector.innerHTML = '<option value="">Cargando…</option>';
 
         bootstrap.Modal.getOrCreateInstance($("ModalNuevoHilo")).show();
@@ -311,7 +331,9 @@
 
         ocultarAlerta(alerta);
 
-        let valido = marcar(destinatario, Boolean(destinatario.value), "Seleccione un destinatario.");
+        let valido = destinatario
+            ? marcar(destinatario, Boolean(destinatario.value), "Seleccione un destinatario.")
+            : true;
         valido = marcar(asunto, asunto.value.trim().length > 0, "Indique el asunto del mensaje.") && valido;
         valido = marcar(cuerpo, cuerpo.value.trim().length > 0, "Escriba el mensaje.") && valido;
 
@@ -320,7 +342,7 @@
         boton.disabled = true;
 
         const resultado = await enviarDatos(RUTAS.enviar, {
-            IdUsuarioDestinatario: destinatario.value,
+            IdUsuarioDestinatario: destinatario ? destinatario.value : null,
             Asunto: asunto.value.trim(),
             Cuerpo: cuerpo.value.trim()
         });

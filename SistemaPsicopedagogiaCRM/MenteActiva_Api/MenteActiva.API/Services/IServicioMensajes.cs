@@ -14,6 +14,14 @@ public interface IServicioMensajes
 
     Task<int> ContarSinLeerAsync(int idUsuario, CancellationToken cancelacion);
 
+    // esEncargado sale del token: decide si el hilo nuevo pide destinatario
     Task<MensajeEnviadoResponse> EnviarAsync(
-        int idUsuario, EnviarMensajeRequest peticion, CancellationToken cancelacion);
+        int idUsuario, bool esEncargado, EnviarMensajeRequest peticion, CancellationToken cancelacion);
+
+    Task<bool> TieneAccesoAsync(int idUsuario, CancellationToken cancelacion);
+
+    Task<IReadOnlyList<AccesoMensajeriaRolResponse>> ListarAccesoAsync(CancellationToken cancelacion);
+
+    Task GuardarAccesoAsync(
+        int idUsuarioAccion, GuardarAccesoMensajeriaRequest peticion, CancellationToken cancelacion);
 }

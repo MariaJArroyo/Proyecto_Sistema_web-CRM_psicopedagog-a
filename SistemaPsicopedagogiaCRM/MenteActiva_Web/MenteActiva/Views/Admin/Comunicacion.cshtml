@@ -4,6 +4,9 @@
     var puedeAdministrar = User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
     var hayDestinatarios = Model.Destinatarios.Count > 0;
 
+    // Bandeja del consultorio (HU-M10-4b): sin acceso no se pinta la pestana
+    var tieneAccesoMensajes = ViewBag.TieneAccesoMensajes is true;
+
     // JsonSerializer suelto escribe las propiedades en PascalCase, y el resto
     // del JavaScript de la pantalla lee camelCase porque es lo que devuelve el
     // API. Sin esto, lo que se inyecta aqui llega con otros nombres y el
@@ -31,9 +34,12 @@
         <li class="nav-item">
             <button type="button" class="nav-link" data-vista="Recordatorios">Recordatorios automáticos</button>
         </li>
-        <li class="nav-item">
-            <button type="button" class="nav-link" data-vista="Mensajeria">Mensajería interna</button>
-        </li>
+        @if (tieneAccesoMensajes)
+        {
+            <li class="nav-item">
+                <button type="button" class="nav-link" data-vista="Mensajeria">Mensajería interna</button>
+            </li>
+        }
         <li class="nav-item">
             <button type="button" class="nav-link" data-vista="Plantillas">Plantillas</button>
         </li>
@@ -251,8 +257,16 @@
 
         <div class="alert alert-light border mb-3">
             <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-            La anticipación del recordatorio se cambia en
-            <a asp-controller="Admin" asp-action="Configuracion">Configuración</a>.
+            @* Esa opcion vive en una pestana de Configuracion que solo ve el Administrador *@
+            @if (User.IsInRole("Administrador"))
+            {
+                <text>La anticipación del recordatorio se cambia en
+                <a asp-controller="Admin" asp-action="Configuracion">Configuración</a>.</text>
+            }
+            else
+            {
+                <text>La anticipación del recordatorio la cambia el administrador en Configuración.</text>
+            }
             El texto de cada aviso sale de su plantilla, en la pestaña de Plantillas.
         </div>
 
@@ -282,23 +296,27 @@
        Mensajeria interna (HU-M10-4)
        ============================================================ *@
 
-    <div class="Tarjeta p-3 p-md-4 d-none" id="VistaMensajeria">
+    @if (tieneAccesoMensajes)
+    {
+        <div class="Tarjeta p-3 p-md-4 d-none" id="VistaMensajeria">
 
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <div>
-                <h3 class="mb-1">Mensajería interna</h3>
-                <p class="TextoSuave mb-0">
-                    Conversaciones con los encargados. Cada uno ve las suyas desde su portal.
-                </p>
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                    <h3 class="mb-1">Mensajería interna</h3>
+                    <p class="TextoSuave mb-0">
+                        Bandeja del consultorio: lo que escriben las familias lo ve todo el equipo con acceso.
+                        Cada familia ve sus conversaciones desde su portal.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-primary" id="BotonNuevoHilo">
+                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva conversación
+                </button>
             </div>
-            <button type="button" class="btn btn-primary" id="BotonNuevoHilo">
-                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva conversación
-            </button>
-        </div>
 
-        @* La bandeja, la conversacion y el modal son los mismos del portal *@
-        <partial name="_Mensajeria" model="@("Encargado")" />
-    </div>
+            @* La bandeja, la conversacion y el modal son los mismos del portal *@
+            <partial name="_Mensajeria" model="@("Encargado")" />
+        </div>
+    }
 
     @* ============================================================
        Plantillas (HU-M10-5)
@@ -568,13 +586,23 @@
         window.COMUNICACION_DESTINATARIOS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Destinatarios, jsonCamel));
         window.COMUNICACION_PLANTILLAS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Plantillas, jsonCamel));
 
-        window.MENSAJERIA_RUTAS = {
-            hilos: "/Admin/ConsultarHilos",
-            hilo: "/Admin/AbrirHilo",
-            destinatarios: "/Admin/DestinatariosMensaje",
-            enviar: "/Admin/EnviarMensaje"
-        };
     </script>
     <script src="~/js/comunicacion.js" asp-append-version="true"></script>
-    <script src="~/js/mensajeria.js" asp-append-version="true"></script>
+
+    @if (tieneAccesoMensajes)
+    {
+        <script>
+            window.MENSAJERIA_RUTAS = {
+                hilos: "/Admin/ConsultarHilos",
+                hilo: "/Admin/AbrirHilo",
+                destinatarios: "/Admin/DestinatariosMensaje",
+                enviar: "/Admin/EnviarMensaje"
+            };
+
+            // Del lado del consultorio: lo que escribio cualquiera del equipo
+            // va a la derecha, no solo lo propio
+            window.MENSAJERIA_CONSULTORIO = true;
+        </script>
+        <script src="~/js/mensajeria.js" asp-append-version="true"></script>
+    }
 }

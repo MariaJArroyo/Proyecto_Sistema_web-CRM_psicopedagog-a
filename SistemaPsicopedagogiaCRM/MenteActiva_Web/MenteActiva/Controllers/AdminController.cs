@@ -1346,6 +1346,24 @@ public class AdminController : Controller
             ViewBag.ErrorCarga = "No se pudieron cargar los datos de comunicación.";
         }
 
+        // La pestana de mensajes solo sale si el rol tiene acceso a la bandeja
+        // del consultorio (HU-M10-4b). Si la consulta falla se esconde: sin
+        // acceso confirmado, el API igual responderia con error.
+        ViewBag.TieneAccesoMensajes = false;
+
+        try
+        {
+            using var client = _http.CreateClient();
+
+            var acceso = await client.GetFromJsonAsync<AccesoMensajesViewModel>(
+                UrlApi("mensajes/acceso"), cancelacion);
+
+            ViewBag.TieneAccesoMensajes = acceso?.TieneAcceso == true;
+        }
+        catch (HttpRequestException)
+        {
+        }
+
         return View(catalogos);
     }
 
@@ -1463,10 +1481,11 @@ public class AdminController : Controller
             "No se pudo enviar el correo.", cancelacion);
     }
 
-    // ---------- mensajeria interna (HU-M10-4) ----------
+    // ---------- mensajeria interna (HU-M10-4b) ----------
 
-    // Los tres roles del panel entran, incluido el Asistente (decision D-G).
-    // Todo va con el usuario autenticado: el API devuelve solo sus hilos.
+    // Los tres roles del panel pasan por aqui, pero el API solo responde a
+    // quien tenga acceso a la bandeja del consultorio; los demas reciben 400.
+    // La pantalla ni siquiera los llama: sin acceso no pinta la pestana.
 
     [HttpGet]
     public Task<IActionResult> ConsultarHilos(CancellationToken cancelacion)
@@ -2859,10 +2878,36 @@ public class AdminController : Controller
     #region Configuracion
 
     // La clase permite 3 roles; cada accion de esta region exige ademas Administrador
-    // (dos [Authorize] se combinan: hay que cumplir los dos).
+    // (dos [Authorize] se combinan: hay que cumplir los dos). La excepcion es la
+    // pantalla y la pestana Mensajeria, que tambien son de la Psicopedagoga
+    // (HU-M10-4b): ella ve solo esa pestana y las demas acciones siguen cerradas.
 
-    [Authorize(Roles = "Administrador")]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
     public IActionResult Configuracion() => View();
+
+    // ---------- quien ve la bandeja de mensajes del consultorio ----------
+
+    [HttpGet]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public Task<IActionResult> ConfiguracionMensajeria(CancellationToken cancelacion)
+        => ReenviarGetAsync("configuracion/mensajeria", cancelacion);
+
+    // Llega por FormData con un "Roles" por casilla marcada
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> GuardarAccesoMensajeria(
+        GuardarAccesoMensajeriaViewModel modelo, CancellationToken cancelacion)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ErrorDeModelo();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PutAsJsonAsync(UrlApi("configuracion/mensajeria"), modelo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar el acceso a los mensajes.", cancelacion);
+    }
 
     // ---------- consultas: se reenvian tal cual al navegador ----------
 

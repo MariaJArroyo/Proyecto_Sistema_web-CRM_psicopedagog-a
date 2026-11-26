@@ -1040,9 +1040,8 @@ public class PortalController : Controller
     public Task<IActionResult> AbrirHilo(int idHilo, CancellationToken cancelacion)
         => ReenviarGetAsync($"mensajes/{idHilo}", cancelacion);
 
-    [HttpGet]
-    public Task<IActionResult> DestinatariosMensaje(CancellationToken cancelacion)
-        => ReenviarGetAsync("mensajes/destinatarios", cancelacion);
+    // No hay DestinatariosMensaje: la familia no elige a quien escribirle, su
+    // mensaje va a la bandeja del consultorio (HU-M10-4b)
 
     [HttpGet]
     public Task<IActionResult> MensajesSinLeer(CancellationToken cancelacion)

@@ -123,9 +123,9 @@
           </a>
         }
 
-         @if (User.IsInRole("Administrador"))
+         @if (User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga"))
         {
-          <!-- Configuración del sitio: solo Administrador -->
+          <!-- Configuración: el Administrador ve todo; la Psicopedagoga solo el acceso a los mensajes -->
           <a href="/Admin/Configuracion" class="SidebarAdmin-Enlace@(seccion == "Configuracion" ? " activo" : "")">
             <i class="bi bi-gear"></i><span>Configuración</span>
           </a>

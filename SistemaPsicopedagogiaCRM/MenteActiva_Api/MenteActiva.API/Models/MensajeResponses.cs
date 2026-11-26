@@ -7,6 +7,8 @@ public sealed class HiloResponse
 
     public string Asunto { get; init; } = string.Empty;
 
+    // Para el personal, el usuario del encargado. Para el encargado, 0: su
+    // contraparte es el consultorio y no una persona.
     public int IdContraparte { get; init; }
 
     // Con quien es la conversacion, visto desde quien pregunta
@@ -52,6 +54,17 @@ public sealed class DestinatarioMensajeResponse
 
     // Para que el encargado sepa a quien le escribe
     public string Roles { get; init; } = string.Empty;
+}
+
+// Un rol del personal con su marca de acceso a la bandeja del consultorio.
+// Calza con SP_Mensajeria_ListarAcceso.
+public sealed class AccesoMensajeriaRolResponse
+{
+    public int IdRol { get; init; }
+
+    public string Nombre { get; init; } = string.Empty;
+
+    public bool TieneAcceso { get; init; }
 }
 
 public sealed class MensajeEnviadoResponse

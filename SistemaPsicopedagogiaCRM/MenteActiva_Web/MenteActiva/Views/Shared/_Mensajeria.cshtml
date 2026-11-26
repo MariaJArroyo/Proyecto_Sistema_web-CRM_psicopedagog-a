@@ -6,12 +6,13 @@
     escribe, y eso es una etiqueta. Por RG-112 y RG-113 va en una parcial en vez
     de estar dos veces.
 
-    Quien la incluya tiene que dejar en el JavaScript:
-      window.MENSAJERIA_RUTAS  las cuatro rutas del controlador que corresponda
-      window.MENSAJERIA_ETIQUETA  como se llama la contraparte en esa pantalla
+    Quien la incluya tiene que dejar en el JavaScript window.MENSAJERIA_RUTAS con
+    las rutas del controlador que corresponda (hilos, hilo, enviar y, solo en el
+    panel, destinatarios).
 
     El modelo es la etiqueta de la contraparte: "Encargado" en el panel,
-    "Consultorio" en el portal.
+    "Consultorio" en el portal. En el portal no hay selector de destinatario
+    (HU-M10-4b): lo que escribe la familia va a la bandeja del consultorio.
 *@
 @model string
 
@@ -74,16 +75,25 @@
                 <div class="modal-body">
                     <div class="alert d-none" id="AlertaNuevoHilo" role="alert"></div>
 
-                    <div class="mb-3">
-                        <label for="DestinatarioHilo" class="form-label CampoObligatorio">@Model</label>
-                        <select class="form-select" id="DestinatarioHilo">
-                            <option value="">Seleccione a quién le quiere escribir</option>
-                        </select>
-                        <div class="invalid-feedback"></div>
-                        <div class="form-text">
-                            Solo aparecen las cuentas activas: son las que pueden contestar.
+                    @if (Model == "Consultorio")
+                    {
+                        <p class="TextoSuave mb-3" id="AvisoDestinoConsultorio">
+                            Su mensaje llega al consultorio y le responde la persona del equipo que lo atienda.
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label for="DestinatarioHilo" class="form-label CampoObligatorio">@Model</label>
+                            <select class="form-select" id="DestinatarioHilo">
+                                <option value="">Seleccione a quién le quiere escribir</option>
+                            </select>
+                            <div class="invalid-feedback"></div>
+                            <div class="form-text">
+                                Solo aparecen las cuentas activas: son las que pueden contestar.
+                            </div>
                         </div>
-                    </div>
+                    }
 
                     <div class="mb-3">
                         <label for="AsuntoHilo" class="form-label CampoObligatorio">Asunto</label>

@@ -213,7 +213,7 @@ INSERT INTO TB_TAREA_ASIGNACION (IdTareaAsignacion, IdTarea, IdEstudiante, IdEst
 ON DUPLICATE KEY UPDATE IdTareaAsignacion = IdTareaAsignacion;
 
 INSERT INTO TB_MENSAJE (IdMensaje, IdUsuarioRemitente, IdUsuarioDestinatario, IdMensajePadre, Asunto, Cuerpo, Leido, FechaEnvio, FechaLectura) VALUES
-  (1, 2, 1, NULL, 'Consulta sobre la tarea', '¿La lectura se entrega impresa?', 1, '2026-09-15 18:00:00', '2026-09-15 19:00:00'),
+  (1, 2, NULL, NULL, 'Consulta sobre la tarea', '¿La lectura se entrega impresa?', 1, '2026-09-15 18:00:00', '2026-09-15 19:00:00'),
   (2, 1, 2, 1, 'Re: Consulta sobre la tarea', 'No hace falta, basta con comentarla en la sesión.', 0, '2026-09-15 19:05:00', NULL)
 ON DUPLICATE KEY UPDATE IdMensaje = IdMensaje;
 
