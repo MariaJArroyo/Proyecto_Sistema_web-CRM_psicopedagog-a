@@ -223,3 +223,11 @@ INSERT INTO TB_PLANTILLA_MENSAJE (IdPlantilla, Clave, Nombre, Asunto, Cuerpo) VA
   (6, NULL, 'Seguimiento de pago pendiente', 'Pago pendiente',
    'Hola [Encargado], le recordamos que el pago de [Estudiante] se encuentra pendiente. Cualquier consulta, escríbanos.')
 ON DUPLICATE KEY UPDATE IdPlantilla = IdPlantilla;
+
+-- Acceso inicial a la bandeja de mensajes del consultorio: solo la
+-- Psicopedagoga. Se siembra solo si la tabla esta vacia, para que reejecutar
+-- este script no le devuelva el acceso a un rol que se le quito desde
+-- Configuracion.
+INSERT INTO TB_MENSAJERIA_ACCESO (IdRol)
+SELECT 2 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM TB_MENSAJERIA_ACCESO);

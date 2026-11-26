@@ -5,6 +5,10 @@
 
     // Mismo criterio que en Pagos: el simbolo lo decide TB_CONFIGURACION
     var simboloMoneda = FormatoDinero.Simbolo(await ProveedorMoneda.ObtenerAsync());
+
+    // La Psicopedagoga entra solo por la pestana Mensajeria (HU-M10-4b); las
+    // otras cuatro y sus acciones siguen siendo del Administrador
+    var esAdmin = User.IsInRole("Administrador");
 }
 
 <main class="PrincipalAdmin">
@@ -12,10 +16,16 @@
 
     <div class="mb-4">
         <h2 class="mb-1">Configuración</h2>
-        <p class="TextoSuave mb-0">Horario de atención, días no laborales, tipos de sesión y datos del consultorio.</p>
+        <p class="TextoSuave mb-0">
+            @(esAdmin
+                ? "Horario de atención, días no laborales, tipos de sesión, datos del consultorio y acceso a los mensajes."
+                : "Quién del equipo ve los mensajes que escriben las familias.")
+        </p>
     </div>
 
     <ul class="nav nav-tabs mb-3" id="PestanasConfiguracion" role="tablist">
+        @if (esAdmin)
+        {
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="TabHorario" data-bs-toggle="tab" data-bs-target="#PanelHorario"
                     type="button" role="tab" aria-controls="PanelHorario" aria-selected="true">
@@ -40,9 +50,19 @@
                 <i class="bi bi-building me-1"></i>Datos del consultorio
             </button>
         </li>
+        }
+        <li class="nav-item" role="presentation">
+            <button class="nav-link@(esAdmin ? "" : " active")" id="TabMensajeria" data-bs-toggle="tab" data-bs-target="#PanelMensajeria"
+                    type="button" role="tab" aria-controls="PanelMensajeria" aria-selected="@(esAdmin ? "false" : "true")">
+                <i class="bi bi-chat-dots me-1"></i>Mensajería
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content">
+
+        @if (esAdmin)
+        {
 
         <!-- ========== HORARIO ========== -->
         <section class="tab-pane fade show active" id="PanelHorario" role="tabpanel" aria-labelledby="TabHorario" tabindex="0">
@@ -231,10 +251,40 @@
                 </form>
             </div>
         </section>
+        }
+
+        <!-- ========== MENSAJERIA (HU-M10-4b) ========== -->
+        <section class="tab-pane fade@(esAdmin ? "" : " show active")" id="PanelMensajeria" role="tabpanel" aria-labelledby="TabMensajeria" tabindex="0">
+            <div class="Tarjeta p-3 p-md-4">
+                <h5 class="mb-1">Acceso a los mensajes</h5>
+                <p class="TextoSuave small mb-3">
+                    Las familias escriben al consultorio sin elegir a una persona. Los roles marcados ven
+                    todas esas conversaciones y pueden responderlas; los demás no ven la mensajería.
+                    Tiene que quedar al menos uno.
+                </p>
+
+                <div class="alert d-none" id="AlertaMensajeria" role="alert"></div>
+
+                <form id="FormularioAccesoMensajeria" novalidate>
+                    <div id="ListaRolesMensajeria" class="mb-3">
+                        <div class="text-center py-4 TextoSuave">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando…
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary" id="BotonGuardarAccesoMensajeria" disabled>
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>Guardar acceso
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
 
     </div>
 </main>
 
+@if (esAdmin)
+{
 <!-- Confirmacion para quitar un dia no laboral -->
 <div class="modal fade" id="ModalEliminarDia" tabindex="-1" aria-labelledby="TituloEliminarDia" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -256,7 +306,12 @@
         </div>
     </div>
 </div>
+}
 
 @section Scripts {
-    <script src="~/js/configuracion.js" asp-append-version="true"></script>
+    @if (esAdmin)
+    {
+        <script src="~/js/configuracion.js" asp-append-version="true"></script>
+    }
+    <script src="~/js/configuracionMensajeria.js" asp-append-version="true"></script>
 }

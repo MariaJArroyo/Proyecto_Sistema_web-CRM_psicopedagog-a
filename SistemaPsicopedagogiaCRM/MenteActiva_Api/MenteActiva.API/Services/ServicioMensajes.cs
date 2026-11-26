@@ -1,13 +1,14 @@
-﻿using MenteActiva.Api.Infraestructura;
+﻿using System.Text.Json;
+using MenteActiva.Api.Infraestructura;
 using MenteActiva.Api.Models;
 using MenteActiva.Api.Repositories;
 
 namespace MenteActiva.Api.Services;
 
 // Casi todo lo decide el procedimiento, que es el unico lugar por donde se
-// escribe y el que valida que quien pregunta participe del hilo. Aqui vive lo
-// que es forma de la peticion: que un hilo nuevo venga con destinatario, y que
-// una respuesta no traiga uno.
+// escribe y el que valida quien puede ver cada hilo. Aqui vive lo que es forma
+// de la peticion: que el hilo nuevo del personal venga con destinatario, que el
+// del encargado no lleve (va al consultorio), y que una respuesta no traiga uno.
 public sealed class ServicioMensajes : IServicioMensajes
 {
     private readonly IRepositorioMensaje _repositorio;
@@ -40,13 +41,13 @@ public sealed class ServicioMensajes : IServicioMensajes
         => _repositorio.ContarSinLeerAsync(idUsuario, cancelacion);
 
     public async Task<MensajeEnviadoResponse> EnviarAsync(
-        int idUsuario, EnviarMensajeRequest peticion, CancellationToken cancelacion)
+        int idUsuario, bool esEncargado, EnviarMensajeRequest peticion, CancellationToken cancelacion)
     {
         var esNuevo = peticion.IdHilo is null or <= 0;
 
         if (esNuevo)
         {
-            if (peticion.IdUsuarioDestinatario is null or <= 0)
+            if (!esEncargado && peticion.IdUsuarioDestinatario is null or <= 0)
             {
                 throw new ReglaNegocioException("Seleccione a quién le quiere escribir.");
             }
@@ -59,7 +60,7 @@ public sealed class ServicioMensajes : IServicioMensajes
 
         var (idMensaje, idHilo) = await _repositorio.EnviarAsync(
             idUsuario,
-            esNuevo ? peticion.IdUsuarioDestinatario : null,
+            esNuevo && !esEncargado ? peticion.IdUsuarioDestinatario : null,
             esNuevo ? null : peticion.IdHilo,
             esNuevo ? peticion.Asunto : null,
             peticion.Cuerpo,
@@ -71,5 +72,25 @@ public sealed class ServicioMensajes : IServicioMensajes
             IdHilo = idHilo,
             Mensaje = esNuevo ? "Conversación iniciada." : "Mensaje enviado."
         };
+    }
+
+    public Task<bool> TieneAccesoAsync(int idUsuario, CancellationToken cancelacion)
+        => _repositorio.TieneAccesoAsync(idUsuario, cancelacion);
+
+    public Task<IReadOnlyList<AccesoMensajeriaRolResponse>> ListarAccesoAsync(CancellationToken cancelacion)
+        => _repositorio.ListarAccesoAsync(cancelacion);
+
+    public Task GuardarAccesoAsync(
+        int idUsuarioAccion, GuardarAccesoMensajeriaRequest peticion, CancellationToken cancelacion)
+    {
+        if (peticion.Roles is null || peticion.Roles.Count == 0)
+        {
+            throw new ReglaNegocioException("Marque al menos un rol con acceso a los mensajes.");
+        }
+
+        // Los ids los valida el procedimiento (solo 1, 2 y 3)
+        var rolesJson = JsonSerializer.Serialize(peticion.Roles.Distinct().ToList());
+
+        return _repositorio.GuardarAccesoAsync(idUsuarioAccion, rolesJson, cancelacion);
     }
 }

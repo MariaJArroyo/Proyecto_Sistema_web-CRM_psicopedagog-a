@@ -1,13 +1,20 @@
 ﻿using Dapper;
 using MenteActiva.Api.Models;
+using MySqlConnector;
 
 namespace MenteActiva.Api.Repositories;
 
+// Todo va por procedimiento salvo TieneAccesoAsync, que solo lee la funcion
+// FN_Mensajeria_TieneAcceso y abre su propia conexion porque la base solo sabe
+// llamar procedimientos (mismo caso que RepositorioMaterial).
 public sealed class RepositorioMensaje : RepositorioBase, IRepositorioMensaje
 {
+    private readonly string _cadenaConexion;
+
     public RepositorioMensaje(IConfiguration config)
         : base(config)
     {
+        _cadenaConexion = config.GetConnectionString("DefaultConnection")!;
     }
 
     public Task<IReadOnlyList<HiloResponse>> ListarHilosAsync(
@@ -72,5 +79,28 @@ public sealed class RepositorioMensaje : RepositorioBase, IRepositorioMensaje
             ?? throw new InvalidOperationException("SP_Mensaje_Enviar no devolvio el id.");
 
         return (fila.IdMensaje, fila.IdHilo);
+    }
+
+    public async Task<bool> TieneAccesoAsync(int idUsuario, CancellationToken cancelacion)
+    {
+        await using var conexion = new MySqlConnection(_cadenaConexion);
+
+        return await conexion.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "SELECT FN_Mensajeria_TieneAcceso(@IdUsuario);",
+            new { IdUsuario = idUsuario },
+            cancellationToken: cancelacion));
+    }
+
+    public Task<IReadOnlyList<AccesoMensajeriaRolResponse>> ListarAccesoAsync(CancellationToken cancelacion)
+        => ConsultarAsync<AccesoMensajeriaRolResponse>("SP_Mensajeria_ListarAcceso", null, cancelacion);
+
+    public Task GuardarAccesoAsync(int idUsuarioAccion, string rolesJson, CancellationToken cancelacion)
+    {
+        var parametros = new DynamicParameters();
+
+        parametros.Add("p_IdUsuarioAccion", idUsuarioAccion);
+        parametros.Add("p_RolesJson", rolesJson);
+
+        return EjecutarAsync("SP_Mensajeria_GuardarAcceso", parametros, cancelacion);
     }
 }

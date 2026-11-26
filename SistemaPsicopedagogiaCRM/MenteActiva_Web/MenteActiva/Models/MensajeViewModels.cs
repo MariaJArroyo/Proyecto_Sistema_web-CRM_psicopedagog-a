@@ -44,6 +44,19 @@ public class MensajeViewModel
     public bool Mio { get; set; }
 }
 
+// Respuesta de GET api/mensajes/acceso
+public class AccesoMensajesViewModel
+{
+    public bool TieneAcceso { get; set; }
+}
+
+// Lista completa de roles que quedan con acceso a la bandeja del consultorio.
+// Viene del FormData de Configuracion; el API valida los ids y que haya uno.
+public class GuardarAccesoMensajeriaViewModel
+{
+    public List<int>? Roles { get; set; }
+}
+
 public class DestinatarioMensajeViewModel
 {
     public int IdUsuario { get; set; }
@@ -76,6 +89,4 @@ public class PortalMensajesViewModel
     public List<PortalEstudianteViewModel> Estudiantes { get; set; } = [];
 
     public int IdEstudiante { get; set; }
-
-    public List<DestinatarioMensajeViewModel> Destinatarios { get; set; } = [];
 }

@@ -6,8 +6,9 @@ namespace MenteActiva.Api.Repositories;
 // no comparten ni una tabla: aquello es TB_NOTIFICACION y esto es TB_MENSAJE.
 //
 // Todo va con el id del usuario que pregunta y los procedimientos validan que
-// participe del hilo. Asi, cambiando un id en la URL no se lee la conversacion
-// de otra familia.
+// pueda ver el hilo: el encargado solo los de su familia y el personal solo si
+// su rol tiene acceso a la bandeja del consultorio. Asi, cambiando un id en la
+// URL no se lee la conversacion de otra familia.
 public interface IRepositorioMensaje
 {
     Task<IReadOnlyList<HiloResponse>> ListarHilosAsync(int idUsuario, CancellationToken cancelacion);
@@ -25,4 +26,13 @@ public interface IRepositorioMensaje
     Task<(int IdMensaje, int IdHilo)> EnviarAsync(
         int idUsuarioRemitente, int? idUsuarioDestinatario, int? idHilo,
         string? asunto, string cuerpo, CancellationToken cancelacion);
+
+    // Si el usuario ve la bandeja del consultorio (FN_Mensajeria_TieneAcceso)
+    Task<bool> TieneAccesoAsync(int idUsuario, CancellationToken cancelacion);
+
+    // Los tres roles del personal con su marca de acceso
+    Task<IReadOnlyList<AccesoMensajeriaRolResponse>> ListarAccesoAsync(CancellationToken cancelacion);
+
+    // rolesJson es la lista completa de roles que quedan con acceso, ej. "[2,3]"
+    Task GuardarAccesoAsync(int idUsuarioAccion, string rolesJson, CancellationToken cancelacion);
 }

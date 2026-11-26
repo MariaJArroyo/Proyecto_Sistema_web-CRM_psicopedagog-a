@@ -1755,61 +1755,6 @@ BEGIN
 END$$
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarInfoAcademica;
-DELIMITER $$
-CREATE PROCEDURE SP_Estudiante_AgregarInfoAcademica(
-    IN p_IdEstudiante INT,
-    IN p_Titulo VARCHAR(100),
-    IN p_Detalle VARCHAR(1000)
-)
-BEGIN
-    IF NULLIF(TRIM(p_Titulo), '') IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Debe ingresar el título.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE
-                   WHERE IdEstudiante = p_IdEstudiante AND Activo = 1) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
-    END IF;
-
-    INSERT INTO TB_ESTUDIANTE_INFO_ACADEMICA (IdEstudiante, Titulo, Detalle)
-    VALUES (p_IdEstudiante, TRIM(p_Titulo), COALESCE(TRIM(p_Detalle), ''));
-END$$
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS SP_Estudiante_EditarInfoAcademica;
-DELIMITER $$
-CREATE PROCEDURE SP_Estudiante_EditarInfoAcademica(
-    IN p_IdEstudiante INT,
-    IN p_IdInfoAcademica INT,
-    IN p_Titulo VARCHAR(100),
-    IN p_Detalle VARCHAR(1000)
-)
-BEGIN
-    IF NULLIF(TRIM(p_Titulo), '') IS NULL THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Debe ingresar el título.';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM TB_ESTUDIANTE_INFO_ACADEMICA
-                   WHERE IdInfoAcademica = p_IdInfoAcademica
-                     AND IdEstudiante = p_IdEstudiante
-                     AND Activo = 1) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'La información indicada no está registrada para este estudiante.';
-    END IF;
-
-    UPDATE TB_ESTUDIANTE_INFO_ACADEMICA
-    SET Titulo = TRIM(p_Titulo),
-        Detalle = COALESCE(TRIM(p_Detalle), ''),
-        FechaModificacion = NOW()
-    WHERE IdInfoAcademica = p_IdInfoAcademica
-      AND IdEstudiante = p_IdEstudiante;
-END$$
-DELIMITER ;
-
 DROP PROCEDURE IF EXISTS SP_Estudiante_AgregarNecesidad;
 DELIMITER $$
 CREATE PROCEDURE SP_Estudiante_AgregarNecesidad(
@@ -5129,29 +5074,55 @@ DELIMITER ;
 -- 10. Comunicacion
 -- ============================================================
 
--- Bandeja de un usuario: un renglon por hilo, con el ultimo mensaje y cuantos
--- quedan sin leer. El hilo es el mensaje raiz; las respuestas cuelgan de el.
+-- Bandeja: un renglon por hilo, con el ultimo mensaje y cuantos quedan sin
+-- leer. El hilo es el mensaje raiz; las respuestas cuelgan de el.
+--
+-- Un encargado ve solo sus hilos, con el consultorio como contraparte
+-- (IdContraparte 0). El personal con acceso ve todos los hilos de todas las
+-- familias, con el encargado como contraparte, y sus "sin leer" son los que
+-- van al consultorio (destinatario nulo). Sin acceso: error.
+--
+-- La familia del hilo es el remitente de la raiz si es encargado, o su
+-- destinatario si la raiz la escribio el consultorio.
 DROP PROCEDURE IF EXISTS SP_Comunicacion_ListarHilos;
 DELIMITER $$
 CREATE PROCEDURE SP_Comunicacion_ListarHilos(
   IN p_IdUsuario INT
 )
 BEGIN
+  DECLARE v_EsEncargado BOOLEAN DEFAULT NULL;
+
+  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuario;
+
+  IF v_EsEncargado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+  END IF;
+
+  IF v_EsEncargado = 0 AND NOT FN_Mensajeria_TieneAcceso(p_IdUsuario) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Su rol no tiene acceso a los mensajes del consultorio.';
+  END IF;
+
   SELECT raiz.IdMensaje AS IdHilo,
          raiz.Asunto,
-         otro.IdUsuario AS IdContraparte,
-         otro.NombreCompleto AS Contraparte,
+         IF(v_EsEncargado, 0, fam.IdUsuario) AS IdContraparte,
+         IF(v_EsEncargado, 'Consultorio', fam.NombreCompleto) AS Contraparte,
          ultimo.Cuerpo AS UltimoMensaje,
          ultimo.FechaEnvio AS UltimaFecha,
          (SELECT COUNT(*) FROM TB_MENSAJE m2
           WHERE (m2.IdMensaje = raiz.IdMensaje OR m2.IdMensajePadre = raiz.IdMensaje)
-            AND m2.IdUsuarioDestinatario = p_IdUsuario
-            AND m2.Leido = 0) AS SinLeer
+            AND m2.Leido = 0
+            AND IF(v_EsEncargado,
+                   m2.IdUsuarioDestinatario <=> p_IdUsuario,
+                   m2.IdUsuarioDestinatario IS NULL)) AS SinLeer
   FROM TB_MENSAJE raiz
-  JOIN TB_USUARIO otro
-    ON otro.IdUsuario = IF(raiz.IdUsuarioRemitente = p_IdUsuario,
-                           raiz.IdUsuarioDestinatario,
-                           raiz.IdUsuarioRemitente)
+  JOIN TB_USUARIO rem ON rem.IdUsuario = raiz.IdUsuarioRemitente
+  JOIN TB_USUARIO fam
+    ON fam.IdUsuario = IF(rem.IdEncargado IS NOT NULL,
+                          raiz.IdUsuarioRemitente,
+                          raiz.IdUsuarioDestinatario)
   JOIN TB_MENSAJE ultimo
     ON ultimo.IdMensaje = (
          SELECT m3.IdMensaje FROM TB_MENSAJE m3
@@ -5159,8 +5130,8 @@ BEGIN
          ORDER BY m3.FechaEnvio DESC, m3.IdMensaje DESC
          LIMIT 1)
   WHERE raiz.IdMensajePadre IS NULL
-    AND (raiz.IdUsuarioRemitente = p_IdUsuario OR raiz.IdUsuarioDestinatario = p_IdUsuario)
-  ORDER BY ultimo.FechaEnvio DESC;
+    AND (v_EsEncargado = 0 OR fam.IdUsuario = p_IdUsuario)
+  ORDER BY ultimo.FechaEnvio DESC, raiz.IdMensaje DESC;
 END$$
 DELIMITER ;
 
@@ -5323,29 +5294,58 @@ END$$
 DELIMITER ;
 
 -- ------------------------------------------------------------
--- Mensajeria interna (HU-M10-4)
+-- Mensajeria interna (HU-M10-4, cambiada por HU-M10-4b)
 --
--- Solo existe entre un encargado y una persona del consultorio, en los dos
--- sentidos. La historia dice "padres de familia y estudiantes", y es un error de
--- redaccion del documento: el glosario del equipo es explicito en que los
--- estudiantes son menores, no se autentican y no hay rol de estudiante.
+-- Solo existe entre un encargado y el consultorio. La historia dice "padres de
+-- familia y estudiantes", y es un error de redaccion del documento: el glosario
+-- del equipo es explicito en que los estudiantes son menores, no se autentican
+-- y no hay rol de estudiante.
 --
--- Quien es quien se deduce de TB_USUARIO.IdEncargado: lleno significa encargado,
--- nulo significa gente del consultorio. No hace falta mirar los roles.
+-- Bandeja del consultorio: el encargado no elige a quien escribirle. Su mensaje
+-- va con IdUsuarioDestinatario nulo, que significa "al consultorio", y lo ve
+-- todo el personal cuyo rol tenga acceso en TB_MENSAJERIA_ACCESO. Lo que
+-- escribe el personal va al usuario del encargado del hilo, y el remitente es
+-- la persona real, asi la familia sabe quien le respondio.
+--
+-- "Leido" de un mensaje al consultorio es compartido: lo marca la primera
+-- persona con acceso que abre el hilo, y deja de contar para todos.
+--
+-- El acceso se valida aqui y no solo en la pantalla: sin acceso, el personal no
+-- lista, no abre y no escribe.
+--
+-- Quien es quien se deduce de TB_USUARIO.IdEncargado: lleno significa
+-- encargado, nulo significa gente del consultorio.
 --
 -- Un hilo es el mensaje raiz (IdMensajePadre nulo) y las respuestas cuelgan
--- directo de el, sin anidar mas. Alcanza para una conversacion y evita el arbol
--- que nadie va a usar.
+-- directo de el, sin anidar mas.
 --
--- Estos procedimientos NO escriben bitacora, al contrario del correo manual: el
--- mensaje es el registro. Una fila de auditoria diciendo "se mando un mensaje"
--- al lado del mensaje mismo es el mismo hecho contado dos veces.
+-- Los mensajes NO escriben bitacora, al contrario del correo manual: el mensaje
+-- es el registro. Cambiar quien tiene acceso SI la escribe.
 -- ------------------------------------------------------------
 
--- A quien le puede escribir el usuario que pregunta. Si es del consultorio, ve
--- los encargados con portal; si es encargado, ve la gente del consultorio.
--- Solo cuentas activas: a una cuenta bloqueada o pendiente no se le escribe
--- porque no va a poder contestar.
+-- 1 si el usuario es del personal, esta activo y alguno de sus roles tiene
+-- acceso a la bandeja. Un encargado siempre da 0: no es parte del consultorio.
+DROP FUNCTION IF EXISTS FN_Mensajeria_TieneAcceso;
+DELIMITER $$
+CREATE FUNCTION FN_Mensajeria_TieneAcceso(p_IdUsuario INT)
+RETURNS BOOLEAN
+READS SQL DATA
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM TB_USUARIO u
+    JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+    JOIN TB_MENSAJERIA_ACCESO a ON a.IdRol = ur.IdRol
+    WHERE u.IdUsuario = p_IdUsuario
+      AND u.IdEncargado IS NULL
+      AND u.IdEstadoUsuario = 1);
+END$$
+DELIMITER ;
+
+-- A quien le puede escribir el personal con acceso: los encargados con portal
+-- activo. Solo cuentas activas, porque a una bloqueada o pendiente no se le
+-- escribe: no va a poder contestar. El encargado ya no elige destinatario, asi
+-- que para el no aplica.
 DROP PROCEDURE IF EXISTS SP_Mensaje_ListarDestinatarios;
 DELIMITER $$
 CREATE PROCEDURE SP_Mensaje_ListarDestinatarios(
@@ -5362,30 +5362,39 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
   END IF;
 
+  IF v_EsEncargado = 1 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Los mensajes del portal llegan al consultorio: no hace falta elegir destinatario.';
+  END IF;
+
+  IF NOT FN_Mensajeria_TieneAcceso(p_IdUsuario) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Su rol no tiene acceso a los mensajes del consultorio.';
+  END IF;
+
   SELECT u.IdUsuario,
          u.NombreCompleto,
          IFNULL(GROUP_CONCAT(DISTINCT r.Nombre ORDER BY r.Nombre SEPARATOR ', '), '') AS Roles
   FROM TB_USUARIO u
   LEFT JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
   LEFT JOIN TB_ROL r ON r.IdRol = ur.IdRol
-  WHERE u.IdUsuario <> p_IdUsuario
+  WHERE u.IdEncargado IS NOT NULL
     AND u.IdEstadoUsuario = 1
-    AND ((v_EsEncargado = 1 AND u.IdEncargado IS NULL)
-      OR (v_EsEncargado = 0 AND u.IdEncargado IS NOT NULL))
   GROUP BY u.IdUsuario, u.NombreCompleto
   ORDER BY u.NombreCompleto;
 END$$
 DELIMITER ;
 
--- Abre un hilo: marca como leidos los mensajes que iban para quien pregunta y
--- devuelve la conversacion completa en orden.
+-- Abre un hilo: marca como leidos los mensajes que iban para quien pregunta (o
+-- para el consultorio, si pregunta el personal) y devuelve la conversacion.
 --
 -- Hace las dos cosas en la misma llamada porque abrir un hilo ES leerlo. Si
 -- fueran dos llamadas, la pantalla podria mostrar la conversacion y dejarla
 -- marcada sin leer si la segunda falla.
 --
--- Valida que quien pregunta sea parte del hilo: sin eso, cambiando el id en la
--- URL un encargado leeria la conversacion de otra familia.
+-- Valida que el encargado sea la familia del hilo: sin eso, cambiando el id en
+-- la URL leeria la conversacion de otra familia. El personal sin acceso no abre
+-- ninguno.
 DROP PROCEDURE IF EXISTS SP_Mensaje_AbrirHilo;
 DELIMITER $$
 CREATE PROCEDURE SP_Mensaje_AbrirHilo(
@@ -5393,7 +5402,8 @@ CREATE PROCEDURE SP_Mensaje_AbrirHilo(
   IN p_IdHilo    INT
 )
 BEGIN
-  DECLARE v_Participa INT DEFAULT 0;
+  DECLARE v_EsEncargado BOOLEAN DEFAULT NULL;
+  DECLARE v_Familia     INT DEFAULT NULL;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -5401,13 +5411,27 @@ BEGIN
     RESIGNAL;
   END;
 
-  SELECT COUNT(*) INTO v_Participa
-  FROM TB_MENSAJE
-  WHERE IdMensaje = p_IdHilo
-    AND IdMensajePadre IS NULL
-    AND (IdUsuarioRemitente = p_IdUsuario OR IdUsuarioDestinatario = p_IdUsuario);
+  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuario;
 
-  IF v_Participa = 0 THEN
+  IF v_EsEncargado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+  END IF;
+
+  IF v_EsEncargado = 0 AND NOT FN_Mensajeria_TieneAcceso(p_IdUsuario) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Su rol no tiene acceso a los mensajes del consultorio.';
+  END IF;
+
+  SELECT IF(rem.IdEncargado IS NOT NULL, raiz.IdUsuarioRemitente, raiz.IdUsuarioDestinatario)
+    INTO v_Familia
+  FROM TB_MENSAJE raiz
+  JOIN TB_USUARIO rem ON rem.IdUsuario = raiz.IdUsuarioRemitente
+  WHERE raiz.IdMensaje = p_IdHilo
+    AND raiz.IdMensajePadre IS NULL;
+
+  IF v_Familia IS NULL OR (v_EsEncargado = 1 AND v_Familia <> p_IdUsuario) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La conversacion indicada no existe.';
   END IF;
 
@@ -5417,8 +5441,10 @@ BEGIN
   SET Leido = 1,
       FechaLectura = NOW()
   WHERE (IdMensaje = p_IdHilo OR IdMensajePadre = p_IdHilo)
-    AND IdUsuarioDestinatario = p_IdUsuario
-    AND Leido = 0;
+    AND Leido = 0
+    AND IF(v_EsEncargado,
+           IdUsuarioDestinatario <=> p_IdUsuario,
+           IdUsuarioDestinatario IS NULL);
 
   COMMIT;
 
@@ -5442,9 +5468,15 @@ DELIMITER ;
 -- Manda un mensaje. Con p_IdMensajePadre en nulo abre un hilo nuevo; con valor
 -- responde en ese hilo.
 --
--- Al responder, el destinatario NO se recibe como parametro: se saca del hilo,
--- para que no se pueda colar una respuesta a un tercero dentro de una
--- conversacion ajena. Y el asunto se hereda con "Re: " adelante.
+-- Encargado: siempre va al consultorio (destinatario nulo). p_IdUsuarioDestinatario
+-- se ignora, asi una pantalla vieja que lo mande no puede apuntar a una persona.
+-- Solo responde en hilos de su familia.
+--
+-- Personal: necesita acceso. Un hilo nuevo va a un encargado con portal activo;
+-- una respuesta va a la familia del hilo, que se saca del hilo y no se recibe,
+-- para que no se pueda colar un tercero en una conversacion ajena.
+--
+-- El asunto de una respuesta se hereda con "Re: " adelante.
 DROP PROCEDURE IF EXISTS SP_Mensaje_Enviar;
 DELIMITER $$
 CREATE PROCEDURE SP_Mensaje_Enviar(
@@ -5455,11 +5487,11 @@ CREATE PROCEDURE SP_Mensaje_Enviar(
   IN p_Cuerpo               LONGTEXT
 )
 BEGIN
-  DECLARE v_SoyEncargado   BOOLEAN DEFAULT NULL;
-  DECLARE v_EsEncargado    BOOLEAN DEFAULT NULL;
-  DECLARE v_Destino        INT DEFAULT NULL;
-  DECLARE v_AsuntoHilo     VARCHAR(200) DEFAULT NULL;
-  DECLARE v_Id             INT;
+  DECLARE v_SoyEncargado BOOLEAN DEFAULT NULL;
+  DECLARE v_Familia      INT DEFAULT NULL;
+  DECLARE v_Destino      INT DEFAULT NULL;
+  DECLARE v_AsuntoHilo   VARCHAR(200) DEFAULT NULL;
+  DECLARE v_Id           INT;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -5479,50 +5511,52 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Su cuenta no esta activa.';
   END IF;
 
-  IF p_IdMensajePadre IS NOT NULL THEN
-    -- Responder: el destinatario y el asunto salen del hilo
-    SELECT IF(IdUsuarioRemitente = p_IdUsuarioRemitente, IdUsuarioDestinatario, IdUsuarioRemitente),
-           Asunto
-      INTO v_Destino, v_AsuntoHilo
-    FROM TB_MENSAJE
-    WHERE IdMensaje = p_IdMensajePadre
-      AND IdMensajePadre IS NULL
-      AND (IdUsuarioRemitente = p_IdUsuarioRemitente
-        OR IdUsuarioDestinatario = p_IdUsuarioRemitente);
+  IF v_SoyEncargado = 0 AND NOT FN_Mensajeria_TieneAcceso(p_IdUsuarioRemitente) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Su rol no tiene acceso a los mensajes del consultorio.';
+  END IF;
 
-    IF v_Destino IS NULL THEN
+  IF p_IdMensajePadre IS NOT NULL THEN
+    -- Responder: la familia y el asunto salen del hilo
+    SELECT IF(rem.IdEncargado IS NOT NULL, raiz.IdUsuarioRemitente, raiz.IdUsuarioDestinatario),
+           raiz.Asunto
+      INTO v_Familia, v_AsuntoHilo
+    FROM TB_MENSAJE raiz
+    JOIN TB_USUARIO rem ON rem.IdUsuario = raiz.IdUsuarioRemitente
+    WHERE raiz.IdMensaje = p_IdMensajePadre
+      AND raiz.IdMensajePadre IS NULL;
+
+    IF v_Familia IS NULL OR (v_SoyEncargado = 1 AND v_Familia <> p_IdUsuarioRemitente) THEN
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La conversacion indicada no existe.';
     END IF;
 
     SET p_Asunto = LEFT(IF(v_AsuntoHilo LIKE 'Re: %', v_AsuntoHilo, CONCAT('Re: ', v_AsuntoHilo)), 200);
   ELSE
-    -- Hilo nuevo: hace falta asunto y destinatario
     IF p_Asunto IS NULL OR TRIM(p_Asunto) = '' THEN
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Indique el asunto del mensaje.';
     END IF;
 
-    SET v_Destino = p_IdUsuarioDestinatario;
+    IF v_SoyEncargado = 0 AND p_IdUsuarioDestinatario IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione a quiÃ©n le quiere escribir.';
+    END IF;
+
+    SET v_Familia = IF(v_SoyEncargado, p_IdUsuarioRemitente, p_IdUsuarioDestinatario);
     SET p_Asunto = TRIM(p_Asunto);
   END IF;
 
-  IF v_Destino = p_IdUsuarioRemitente THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede escribir a uno mismo.';
-  END IF;
+  IF v_SoyEncargado = 1 THEN
+    SET v_Destino = NULL;
+  ELSE
+    -- El consultorio solo le escribe a un encargado con portal activo
+    IF NOT EXISTS (SELECT 1 FROM TB_USUARIO
+                   WHERE IdUsuario = v_Familia
+                     AND IdEncargado IS NOT NULL
+                     AND IdEstadoUsuario = 1) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El destinatario indicado no existe o su cuenta no esta activa.';
+    END IF;
 
-  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
-  FROM TB_USUARIO
-  WHERE IdUsuario = v_Destino AND IdEstadoUsuario = 1;
-
-  IF v_EsEncargado IS NULL THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'El destinatario indicado no existe o su cuenta no esta activa.';
-  END IF;
-
-  -- La regla de D-E: encargado con consultorio, nunca encargado con encargado ni
-  -- consultorio con consultorio
-  IF v_SoyEncargado = v_EsEncargado THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'La mensajeria es solo entre un encargado y el consultorio.';
+    SET v_Destino = v_Familia;
   END IF;
 
   START TRANSACTION;
@@ -5538,17 +5572,128 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Cuantos mensajes sin leer tiene quien pregunta. Para el contador del menu.
+-- Cuantos mensajes sin leer tiene quien pregunta, para la burbuja del menu.
+-- Encargado: los que le escribio el consultorio. Personal con acceso: los que
+-- van al consultorio. Personal sin acceso: 0, para que la burbuja no falle.
 DROP PROCEDURE IF EXISTS SP_Mensaje_ContarSinLeer;
 DELIMITER $$
 CREATE PROCEDURE SP_Mensaje_ContarSinLeer(
   IN p_IdUsuario INT
 )
 BEGIN
-  SELECT COUNT(*) AS SinLeer
-  FROM TB_MENSAJE
-  WHERE IdUsuarioDestinatario = p_IdUsuario
-    AND Leido = 0;
+  DECLARE v_EsEncargado BOOLEAN DEFAULT NULL;
+
+  SELECT IdEncargado IS NOT NULL INTO v_EsEncargado
+  FROM TB_USUARIO
+  WHERE IdUsuario = p_IdUsuario;
+
+  IF v_EsEncargado = 1 THEN
+    SELECT COUNT(*) AS SinLeer
+    FROM TB_MENSAJE
+    WHERE IdUsuarioDestinatario = p_IdUsuario
+      AND Leido = 0;
+  ELSEIF v_EsEncargado = 0 AND FN_Mensajeria_TieneAcceso(p_IdUsuario) THEN
+    SELECT COUNT(*) AS SinLeer
+    FROM TB_MENSAJE
+    WHERE IdUsuarioDestinatario IS NULL
+      AND Leido = 0;
+  ELSE
+    SELECT 0 AS SinLeer;
+  END IF;
+END$$
+DELIMITER ;
+
+-- Los tres roles del personal, con su marca de acceso a la bandeja. Para la
+-- pestana Mensajeria de Configuracion.
+DROP PROCEDURE IF EXISTS SP_Mensajeria_ListarAcceso;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensajeria_ListarAcceso()
+BEGIN
+  SELECT r.IdRol,
+         r.Nombre,
+         a.IdRol IS NOT NULL AS TieneAcceso
+  FROM TB_ROL r
+  LEFT JOIN TB_MENSAJERIA_ACCESO a ON a.IdRol = r.IdRol
+  WHERE r.IdRol IN (1, 2, 3)
+  ORDER BY r.IdRol;
+END$$
+DELIMITER ;
+
+-- Guarda que roles ven la bandeja. p_RolesJson es la lista completa de los que
+-- quedan con acceso, por ejemplo '[2, 3]': lo que no viene, pierde el acceso.
+--
+-- Reglas: solo el Administrador o la Psicopedagoga lo cambian, al menos un rol,
+-- y solo roles del personal (1, 2 y 3). Si la lista es la misma que ya habia
+-- no escribe nada. El cambio queda en la bitacora con la lista anterior y la
+-- nueva; IdRegistro va en 0 porque es una configuracion, no una fila.
+DROP PROCEDURE IF EXISTS SP_Mensajeria_GuardarAcceso;
+DELIMITER $$
+CREATE PROCEDURE SP_Mensajeria_GuardarAcceso(
+  IN p_IdUsuarioAccion INT,
+  IN p_RolesJson       JSON
+)
+BEGIN
+  DECLARE v_Anterior JSON DEFAULT NULL;
+  DECLARE v_Nuevo    JSON DEFAULT NULL;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  IF NOT EXISTS (SELECT 1
+                 FROM TB_USUARIO u
+                 JOIN TB_USUARIO_ROL ur ON ur.IdUsuario = u.IdUsuario
+                 WHERE u.IdUsuario = p_IdUsuarioAccion
+                   AND u.IdEncargado IS NULL
+                   AND u.IdEstadoUsuario = 1
+                   AND ur.IdRol IN (1, 2)) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Solo el administrador o la psicopedagoga pueden cambiar este permiso.';
+  END IF;
+
+  IF p_RolesJson IS NULL OR JSON_TYPE(p_RolesJson) <> 'ARRAY'
+     OR JSON_LENGTH(p_RolesJson) = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Marque al menos un rol con acceso a los mensajes.';
+  END IF;
+
+  -- Un elemento que no es entero sale nulo de JSON_TABLE
+  IF EXISTS (SELECT 1
+             FROM JSON_TABLE(p_RolesJson, '$[*]' COLUMNS (Id INT PATH '$')) AS j
+             WHERE j.Id IS NULL OR j.Id NOT IN (1, 2, 3)) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Solo se puede dar acceso a Administrador, Psicopedagoga o Asistente.';
+  END IF;
+
+  SELECT JSON_ARRAYAGG(IdRol) INTO v_Anterior
+  FROM (SELECT IdRol FROM TB_MENSAJERIA_ACCESO ORDER BY IdRol) AS t;
+
+  SELECT JSON_ARRAYAGG(Id) INTO v_Nuevo
+  FROM (SELECT DISTINCT j.Id
+        FROM JSON_TABLE(p_RolesJson, '$[*]' COLUMNS (Id INT PATH '$')) AS j
+        ORDER BY j.Id) AS t;
+
+  SET v_Anterior = IFNULL(v_Anterior, JSON_ARRAY());
+
+  IF NOT (JSON_CONTAINS(v_Anterior, v_Nuevo) AND JSON_CONTAINS(v_Nuevo, v_Anterior)) THEN
+    START TRANSACTION;
+
+    DELETE FROM TB_MENSAJERIA_ACCESO
+    WHERE NOT JSON_CONTAINS(v_Nuevo, CAST(IdRol AS JSON));
+
+    INSERT INTO TB_MENSAJERIA_ACCESO (IdRol, IdUsuarioAsigna)
+    SELECT j.Id, p_IdUsuarioAccion
+    FROM JSON_TABLE(v_Nuevo, '$[*]' COLUMNS (Id INT PATH '$')) AS j
+    WHERE NOT EXISTS (SELECT 1 FROM TB_MENSAJERIA_ACCESO a WHERE a.IdRol = j.Id);
+
+    INSERT INTO TB_BITACORA (IdUsuario, Entidad, IdRegistro, Accion, ValorAnterior, ValorNuevo)
+    VALUES (p_IdUsuarioAccion, 'TB_MENSAJERIA_ACCESO', 0, 'Editar',
+            JSON_OBJECT('Roles', v_Anterior), JSON_OBJECT('Roles', v_Nuevo));
+
+    COMMIT;
+  END IF;
 END$$
 DELIMITER ;
 
@@ -6501,76 +6646,6 @@ END$$
 DELIMITER ;
 
 
-
-DROP PROCEDURE IF EXISTS SP_Portal_ListarPagos;
-DELIMITER $$
-
-CREATE PROCEDURE SP_Portal_ListarPagos(
-  IN p_IdUsuario INT,
-  IN p_IdEstudiante INT,
-  IN p_Filtro VARCHAR(20)
-)
-BEGIN
-  DECLARE v_Filtro VARCHAR(20);
-
-  SET v_Filtro = LOWER(
-    COALESCE(NULLIF(TRIM(p_Filtro), ''), 'todos')
-  );
-
-  IF v_Filtro NOT IN ('pendientes', 'pagados', 'todos') THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El filtro de pagos no es válido.';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM TB_ESTUDIANTE_ENCARGADO ee
-    JOIN TB_USUARIO u ON u.IdEncargado = ee.IdEncargado
-    JOIN TB_ENCARGADO en ON en.IdEncargado = ee.IdEncargado
-    JOIN TB_ESTUDIANTE e ON e.IdEstudiante = ee.IdEstudiante
-    WHERE u.IdUsuario = p_IdUsuario
-      AND ee.IdEstudiante = p_IdEstudiante
-      AND en.Activo = 1
-      AND e.Activo = 1
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'El estudiante no está disponible o no está a su cargo.';
-  END IF;
-
-  SELECT p.IdPago,
-         p.Concepto,
-         p.Monto,
-         IFNULL(ab.Abonado, 0) AS Abonado,
-         CASE
-           WHEN p.IdEstadoPago = 5 THEN 0
-           ELSE GREATEST(p.Monto - IFNULL(ab.Abonado, 0), 0)
-         END AS Saldo,
-         p.FechaEmision,
-         p.FechaVencimiento,
-         p.IdEstadoPago,
-         ep.Nombre AS Estado
-  FROM TB_PAGO p
-  JOIN TB_ESTADO_PAGO ep ON ep.IdEstadoPago = p.IdEstadoPago
-  LEFT JOIN (
-    SELECT a.IdPago, SUM(a.Monto) AS Abonado
-    FROM TB_ABONO a
-    WHERE a.Activo = 1
-    GROUP BY a.IdPago
-  ) ab ON ab.IdPago = p.IdPago
-  WHERE p.IdEstudiante = p_IdEstudiante
-    AND (
-      v_Filtro = 'todos'
-
-      OR (v_Filtro = 'pendientes'
-          AND p.IdEstadoPago IN (2, 3, 4))
-
-      OR (v_Filtro = 'pagados'
-          AND p.IdEstadoPago = 1)
-    )
-  ORDER BY p.FechaEmision DESC, p.IdPago DESC;
-END$$
-
-DELIMITER ;
 
 
 -- =====================================================
@@ -9013,35 +9088,6 @@ BEGIN
         ContrasenaSalt = NULL,
         FechaModificacion = NOW()
     WHERE IdUsuario = p_IdUsuario;
-END$$
-
-DELIMITER ;
-
-DELIMITER $$
-
-DROP PROCEDURE IF EXISTS SP_Portal_ListarEstudiantesPerfil$$
-
-CREATE PROCEDURE SP_Portal_ListarEstudiantesPerfil(
-    IN p_IdUsuario INT
-)
-BEGIN
-    SELECT
-        e.IdEstudiante,
-        TRIM(CONCAT_WS(' ', e.Nombre, e.PrimerApellido, NULLIF(e.SegundoApellido, ''))) AS Estudiante,
-        ne.Nombre AS NivelEducativo,
-        i.Nombre  AS Institucion,
-        p.Nombre  AS Parentesco,
-        e.FechaNacimiento,
-        ee.EsPrincipal
-    FROM TB_USUARIO u
-    JOIN TB_ENCARGADO en            ON en.IdEncargado = u.IdEncargado AND en.Activo = 1
-    JOIN TB_ESTUDIANTE_ENCARGADO ee ON ee.IdEncargado = en.IdEncargado
-    JOIN TB_ESTUDIANTE e            ON e.IdEstudiante = ee.IdEstudiante AND e.Activo = 1
-    JOIN TB_PARENTESCO p            ON p.IdParentesco = ee.IdParentesco
-    LEFT JOIN TB_NIVEL_EDUCATIVO ne ON ne.IdNivelEducativo = e.IdNivelEducativo
-    LEFT JOIN TB_INSTITUCION i      ON i.IdInstitucion = e.IdInstitucion
-    WHERE u.IdUsuario = p_IdUsuario
-    ORDER BY ee.EsPrincipal DESC, e.Nombre, e.PrimerApellido, e.IdEstudiante;
 END$$
 
 DELIMITER ;

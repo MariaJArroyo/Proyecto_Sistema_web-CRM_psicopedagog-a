@@ -11,13 +11,14 @@ namespace MenteActiva.Api.Controllers;
 // combinan con AND: puesto sobre una clase que exige los tres roles del panel,
 // el encargado quedaria afuera.
 //
-// El Asistente SI entra, como en la agenda y en los pagos (decision D-G). Es mas
-// abierto que M5, donde quedo fuera porque la sesion lleva la nota clinica del
-// menor, y es a proposito.
+// Bandeja del consultorio (HU-M10-4b): el encargado escribe sin elegir a quien y
+// su mensaje lo ve el personal cuyo rol tenga acceso, que se configura en
+// MensajeriaAccesoController. Los tres roles del panel quedan en el [Authorize]
+// porque cualquiera puede recibir el acceso; quien no lo tiene recibe 400 con el
+// mensaje del procedimiento, y la pantalla pregunta antes con GET acceso.
 //
 // Los cuatro roles usan los mismos endpoints: todo va con el id del usuario
-// autenticado y los procedimientos validan que participe del hilo. Nadie ve una
-// conversacion que no sea suya, venga del panel o del portal.
+// autenticado y los procedimientos validan quien puede ver cada hilo.
 [ApiController]
 [Route("api/mensajes")]
 [Authorize(Roles = "Administrador,Psicopedagoga,Asistente,Encargado")]
@@ -47,8 +48,8 @@ public sealed class MensajesController : ControllerBase
         int idHilo, CancellationToken cancelacion)
         => Ok(await _servicio.AbrirHiloAsync(User.ObtenerIdUsuario(), idHilo, cancelacion));
 
-    // A quien le puedo escribir: si soy del consultorio, los encargados con
-    // portal; si soy encargado, la gente del consultorio.
+    // Los encargados con portal a los que el personal con acceso puede escribir.
+    // Un encargado ya no elige destinatario: para el responde 400.
     [HttpGet("destinatarios")]
     public async Task<ActionResult<IReadOnlyList<DestinatarioMensajeResponse>>> ListarDestinatarios(
         CancellationToken cancelacion)
@@ -58,6 +59,13 @@ public sealed class MensajesController : ControllerBase
     public async Task<ActionResult<object>> ContarSinLeer(CancellationToken cancelacion)
         => Ok(new { sinLeer = await _servicio.ContarSinLeerAsync(User.ObtenerIdUsuario(), cancelacion) });
 
+    // Si quien pregunta ve la bandeja del consultorio. Para que el panel esconda
+    // la pestana sin provocar el 400. Un encargado siempre da false: el ve sus
+    // propias conversaciones, no la bandeja.
+    [HttpGet("acceso")]
+    public async Task<ActionResult<object>> ConsultarAcceso(CancellationToken cancelacion)
+        => Ok(new { tieneAcceso = await _servicio.TieneAccesoAsync(User.ObtenerIdUsuario(), cancelacion) });
+
     // =====================================================
     // ESCRITURAS
     // =====================================================
@@ -66,5 +74,6 @@ public sealed class MensajesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<MensajeEnviadoResponse>> Enviar(
         [FromBody] EnviarMensajeRequest peticion, CancellationToken cancelacion)
-        => Ok(await _servicio.EnviarAsync(User.ObtenerIdUsuario(), peticion, cancelacion));
+        => Ok(await _servicio.EnviarAsync(
+            User.ObtenerIdUsuario(), User.IsInRole("Encargado"), peticion, cancelacion));
 }

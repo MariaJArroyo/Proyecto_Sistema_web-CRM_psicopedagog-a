@@ -7,7 +7,7 @@
     <div class="container">
     @Html.AntiForgeryToken()
 
-    @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-chat-dots", "Mensajes", "Escríbale al consultorio y vea sus respuestas. Los mensajes no son por estudiante: la conversación es con la persona que le atiende."))
+    @await Html.PartialAsync("_EncabezadoPortal", new EncabezadoPortalViewModel("bi-chat-dots", "Mensajes", "Escríbale al consultorio y vea sus respuestas. Los mensajes no son por estudiante: le responde la persona del equipo que lo atienda."))
 
     @if (ViewBag.ErrorCarga is string errorCarga)
     {
@@ -39,7 +39,6 @@
         window.MENSAJERIA_RUTAS = {
             hilos: "/Portal/ConsultarHilos",
             hilo: "/Portal/AbrirHilo",
-            destinatarios: "/Portal/DestinatariosMensaje",
             enviar: "/Portal/EnviarMensaje"
         };
     </script>

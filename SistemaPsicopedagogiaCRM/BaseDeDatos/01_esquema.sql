@@ -1096,7 +1096,8 @@ CREATE TABLE IF NOT EXISTS TB_PLANTILLA_MENSAJE (
 CREATE TABLE IF NOT EXISTS TB_MENSAJE (
   IdMensaje INT NOT NULL AUTO_INCREMENT,
   IdUsuarioRemitente INT NOT NULL,
-  IdUsuarioDestinatario INT NOT NULL,
+  -- Nulo = va a la bandeja del consultorio (lo escribio un encargado)
+  IdUsuarioDestinatario INT NULL,
   IdMensajePadre INT NULL,
   Asunto VARCHAR(200) NOT NULL,
   Cuerpo LONGTEXT NOT NULL,
@@ -1118,6 +1119,25 @@ CREATE TABLE IF NOT EXISTS TB_MENSAJE (
   CONSTRAINT CK_Mensaje_LecturaCoherente CHECK (
     (Leido = 0 AND FechaLectura IS NULL) OR (Leido = 1 AND FechaLectura IS NOT NULL)),
   CONSTRAINT CK_Mensaje_FechaLectura CHECK (FechaLectura IS NULL OR FechaLectura >= FechaEnvio)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Que roles del personal ven la bandeja de mensajes del consultorio. Una fila
+-- por rol con acceso; quitarle el acceso a un rol borra su fila (es una tabla
+-- de configuracion, sin historial propio: el cambio queda en TB_BITACORA).
+-- Solo roles del personal: 1 Administrador, 2 Psicopedagoga, 3 Asistente.
+-- La escribe SP_Mensajeria_GuardarAcceso, que exige al menos un rol.
+-- IdUsuarioAsigna va nulo en la fila que siembra 02_catalogos.sql.
+CREATE TABLE IF NOT EXISTS TB_MENSAJERIA_ACCESO (
+  IdRol INT NOT NULL,
+  IdUsuarioAsigna INT NULL,
+  FechaAsignacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (IdRol),
+  KEY IX_MensajeriaAcceso_UsuarioAsigna (IdUsuarioAsigna),
+  CONSTRAINT FK_MensajeriaAcceso_Rol FOREIGN KEY (IdRol)
+    REFERENCES TB_ROL (IdRol) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT FK_MensajeriaAcceso_UsuarioAsigna FOREIGN KEY (IdUsuarioAsigna)
+    REFERENCES TB_USUARIO (IdUsuario) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT CK_MensajeriaAcceso_RolPersonal CHECK (IdRol IN (1, 2, 3))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS TB_TESTIMONIO (
