@@ -34,6 +34,7 @@ MenteActiva_Api/MenteActiva.API/Archivos/Materiales/
 # El API crea la carpeta al arrancar.
 MenteActiva_Api/MenteActiva.API/Archivos/Comprobantes/
 MenteActiva_Api/MenteActiva.API/Archivos/EntregasTareas/
+MenteActiva_Api/MenteActiva.API/Archivos/FotosEstudiantes/
 
 # Documentos de los estudiantes (evaluaciones, informes): datos personales.
 MenteActiva_Api/MenteActiva.API/Archivos/Documentos/

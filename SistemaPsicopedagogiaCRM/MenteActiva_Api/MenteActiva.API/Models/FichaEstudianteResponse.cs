@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Api.Models;
+namespace MenteActiva.Api.Models;
 
 public class FichaEstudianteResponse
 {
@@ -13,6 +13,9 @@ public class FichaEstudianteResponse
     public string? AreasDificultad { get; set; }
     public string? Observaciones { get; set; }
     public string? NecesidadesApoyo { get; set; }
+
+    // Cuando se subio la foto; nula si no tiene
+    public DateTime? FotoFecha { get; set; }
     public List<AreaEstudianteResponse> Areas { get; set; } = new();
     public List<EncargadoEstudianteResponse> Encargados { get; set; } = new();
 }

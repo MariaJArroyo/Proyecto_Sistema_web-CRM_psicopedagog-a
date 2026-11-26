@@ -1,4 +1,4 @@
-﻿namespace MenteActiva.Models;
+namespace MenteActiva.Models;
 
 public class FichaEstudianteViewModel
 {
@@ -21,6 +21,10 @@ public class FichaEstudianteViewModel
     public string? Observaciones { get; set; }
 
     public string? NecesidadesApoyo { get; set; }
+
+    // Cuando se subio la foto; nula si no tiene. Va en la URL de la imagen
+    // como version, para que al cambiarla el navegador no muestre la vieja.
+    public DateTime? FotoFecha { get; set; }
     public int? IdNivelEducativo { get; set; }
     public List<AreaEstudianteViewModel> Areas { get; set; } = new();
     public List<EncargadoEstudianteViewModel> Encargados { get; set; } = new();

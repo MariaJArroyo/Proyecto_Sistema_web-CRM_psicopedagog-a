@@ -64,6 +64,16 @@ public sealed class LimiteSubidaComprobante : LimiteSubidaArchivo
     }
 }
 
+// Foto del estudiante en la ficha (FotosEstudianteController)
+public sealed class LimiteSubidaFotoEstudiante : LimiteSubidaArchivo
+{
+    public LimiteSubidaFotoEstudiante()
+        : base(AlmacenFotosEstudiante.TamanoMaximoBytes,
+               $"La foto no puede pasar de {AlmacenFotosEstudiante.TamanoMaximoMb} MB.")
+    {
+    }
+}
+
 // Archivo de una tarea entregada (ServicioEntregasTarea)
 public sealed class LimiteSubidaEntregaTarea : LimiteSubidaArchivo
 {

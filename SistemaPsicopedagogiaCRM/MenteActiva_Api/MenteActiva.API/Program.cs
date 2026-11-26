@@ -110,6 +110,11 @@ builder.Services.AddScoped<IRepositorioReportePago, RepositorioReportePago>();
 builder.Services.AddScoped<IServicioReportesPago, ServicioReportesPago>();
 
 // Tareas que entregan las familias (archivos en Archivos/EntregasTareas)
+// Fotos de los estudiantes (Archivos/FotosEstudiantes)
+builder.Services.AddSingleton<AlmacenFotosEstudiante>();
+builder.Services.AddSingleton<IAlmacenFotosEstudiante>(sp => sp.GetRequiredService<AlmacenFotosEstudiante>());
+builder.Services.AddScoped<IRepositorioFotoEstudiante, RepositorioFotoEstudiante>();
+
 builder.Services.AddSingleton<AlmacenEntregasTarea>();
 builder.Services.AddSingleton<IAlmacenEntregasTarea>(sp => sp.GetRequiredService<AlmacenEntregasTarea>());
 builder.Services.AddScoped<IRepositorioEntregaTarea, RepositorioEntregaTarea>();
@@ -206,6 +211,7 @@ var app = builder.Build();
 app.Services.GetRequiredService<AlmacenMateriales>().CrearCarpeta();
 app.Services.GetRequiredService<AlmacenComprobantes>().CrearCarpeta();
 app.Services.GetRequiredService<AlmacenEntregasTarea>().CrearCarpeta();
+app.Services.GetRequiredService<AlmacenFotosEstudiante>().CrearCarpeta();
 app.Services.GetRequiredService<AlmacenDocumentos>().CrearCarpeta();
 
 app.UseExceptionHandler();

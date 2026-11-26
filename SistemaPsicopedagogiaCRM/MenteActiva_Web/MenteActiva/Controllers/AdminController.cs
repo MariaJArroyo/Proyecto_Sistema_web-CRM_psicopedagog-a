@@ -1130,6 +1130,78 @@ public class AdminController : Controller
     public Task<IActionResult> ConsultarDocumentosEstudiante(int idEstudiante, CancellationToken cancelacion)
         => ReenviarGetAsync($"estudiantes/{idEstudiante}/documentos", cancelacion);
 
+    // ---------- foto del estudiante ----------
+
+    // La imagen se pide por una URL con ?v=<version>: al cambiar la foto cambia
+    // la version, asi que se puede dejar en cache sin miedo a ver la vieja
+    [HttpGet]
+    public async Task<IActionResult> FotoEstudiante(int id, CancellationToken cancelacion)
+    {
+        if (id <= 0)
+        {
+            return NotFound();
+        }
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.GetAsync(
+            UrlApi($"estudiantes/{id}/foto"), HttpCompletionOption.ResponseHeadersRead, cancelacion);
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            return StatusCode((int)respuesta.StatusCode);
+        }
+
+        var tipo = respuesta.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+
+        Response.Headers.CacheControl = "private, max-age=86400";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return File(await respuesta.Content.ReadAsByteArrayAsync(cancelacion), tipo);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> SubirFotoEstudiante(int idEstudiante, IFormFile? foto, CancellationToken cancelacion)
+    {
+        if (idEstudiante <= 0)
+        {
+            return BadRequest(new { mensaje = "Seleccione un estudiante válido." });
+        }
+
+        if (foto is null || foto.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Elija una foto." });
+        }
+
+        using var cuerpo = new MultipartFormDataContent();
+        await using var flujo = foto.OpenReadStream();
+
+        var parte = new StreamContent(flujo);
+
+        if (System.Net.Http.Headers.MediaTypeHeaderValue.TryParse(foto.ContentType, out var tipo))
+        {
+            parte.Headers.ContentType = tipo;
+        }
+
+        cuerpo.Add(parte, "foto", foto.FileName);
+
+        using var client = _http.CreateClient();
+        using var respuesta = await client.PostAsync(
+            UrlApi($"estudiantes/{idEstudiante}/foto"), cuerpo, cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo guardar la foto.", cancelacion);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Administrador,Psicopedagoga")]
+    public async Task<IActionResult> QuitarFotoEstudiante(int idEstudiante, CancellationToken cancelacion)
+    {
+        using var client = _http.CreateClient();
+        using var respuesta = await client.DeleteAsync(UrlApi($"estudiantes/{idEstudiante}/foto"), cancelacion);
+
+        return await ReenviarRespuestaAsync(respuesta, "No se pudo quitar la foto.", cancelacion);
+    }
+
     // Reenvia el archivo como multipart, con su tamanio conocido, para que el
     // API conteste con su propio mensaje si pasa del limite
     [HttpPost]

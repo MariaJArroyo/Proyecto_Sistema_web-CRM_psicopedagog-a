@@ -1673,7 +1673,9 @@ BEGIN
               AND ea.Activo = 1
         ) AS AreasDificultad,
         e.Observaciones,
-        e.NecesidadesApoyo
+        e.NecesidadesApoyo,
+        -- Nula = sin foto. Con valor, la Web la usa como version de la imagen
+        e.FotoFecha
     FROM TB_ESTUDIANTE e
     LEFT JOIN TB_NIVEL_EDUCATIVO ne
         ON ne.IdNivelEducativo = e.IdNivelEducativo
@@ -10087,5 +10089,73 @@ BEGIN
     UPDATE TB_ESTUDIANTE
     SET Observaciones = NULLIF(TRIM(p_Resumen), '')
     WHERE IdEstudiante = p_IdEstudiante;
+END$$
+DELIMITER ;
+
+
+-- ============================================================
+-- Foto del estudiante (ficha)
+-- ============================================================
+
+-- Guarda o quita la foto. Con p_Archivo nulo la quita. Devuelve el archivo
+-- que tenia antes, para que el API lo borre del disco.
+DROP PROCEDURE IF EXISTS SP_Estudiante_GuardarFoto;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_GuardarFoto(
+    IN p_IdEstudiante INT,
+    IN p_Archivo VARCHAR(100),
+    IN p_Tipo VARCHAR(50)
+)
+BEGIN
+    DECLARE v_Id INT DEFAULT NULL;
+    DECLARE v_Anterior VARCHAR(100) DEFAULT NULL;
+    DECLARE v_Archivo VARCHAR(100) DEFAULT NULLIF(TRIM(p_Archivo), '');
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF v_Archivo IS NOT NULL AND NULLIF(TRIM(p_Tipo), '') IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Falta el tipo de la imagen.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT IdEstudiante, FotoArchivo INTO v_Id, v_Anterior
+    FROM TB_ESTUDIANTE
+    WHERE IdEstudiante = p_IdEstudiante
+      AND Activo = 1
+    FOR UPDATE;
+
+    IF v_Id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El estudiante no existe o está inactivo.';
+    END IF;
+
+    UPDATE TB_ESTUDIANTE
+    SET FotoArchivo = v_Archivo,
+        FotoTipo = IF(v_Archivo IS NULL, NULL, TRIM(p_Tipo)),
+        FotoFecha = IF(v_Archivo IS NULL, NULL, NOW())
+    WHERE IdEstudiante = p_IdEstudiante;
+
+    COMMIT;
+
+    SELECT IF(v_Anterior <=> v_Archivo, NULL, v_Anterior) AS ArchivoAnterior;
+END$$
+DELIMITER ;
+
+
+-- Datos de la foto para que el API la lea del disco
+DROP PROCEDURE IF EXISTS SP_Estudiante_ObtenerFoto;
+DELIMITER $$
+CREATE PROCEDURE SP_Estudiante_ObtenerFoto(
+    IN p_IdEstudiante INT
+)
+BEGIN
+    SELECT FotoArchivo, FotoTipo
+    FROM TB_ESTUDIANTE
+    WHERE IdEstudiante = p_IdEstudiante
+      AND FotoArchivo IS NOT NULL;
 END$$
 DELIMITER ;
