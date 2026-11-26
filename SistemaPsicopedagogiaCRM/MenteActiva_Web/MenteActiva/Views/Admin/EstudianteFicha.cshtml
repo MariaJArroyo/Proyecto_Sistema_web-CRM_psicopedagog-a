@@ -14,6 +14,17 @@
     var puedeVerDocumentos =
         User.IsInRole("Administrador") || User.IsInRole("Psicopedagoga");
 
+    // Foto: la ven todos los que ven la ficha; la cambian los mismos que los documentos
+    var puedeCambiarFoto = puedeVerDocumentos;
+    var tieneFoto = Model.FotoFecha.HasValue;
+    var urlFoto = tieneFoto
+        ? Url.Action("FotoEstudiante", "Admin", new { id = Model.IdEstudiante, v = Model.FotoFecha!.Value.Ticks })
+        : null;
+    var iniciales = string.Concat(
+        new[] { Model.Nombre, Model.PrimerApellido }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => char.ToUpperInvariant(p.Trim()[0])));
+
     int? edad = null;
 
     if (Model.FechaNacimiento.HasValue)
@@ -45,9 +56,45 @@
 
     <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-        <div>
-            <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
-            <p class="TextoSuave mb-0">Información individual del estudiante</p>
+        <div class="d-flex align-items-center gap-3 min-w-0">
+
+            @* Foto del estudiante: las iniciales cuando no tiene *@
+            <div class="FotoEstudiante @(tieneFoto ? "TieneFoto" : "")" id="FotoEstudiante"
+                 data-id-estudiante="@Model.IdEstudiante"
+                 data-url-foto="@Url.Action("FotoEstudiante", "Admin")"
+                 data-url-subir="@Url.Action("SubirFotoEstudiante", "Admin")"
+                 data-url-quitar="@Url.Action("QuitarFotoEstudiante", "Admin")">
+                <img src="@urlFoto" alt="Foto de @nombreCompleto" class="FotoEstudiante-Imagen" @(tieneFoto ? "" : "hidden")>
+                <span class="FotoEstudiante-Iniciales" aria-hidden="true" @(tieneFoto ? "hidden" : "")>@iniciales</span>
+
+                @if (puedeCambiarFoto)
+                {
+                    <div class="dropdown FotoEstudiante-Menu">
+                        <button type="button" class="FotoEstudiante-Boton" data-bs-toggle="dropdown" aria-expanded="false"
+                                title="Cambiar foto" aria-label="Cambiar la foto del estudiante">
+                            <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <button type="button" class="dropdown-item" data-foto-elegir>
+                                    <i class="bi bi-upload me-2" aria-hidden="true"></i><span data-texto-elegir>@(tieneFoto ? "Cambiar foto" : "Subir foto")</span>
+                                </button>
+                            </li>
+                            <li @(tieneFoto ? "" : "hidden") data-foto-quitar-item>
+                                <button type="button" class="dropdown-item text-danger" data-foto-quitar>
+                                    <i class="bi bi-trash me-2" aria-hidden="true"></i>Quitar foto
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <input type="file" class="d-none" id="ArchivoFotoEstudiante" accept="image/jpeg,image/png,image/webp">
+                }
+            </div>
+
+            <div class="min-w-0">
+                <h2 id="FichaNombre" class="mb-1">@nombreCompleto</h2>
+                <p class="TextoSuave mb-0">Información individual del estudiante</p>
+            </div>
         </div>
     </div>
 
@@ -1344,6 +1391,11 @@
 }
 
 @section Scripts {
+
+    @if (puedeCambiarFoto)
+    {
+        <script src="~/js/fotoEstudiante.js" asp-append-version="true"></script>
+    }
 
     <script src="~/js/lookupCatalogo.js" asp-append-version="true"></script>
     <script src="~/js/estudianteFicha.js" asp-append-version="true"></script>

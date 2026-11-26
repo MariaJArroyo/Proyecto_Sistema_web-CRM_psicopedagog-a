@@ -340,6 +340,12 @@ CREATE TABLE IF NOT EXISTS TB_ESTUDIANTE (
   FechaNacimiento DATE NULL,
   Observaciones VARCHAR(1000) NULL,
   NecesidadesApoyo VARCHAR(1000) NULL,
+  -- Foto de la ficha. En disco va con nombre GUID en Archivos/FotosEstudiantes;
+  -- aqui solo el nombre, el tipo y cuando se subio (sirve de version para que
+  -- el navegador no muestre una foto vieja guardada en cache)
+  FotoArchivo VARCHAR(100) NULL,
+  FotoTipo VARCHAR(50) NULL,
+  FotoFecha DATETIME NULL,
   FechaRegistro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FechaModificacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   Activo BOOLEAN NOT NULL DEFAULT 1,

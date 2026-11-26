@@ -25,14 +25,18 @@ public abstract class AlmacenImagenesPdf
 
     private readonly string _carpeta;
     private readonly string _mensajeFormato;
+    private readonly bool _soloImagenes;
     private readonly ILogger _registro;
 
+    // soloImagenes: no acepta PDF (por ejemplo, la foto del estudiante)
     protected AlmacenImagenesPdf(
-        IWebHostEnvironment entorno, ILogger registro, string subcarpeta, string mensajeFormato)
+        IWebHostEnvironment entorno, ILogger registro, string subcarpeta, string mensajeFormato,
+        bool soloImagenes = false)
     {
         _carpeta = Path.GetFullPath(Path.Combine(entorno.ContentRootPath, "Archivos", subcarpeta));
         _registro = registro;
         _mensajeFormato = mensajeFormato;
+        _soloImagenes = soloImagenes;
     }
 
     public void CrearCarpeta() => Directory.CreateDirectory(_carpeta);
@@ -46,7 +50,8 @@ public abstract class AlmacenImagenesPdf
             cabecera, cabecera.Length, throwOnEndOfStream: false, cancelacion);
 
         var formato = Formatos.FirstOrDefault(f =>
-            leidos >= f.Desfase + f.Firma.Length
+            (!_soloImagenes || f.Tipo != "application/pdf")
+            && leidos >= f.Desfase + f.Firma.Length
             && cabecera.AsSpan(f.Desfase, f.Firma.Length).SequenceEqual(f.Firma)
             // RIFF al inicio, para no confundir cualquier archivo con WEBP
             && (f.Tipo != "image/webp" || cabecera.AsSpan(0, 4).SequenceEqual("RIFF"u8)));
